@@ -162,7 +162,15 @@ function FactTile<T extends number | boolean>({ label, fact, render, fallback, s
     <div className={cx("rounded-xl border p-3", known ? "border-border bg-surface" : "border-dashed border-border bg-transparent")}>
       <div className="flex items-center justify-between gap-2 text-xs text-muted">
         <span>{label}</span>
-        {known && src && !hideSource ? <Badge tone={src.tone}>{src.text}</Badge> : null}
+        {known && src && !hideSource ? (
+          "sourceUrl" in fact && fact.sourceUrl ? (
+            <a href={fact.sourceUrl} target="_blank" rel="noreferrer" title={fact.sourceUrl} className="hover:underline">
+              <Badge tone={src.tone}>{src.text} ↗</Badge>
+            </a>
+          ) : (
+            <Badge tone={src.tone}>{src.text}</Badge>
+          )
+        ) : null}
       </div>
       <div className={cx("mt-1 font-display text-xl font-bold", !known && "text-faint")} title={fact.value != null && "note" in fact && fact.note ? fact.note : undefined}>
         {known ? render(fact.value as T) : (fallback ?? "?")}
