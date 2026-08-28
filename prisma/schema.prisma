@@ -114,6 +114,9 @@ model CatalogGame {
   screenshots      String   @default("[]")
   /// JSON number[] of IGDB ids (each present in this table at least as a stub)
   similarGameIds   String   @default("[]")
+  /// IGDB parent_game / version_parent: a port's original, a remake's base. Similar-game
+  /// links usually point at the parent, so ownership is matched through it too.
+  parentIgdbId     Int?
 
   // --- multiplayer_modes tier (20% coverage). Null = IGDB has no record. ---
   mpOfflineMax     Int?
@@ -136,6 +139,7 @@ model CatalogGame {
 
   @@index([name])
   @@index([detail])
+  @@index([parentIgdbId])
 }
 
 /// A staged import: rows submitted by an agent (or a CSV drop), reviewed, then

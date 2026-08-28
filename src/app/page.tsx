@@ -1,7 +1,20 @@
-export default function Home() {
+import { Suspense } from "react";
+import { SiteHeader } from "@/components/site-header";
+import { Shelf } from "@/components/shelf/shelf";
+import { loadShelf } from "@/lib/collection";
+
+export const dynamic = "force-dynamic";
+
+export default async function ShelfPage() {
+  const games = await loadShelf();
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold">Game Explorer</h1>
-    </main>
+    <>
+      <SiteHeader />
+      <main>
+        <Suspense>
+          <Shelf games={games} />
+        </Suspense>
+      </main>
+    </>
   );
 }

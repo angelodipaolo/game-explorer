@@ -89,6 +89,7 @@ describe("syncCatalog", () => {
     expect(contra.detail).toBe("full");
     expect(contra.summary).toBe("Run and gun.");
     expect(contra.ttbNormally).toBe(60);
+    expect(contra.parentIgdbId).toBe(200);
 
     const stub = await prisma.catalogGame.findUniqueOrThrow({ where: { igdbId: 300 } });
     expect(stub.detail).toBe("stub");

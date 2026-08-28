@@ -182,7 +182,6 @@ export function ReviewTable({ session, rows }: { session: { id: string; status: 
                             data-testid="candidate"
                           >
                             {c.coverImageId ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img src={`https://images.igdb.com/igdb/image/upload/t_cover_small/${c.coverImageId}.jpg`} alt="" className="h-12 w-9 rounded object-cover" />
                             ) : (
                               <div className="h-12 w-9 rounded bg-surface-2" />

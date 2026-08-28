@@ -73,6 +73,7 @@ export function toCatalogRow(game: IgdbGame, parent: IgdbGame | null, ttb: { has
       ),
     ),
     similarGameIds: json(fill(game.similar_games ?? [], p?.similar_games ?? [])),
+    parentIgdbId: game.parent_game ?? game.version_parent ?? null,
     mpOfflineMax: count(mp?.offlinemax),
     mpOfflineCoopMax: count(mp?.offlinecoopmax),
     mpOfflineCoop: bool(mp?.offlinecoop),
@@ -101,6 +102,7 @@ export function toStubRow(hit: IgdbSearchHit) {
     coverHeight: hit.cover?.height ?? null,
     platformNames: json(names(hit.platforms)),
     platformIds: json((hit.platforms ?? []).map((x) => x.id)),
+    parentIgdbId: hit.parent_game ?? hit.version_parent ?? null,
     fetchedAt: new Date(),
   };
 }

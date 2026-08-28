@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = 3111;
+const port = 3000;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -16,9 +16,9 @@ export default defineConfig({
     { name: "phone", use: { ...devices["iPhone 13"] } },
   ],
   webServer: {
-    command: `npx next dev -p ${port}`,
+    command: `npx next dev`,
     url: `http://localhost:${port}`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 120_000,
   },
 });
