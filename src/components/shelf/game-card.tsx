@@ -12,7 +12,11 @@ export function GameCard({ game, dim, priority }: { game: ShelfGame; dim?: boole
       <div className="relative transition duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]">
         <Cover imageId={game.cover} title={game.name} priority={priority} className="shadow-lg shadow-black/40 ring-1 ring-white/5 group-hover:ring-accent/60" />
         {dim ? <span className="absolute right-2 top-2 rounded-md bg-bg/80 px-1.5 py-0.5 text-xs text-muted backdrop-blur">?</span> : null}
-        {game.platform !== "nes" ? <span className="absolute left-2 top-2 rounded-md bg-bg/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-text backdrop-blur">{game.platformLabel}</span> : null}
+        {game.copies.length > 1 || game.platform !== "nes" ? (
+          <span className="absolute left-2 top-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-bg/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-text backdrop-blur">
+            {game.copies.map((c) => c.platformLabel).join(" · ")}
+          </span>
+        ) : null}
       </div>
       <div className="mt-2 px-0.5">
         <div className="line-clamp-2 text-sm font-medium leading-snug">{game.name}</div>
@@ -35,7 +39,7 @@ export function GameRow({ game, dim }: { game: ShelfGame; dim?: boolean }) {
           {game.genres.slice(0, 3).join(" · ") || "—"}
         </div>
       </div>
-      <div className="hidden w-24 shrink-0 text-xs text-muted sm:block">{game.platformLabel}{game.year ? ` · ${game.year}` : ""}</div>
+      <div className="hidden w-28 shrink-0 truncate text-xs text-muted sm:block">{game.copies.map((c) => c.platformLabel).join(" · ")}{game.year ? ` · ${game.year}` : ""}</div>
       <div className="w-28 shrink-0 text-right text-xs sm:w-36">
         <PlayersLine players={game.players} />
         {dim ? <span className="ml-1 text-faint">?</span> : null}

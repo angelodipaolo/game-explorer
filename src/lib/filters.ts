@@ -129,7 +129,7 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
     const q = f.q.toLowerCase();
     vs.push(g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q) || g.genres.some((x) => x.toLowerCase().includes(q)) ? "yes" : "no");
   }
-  if (f.platforms.length) vs.push(f.platforms.includes(g.platform) ? "yes" : "no");
+  if (f.platforms.length) vs.push(g.copies.some((c) => f.platforms.includes(c.platform)) ? "yes" : "no");
   if (f.tags.length) vs.push(f.tags.every((t) => gameTags(g).has(t)) ? "yes" : "no");
   if (f.players) vs.push(playersVerdict(g, f.players));
   if (f.mode) vs.push(modeVerdict(g, f.mode));
@@ -196,9 +196,11 @@ export function facets(games: ShelfGame[]): Facets {
     return [...m].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   };
   for (const game of games) {
-    const cur = p.get(game.platform) ?? { label: game.platformLabel, count: 0 };
-    cur.count++;
-    p.set(game.platform, cur);
+    for (const c of game.copies) {
+      const cur = p.get(c.platform) ?? { label: c.platformLabel, count: 0 };
+      cur.count++;
+      p.set(c.platform, cur);
+    }
   }
   return {
     platforms: [...p].map(([slug, v]) => ({ slug, ...v })).sort((a, b) => b.count - a.count),

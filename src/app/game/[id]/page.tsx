@@ -36,10 +36,14 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
 
         <div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            <Badge>{game.platformLabel}</Badge>
+            {game.copies.map((c) => (
+              <Badge key={c.platform}>
+                {c.platformLabel}
+                {c.quantity > 1 ? ` ×${c.quantity}` : ""}
+              </Badge>
+            ))}
             {game.year ? <span>{game.year}</span> : null}
             {game.developers[0] ? <span>· {game.developers[0]}</span> : null}
-            {game.quantity > 1 ? <Badge tone="info">×{game.quantity}</Badge> : null}
           </div>
           <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl" data-testid="game-title">
             {game.name}

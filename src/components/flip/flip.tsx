@@ -123,7 +123,9 @@ export function Flip({ games }: { games: ShelfGame[] }) {
           </div>
           <div className="mt-5 w-full max-w-xl text-center sm:mt-0 sm:text-left">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-              <Badge>{game.platformLabel}</Badge>
+              {game.copies.map((c) => (
+                <Badge key={c.platform}>{c.platformLabel}</Badge>
+              ))}
               {game.year ? <span className="text-sm text-muted">{game.year}</span> : null}
               {isMaybe ? <Badge tone="warn">no player data</Badge> : null}
             </div>

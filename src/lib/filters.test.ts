@@ -6,8 +6,9 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
   return {
     id: over.title.toLowerCase(),
     name: over.title,
-    platform: "nes",
-    platformLabel: "NES",
+    platform: over.platform ?? "nes",
+    platformLabel: over.platformLabel ?? "NES",
+    copies: over.copies ?? [{ ownedId: over.title.toLowerCase(), platform: over.platform ?? "nes", platformLabel: over.platformLabel ?? "NES", quantity: 1 }],
     quantity: 1,
     igdbId: null,
     cover: "c",
@@ -45,6 +46,12 @@ describe("parse/serialize", () => {
     expect(verdictFor(contra, f)).toBe("yes");
     expect(verdictFor(tecmo, f)).toBe("yes");
     expect(verdictFor(contra, parseFilters(new URLSearchParams("platform=snes")))).toBe("no");
+  });
+  it("a game on several platforms matches any of them", () => {
+    const stray = game({ title: "Stray", platform: "ps4", platformLabel: "PS4", copies: [{ ownedId: "a", platform: "ps4", platformLabel: "PS4", quantity: 1 }, { ownedId: "b", platform: "ps5", platformLabel: "PS5", quantity: 1 }] });
+    expect(verdictFor(stray, parseFilters(new URLSearchParams("platform=ps5")))).toBe("yes");
+    expect(verdictFor(stray, parseFilters(new URLSearchParams("platform=nes")))).toBe("no");
+    expect(facets([stray]).platforms.map((p) => p.slug)).toEqual(["ps4", "ps5"]);
   });
   it("ignores junk values", () => {
     expect(parseFilters(new URLSearchParams("players=99&mode=lol&view=cube"))).toMatchObject({ players: null, mode: null, view: "grid" });

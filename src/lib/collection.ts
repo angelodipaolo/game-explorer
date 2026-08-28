@@ -11,8 +11,12 @@ export type ShelfGame = {
   title: string;
   /** Catalog name when linked, else the shelf title. */
   name: string;
+  /** Primary platform (earliest era) — the one shown first. */
   platform: string;
   platformLabel: string;
+  /** Every copy of this game, one per platform. A cross-gen PS4+PS5 purchase, or physical+digital, is ONE shelf entry. */
+  copies: ShelfCopy[];
+  /** Total copies across platforms. */
   quantity: number;
   igdbId: number | null;
   cover: string | null;
@@ -40,6 +44,41 @@ export type ShelfGame = {
   summary: string | null;
 };
 
+export type ShelfCopy = { ownedId: string; platform: string; platformLabel: string; quantity: number };
+
+/**
+ * Group owned rows into shelf entries: same IGDB game (or same shelf title
+ * when unlinked) on several platforms collapses into one entry. Platforms are
+ * ordered by era so the primary is the oldest system.
+ */
+export function groupShelf(rows: ShelfGame[]): ShelfGame[] {
+  const groups = new Map<string, ShelfGame>();
+  for (const r of rows) {
+    const key = r.igdbId != null ? `c:${r.igdbId}` : `t:${r.name.toLowerCase()}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, { ...r, copies: [...r.copies] });
+      continue;
+    }
+    for (const c of r.copies) {
+      const existing = g.copies.find((x) => x.platform === c.platform);
+      if (existing) existing.quantity += c.quantity;
+      else g.copies.push(c);
+    }
+    g.quantity += r.quantity;
+    // Facts may live on any copy; prefer the copy that knows more.
+    if (g.players.tier === "unknown" && r.players.tier !== "unknown") g.players = r.players;
+    if (g.playtime == null && r.playtime != null) g.playtime = r.playtime;
+  }
+  for (const g of groups.values()) {
+    g.copies.sort((a, b) => (platformBySlug(a.platform)?.year ?? 9999) - (platformBySlug(b.platform)?.year ?? 9999));
+    g.id = g.copies[0].ownedId;
+    g.platform = g.copies[0].platform;
+    g.platformLabel = g.copies[0].platformLabel;
+  }
+  return [...groups.values()];
+}
+
 export function profileToShelfPlayers(p: PlayerProfile): ShelfGame["players"] {
   const summary = playerSummary(p);
   const verified = [p.coop, p.maxPlayers, p.simultaneousPlay, p.multiplayer, p.singlePlayer].some((f) => f.source === "manual" || f.source === "agent");
@@ -65,6 +104,11 @@ function arr(json: string): string[] {
 }
 
 export async function loadShelf(): Promise<ShelfGame[]> {
+  return groupShelf(await loadOwnedRows());
+}
+
+/** One ShelfGame per owned row, before grouping. */
+export async function loadOwnedRows(): Promise<ShelfGame[]> {
   const owned = await prisma.ownedGame.findMany({ include: { catalogGame: true, facts: true }, orderBy: { title: "asc" } });
   return owned.map((g) => {
     const c = g.catalogGame;
@@ -79,6 +123,7 @@ export async function loadShelf(): Promise<ShelfGame[]> {
       name: c?.name ?? g.title,
       platform: g.platform,
       platformLabel: platformLabel(g.platform),
+      copies: [{ ownedId: g.id, platform: g.platform, platformLabel: platformLabel(g.platform), quantity: g.quantity }],
       quantity: g.quantity,
       igdbId: c?.igdbId ?? null,
       cover: c?.coverImageId ?? null,
@@ -147,7 +192,7 @@ export function relatedOnShelf(game: ShelfGame, shelf: ShelfGame[], n = 8): Shel
     .map((g) => {
       const overlap = [...g.genres, ...g.themes, ...g.perspectives].filter((t) => tags.has(t)).length;
       const genreHit = g.genres.some((t) => game.genres.includes(t)) ? 1 : 0;
-      return { g, score: overlap + genreHit * 2 + (g.platform === game.platform ? 0.5 : 0) };
+      return { g, score: overlap + genreHit * 2 + (g.copies.some((c) => game.copies.some((d) => d.platform === c.platform)) ? 0.5 : 0) };
     })
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score || (b.g.rating ?? 0) - (a.g.rating ?? 0))
@@ -160,7 +205,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   if (!g) return null;
   const c = g.catalogGame;
   const allShelf = await loadShelf();
-  const shelf = allShelf.find((s) => s.id === id)!;
+  const shelf = allShelf.find((s) => s.copies.some((c) => c.ownedId === id))!;
   const similarIds = c ? (JSON.parse(c.similarGameIds) as number[]) : [];
   const [similarCatalog, ownedLinks] = await Promise.all([
     similarIds.length ? prisma.catalogGame.findMany({ where: { igdbId: { in: similarIds } } }) : Promise.resolve([]),
