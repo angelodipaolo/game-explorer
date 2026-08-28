@@ -11,7 +11,7 @@ import { useFilters } from "./use-filters";
 
 /** One-tap ways in. The first is the flagship. */
 const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
-  { label: "2 of us, co-op", hint: "NES", patch: { platform: "nes", players: 2, mode: "coop" } },
+  { label: "2 of us, co-op", hint: "NES", patch: { platforms: ["nes"], players: 2, mode: "coop" } },
   { label: "Head to head", hint: "versus", patch: { players: 2, mode: "versus" } },
   { label: "Just me", hint: "single player", patch: { players: 1 } },
   { label: "4 players", hint: "party", patch: { players: 4 } },
@@ -38,7 +38,8 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
     };
   }, [sheetOpen]);
 
-  const isPreset = (p: (typeof PRESETS)[number]) => Object.entries(p.patch).every(([k, v]) => filters[k as keyof Filters] === v) && active === Object.keys(p.patch).length;
+  const isPreset = (p: (typeof PRESETS)[number]) =>
+    Object.entries(p.patch).every(([k, v]) => (Array.isArray(v) ? JSON.stringify(v) === JSON.stringify(filters[k as keyof Filters]) : filters[k as keyof Filters] === v)) && active === Object.keys(p.patch).length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-28 sm:pb-10">
@@ -75,7 +76,7 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
           {PRESETS.map((p) => (
             <button
               key={p.label}
-              onClick={() => (isPreset(p) ? reset() : set({ q: "", platform: null, players: null, mode: null, genre: null, length: null, era: null, ...p.patch }))}
+              onClick={() => (isPreset(p) ? reset() : set({ q: "", platforms: [], players: null, mode: null, genre: null, length: null, era: null, ...p.patch }))}
               aria-pressed={isPreset(p)}
               className={cx("shrink-0 rounded-full border px-3 py-1.5 text-sm transition", isPreset(p) ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
               data-testid="preset"
@@ -220,7 +221,7 @@ function EmptyState({ filters, set, reset, excluded }: { filters: Filters; set: 
   if (filters.genre) loosen.push({ label: `Any kind of game`, patch: { genre: null } });
   if (filters.length) loosen.push({ label: "Any length", patch: { length: null } });
   if (filters.era) loosen.push({ label: "Any era", patch: { era: null } });
-  if (filters.platform) loosen.push({ label: "Any platform", patch: { platform: null } });
+  if (filters.platforms.length) loosen.push({ label: "Any platform", patch: { platforms: [] } });
   if (filters.q) loosen.push({ label: "Clear search", patch: { q: "" } });
   return (
     <div className="rounded-2xl border border-border bg-surface px-6 py-10 text-center" data-testid="empty">

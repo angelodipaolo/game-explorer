@@ -8,7 +8,8 @@ import type { ShelfGame } from "./collection";
  */
 export type Filters = {
   q: string;
-  platform: string | null;
+  /** Platform slugs; empty = any. Several at once is normal ("NES or SNES"). */
+  platforms: string[];
   /** How many of us are playing. */
   players: number | null;
   /** coop | versus | together (simultaneous) */
@@ -24,7 +25,7 @@ export type Filters = {
   seed: number | null;
 };
 
-export const DEFAULT_FILTERS: Filters = { q: "", platform: null, players: null, mode: null, genre: null, length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
+export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], players: null, mode: null, genre: null, length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
 
 export function parseFilters(params: URLSearchParams | Record<string, string | string[] | undefined>): Filters {
   const get = (k: string): string | null => {
@@ -41,7 +42,7 @@ export function parseFilters(params: URLSearchParams | Record<string, string | s
   const seed = Number(get("seed"));
   return {
     q: (get("q") ?? "").trim(),
-    platform: get("platform") || null,
+    platforms: [...new Set((get("platform") ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))],
     players: players >= 1 && players <= 8 ? players : null,
     mode: mode === "coop" || mode === "versus" || mode === "together" ? mode : null,
     genre: get("genre") || null,
@@ -57,7 +58,7 @@ export function parseFilters(params: URLSearchParams | Record<string, string | s
 export function serializeFilters(f: Partial<Filters>): string {
   const p = new URLSearchParams();
   if (f.q) p.set("q", f.q);
-  if (f.platform) p.set("platform", f.platform);
+  if (f.platforms?.length) p.set("platform", f.platforms.join(","));
   if (f.players) p.set("players", String(f.players));
   if (f.mode) p.set("mode", f.mode);
   if (f.genre) p.set("genre", f.genre);
@@ -67,12 +68,12 @@ export function serializeFilters(f: Partial<Filters>): string {
   if (f.view && f.view !== "grid") p.set("view", f.view);
   if (f.sort && f.sort !== "title") p.set("sort", f.sort);
   if (f.seed) p.set("seed", String(f.seed));
-  const s = p.toString();
+  const s = p.toString().replace(/%2C/g, ",");
   return s ? `?${s}` : "";
 }
 
 export function activeFilterCount(f: Filters): number {
-  return [f.q, f.platform, f.players, f.mode, f.genre, f.length, f.era].filter(Boolean).length;
+  return [f.q, f.platforms.length ? f.platforms : null, f.players, f.mode, f.genre, f.length, f.era].filter(Boolean).length;
 }
 
 export type Verdict = "yes" | "no" | "unknown";
@@ -123,7 +124,7 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
     const q = f.q.toLowerCase();
     vs.push(g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q) || g.genres.some((x) => x.toLowerCase().includes(q)) ? "yes" : "no");
   }
-  if (f.platform) vs.push(g.platform === f.platform ? "yes" : "no");
+  if (f.platforms.length) vs.push(f.platforms.includes(g.platform) ? "yes" : "no");
   if (f.genre) vs.push(g.genres.includes(f.genre) || g.themes.includes(f.genre) ? "yes" : "no");
   if (f.players) vs.push(playersVerdict(g, f.players));
   if (f.mode) vs.push(modeVerdict(g, f.mode));

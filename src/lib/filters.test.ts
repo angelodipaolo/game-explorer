@@ -34,9 +34,17 @@ const all = [contra, zelda, mystery, tecmo];
 describe("parse/serialize", () => {
   it("round-trips through the URL and drops defaults", () => {
     const f = parseFilters(new URLSearchParams("platform=nes&players=2&mode=coop&view=list&sort=shuffle&seed=7&strict=1&q=con"));
-    expect(f).toMatchObject({ platform: "nes", players: 2, mode: "coop", view: "list", sort: "shuffle", seed: 7, strict: true, q: "con" });
+    expect(f).toMatchObject({ platforms: ["nes"], players: 2, mode: "coop", view: "list", sort: "shuffle", seed: 7, strict: true, q: "con" });
     expect(serializeFilters(f)).toBe("?q=con&platform=nes&players=2&mode=coop&strict=1&view=list&sort=shuffle&seed=7");
     expect(serializeFilters(parseFilters({}))).toBe("");
+  });
+  it("accepts several platforms, comma-separated, deduped", () => {
+    const f = parseFilters(new URLSearchParams("platform=nes,SNES,nes"));
+    expect(f.platforms).toEqual(["nes", "snes"]);
+    expect(serializeFilters(f)).toBe("?platform=nes,snes");
+    expect(verdictFor(contra, f)).toBe("yes");
+    expect(verdictFor(tecmo, f)).toBe("yes");
+    expect(verdictFor(contra, parseFilters(new URLSearchParams("platform=snes")))).toBe("no");
   });
   it("ignores junk values", () => {
     expect(parseFilters(new URLSearchParams("players=99&mode=lol&view=cube"))).toMatchObject({ players: null, mode: null, view: "grid" });

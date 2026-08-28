@@ -21,8 +21,8 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
           ]}
         />
       </Group>
-      <Group label="Platform">
-        <Chips value={filters.platform} onChange={(v) => set({ platform: v })} options={facets.platforms.map((p) => [p.slug, `${p.label} · ${p.count}`])} />
+      <Group label="Platform (pick any number)">
+        <MultiChips value={filters.platforms} onChange={(v) => set({ platforms: v })} options={facets.platforms.map((p) => [p.slug, `${p.label} · ${p.count}`])} />
       </Group>
       <Group label="Kind of game">
         <Chips value={filters.genre} onChange={(v) => set({ genre: v })} options={facets.genres.slice(0, 14).map((g) => [g.name, `${g.name} · ${g.count}`])} />
@@ -87,6 +87,28 @@ function Segmented<T extends string | number>({ value, onChange, options }: { va
           {label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Several can be on at once; tapping toggles one. */
+function MultiChips({ value, onChange, options }: { value: string[]; onChange: (v: string[]) => void; options: [string, string][] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group">
+      {options.map(([v, label]) => {
+        const on = value.includes(v);
+        return (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(on ? value.filter((x) => x !== v) : [...value, v])}
+            className={cx("min-h-10 rounded-full border px-3 text-sm transition", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-bg-elev text-muted hover:border-muted hover:text-text")}
+          >
+            {on ? "✓ " : ""}{label}
+          </button>
+        );
+      })}
     </div>
   );
 }

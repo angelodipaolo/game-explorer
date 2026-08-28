@@ -15,22 +15,22 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void, () =>
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const filters = useMemo(() => {
-    const f = parseFilters(params);
-    if (!params.has("view") && typeof window !== "undefined") {
-      try {
-        const saved = window.localStorage.getItem(VIEW_KEY);
-        if (saved === "list") f.view = "list";
-      } catch {}
-    }
-    return f;
-  }, [params]);
+  const filters = useMemo(() => parseFilters(params), [params]);
 
+  // Remember the view mode. When the URL does not say, restore the saved one by
+  // rewriting the URL after hydration (never during render, or the server and
+  // client would disagree).
   useEffect(() => {
     try {
-      window.localStorage.setItem(VIEW_KEY, filters.view);
+      if (params.has("view")) {
+        window.localStorage.setItem(VIEW_KEY, filters.view);
+      } else if (window.localStorage.getItem(VIEW_KEY) === "list") {
+        router.replace(`${pathname}${serializeFilters({ ...filters, view: "list" })}`, { scroll: false });
+      } else {
+        window.localStorage.setItem(VIEW_KEY, "grid");
+      }
     } catch {}
-  }, [filters.view]);
+  }, [params, filters, pathname, router]);
 
   useEffect(() => {
     try {
