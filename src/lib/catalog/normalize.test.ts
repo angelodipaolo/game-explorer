@@ -16,6 +16,7 @@ describe("variants", () => {
   it("strips bracketed publishers", () => {
     expect(stripBrackets("Pac-Man [Tengen]")).toBe("Pac-Man");
     expect(stripBrackets("Tetris (Tengen)")).toBe("Tetris");
+    expect(stripBrackets("LEGO® Star Wars™: The Skywalker Saga")).toBe("LEGO Star Wars: The Skywalker Saga");
   });
   it("puts articles back in front", () => {
     expect(unrotateArticle("Legend of Zelda, The")).toBe("The Legend of Zelda");

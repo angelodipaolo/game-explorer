@@ -24,8 +24,14 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
       <Group label="Platform (pick any number)">
         <MultiChips value={filters.platforms} onChange={(v) => set({ platforms: v })} options={facets.platforms.map((p) => [p.slug, `${p.label} · ${p.count}`])} />
       </Group>
-      <Group label="Kind of game">
-        <Chips value={filters.genre} onChange={(v) => set({ genre: v })} options={facets.genres.slice(0, 14).map((g) => [g.name, `${g.name} · ${g.count}`])} />
+      <Group label="Kind of game (pick any number — all must apply)">
+        <MultiChips value={filters.tags} onChange={(v) => set({ tags: v })} options={facets.genres.map((g) => [g.name, `${g.name} · ${g.count}`])} />
+      </Group>
+      <Group label="Viewpoint">
+        <MultiChips value={filters.tags} onChange={(v) => set({ tags: v })} options={facets.perspectives.map((g) => [g.name, `${g.name} · ${g.count}`])} />
+      </Group>
+      <Group label="Theme">
+        <MultiChips value={filters.tags} onChange={(v) => set({ tags: v })} options={facets.themes.slice(0, 16).map((g) => [g.name, `${g.name} · ${g.count}`])} />
       </Group>
       <Group label="How long have we got?">
         <Segmented
@@ -80,7 +86,7 @@ function Segmented<T extends string | number>({ value, onChange, options }: { va
           aria-pressed={value === v}
           onClick={() => onChange(value === v ? null : v)}
           className={cx(
-            "min-h-11 rounded-xl border px-3.5 text-sm transition",
+            "min-h-11 rounded-xl border px-3.5 text-sm transition touch-manipulation",
             value === v ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-bg-elev text-text hover:border-muted",
           )}
         >
@@ -103,30 +109,12 @@ function MultiChips({ value, onChange, options }: { value: string[]; onChange: (
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((x) => x !== v) : [...value, v])}
-            className={cx("min-h-10 rounded-full border px-3 text-sm transition", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-bg-elev text-muted hover:border-muted hover:text-text")}
+            className={cx("min-h-11 rounded-full border px-3.5 text-sm transition touch-manipulation", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-bg-elev text-muted hover:border-muted hover:text-text")}
           >
             {on ? "✓ " : ""}{label}
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function Chips({ value, onChange, options }: { value: string | null; onChange: (v: string | null) => void; options: [string, string][] }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map(([v, label]) => (
-        <button
-          key={v}
-          type="button"
-          aria-pressed={value === v}
-          onClick={() => onChange(value === v ? null : v)}
-          className={cx("min-h-10 rounded-full border px-3 text-sm transition", value === v ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-bg-elev text-muted hover:border-muted hover:text-text")}
-        >
-          {label}
-        </button>
-      ))}
     </div>
   );
 }

@@ -14,7 +14,8 @@ export type Filters = {
   players: number | null;
   /** coop | versus | together (simultaneous) */
   mode: "coop" | "versus" | "together" | null;
-  genre: string | null;
+  /** "Plays like" tags — genres, perspectives, themes. A game must carry ALL of them. */
+  tags: string[];
   /** quick (< 1h) | evening (1–4h) | long (> 4h) */
   length: "quick" | "evening" | "long" | null;
   era: "80s" | "90s" | "00s" | "10s" | null;
@@ -25,7 +26,7 @@ export type Filters = {
   seed: number | null;
 };
 
-export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], players: null, mode: null, genre: null, length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
+export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], players: null, mode: null, tags: [], length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
 
 export function parseFilters(params: URLSearchParams | Record<string, string | string[] | undefined>): Filters {
   const get = (k: string): string | null => {
@@ -45,7 +46,7 @@ export function parseFilters(params: URLSearchParams | Record<string, string | s
     platforms: [...new Set((get("platform") ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))],
     players: players >= 1 && players <= 8 ? players : null,
     mode: mode === "coop" || mode === "versus" || mode === "together" ? mode : null,
-    genre: get("genre") || null,
+    tags: [...new Set(`${get("tags") ?? ""},${get("genre") ?? ""}`.split(",").map((s) => s.trim()).filter(Boolean))],
     length: length === "quick" || length === "evening" || length === "long" ? length : null,
     era: era === "80s" || era === "90s" || era === "00s" || era === "10s" ? era : null,
     strict: get("strict") === "1",
@@ -61,7 +62,7 @@ export function serializeFilters(f: Partial<Filters>): string {
   if (f.platforms?.length) p.set("platform", f.platforms.join(","));
   if (f.players) p.set("players", String(f.players));
   if (f.mode) p.set("mode", f.mode);
-  if (f.genre) p.set("genre", f.genre);
+  if (f.tags?.length) p.set("tags", f.tags.join(","));
   if (f.length) p.set("length", f.length);
   if (f.era) p.set("era", f.era);
   if (f.strict) p.set("strict", "1");
@@ -73,7 +74,11 @@ export function serializeFilters(f: Partial<Filters>): string {
 }
 
 export function activeFilterCount(f: Filters): number {
-  return [f.q, f.platforms.length ? f.platforms : null, f.players, f.mode, f.genre, f.length, f.era].filter(Boolean).length;
+  return [f.q, f.platforms.length ? f.platforms : null, f.players, f.mode, f.tags.length ? f.tags : null, f.length, f.era].filter(Boolean).length;
+}
+
+export function gameTags(g: ShelfGame): Set<string> {
+  return new Set([...g.genres, ...g.perspectives, ...g.themes]);
 }
 
 export type Verdict = "yes" | "no" | "unknown";
@@ -125,7 +130,7 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
     vs.push(g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q) || g.genres.some((x) => x.toLowerCase().includes(q)) ? "yes" : "no");
   }
   if (f.platforms.length) vs.push(f.platforms.includes(g.platform) ? "yes" : "no");
-  if (f.genre) vs.push(g.genres.includes(f.genre) || g.themes.includes(f.genre) ? "yes" : "no");
+  if (f.tags.length) vs.push(f.tags.every((t) => gameTags(g).has(t)) ? "yes" : "no");
   if (f.players) vs.push(playersVerdict(g, f.players));
   if (f.mode) vs.push(modeVerdict(g, f.mode));
   if (f.length) vs.push(lengthVerdict(g, f.length));
@@ -180,20 +185,26 @@ export function applyFilters(games: ShelfGame[], f: Filters): FilterResult {
   return { confirmed: sortGames(confirmed, f), maybe: sortGames(maybe, f), excluded };
 }
 
-export type Facets = { platforms: { slug: string; label: string; count: number }[]; genres: { name: string; count: number }[] };
+export type TagFacet = { name: string; count: number };
+export type Facets = { platforms: { slug: string; label: string; count: number }[]; genres: TagFacet[]; perspectives: TagFacet[]; themes: TagFacet[] };
 
 export function facets(games: ShelfGame[]): Facets {
   const p = new Map<string, { label: string; count: number }>();
-  const g = new Map<string, number>();
+  const count = (pick: (g: ShelfGame) => string[]) => {
+    const m = new Map<string, number>();
+    for (const game of games) for (const t of pick(game)) m.set(t, (m.get(t) ?? 0) + 1);
+    return [...m].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  };
   for (const game of games) {
     const cur = p.get(game.platform) ?? { label: game.platformLabel, count: 0 };
     cur.count++;
     p.set(game.platform, cur);
-    for (const genre of game.genres) g.set(genre, (g.get(genre) ?? 0) + 1);
   }
   return {
     platforms: [...p].map(([slug, v]) => ({ slug, ...v })).sort((a, b) => b.count - a.count),
-    genres: [...g].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+    genres: count((g) => g.genres),
+    perspectives: count((g) => g.perspectives),
+    themes: count((g) => g.themes),
   };
 }
 

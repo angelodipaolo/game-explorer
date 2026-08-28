@@ -78,6 +78,14 @@ describe("verdicts", () => {
     expect(verdictFor(mystery, f("era=80s"))).toBe("unknown");
     expect(verdictFor(contra, f("era=80s"))).toBe("yes");
   });
+  it("tags AND together across genres, perspectives and themes; legacy genre= still works", () => {
+    const side = game({ title: "Side", genres: ["Platform"], perspectives: ["Side view"], themes: ["Fantasy"] });
+    expect(verdictFor(side, f("tags=Platform,Side view"))).toBe("yes");
+    expect(verdictFor(side, f("tags=Platform,Fantasy"))).toBe("yes");
+    expect(verdictFor(side, f("tags=Platform,Top-down"))).toBe("no");
+    expect(verdictFor(side, f("genre=Platform"))).toBe("yes");
+    expect(serializeFilters(f("genre=Platform&tags=Side view"))).toBe("?tags=Side+view,Platform");
+  });
   it("search matches title and genre", () => {
     expect(verdictFor(contra, f("q=shoot"))).toBe("yes");
     expect(verdictFor(zelda, f("q=shoot"))).toBe("no");
@@ -111,7 +119,8 @@ describe("facets and picks", () => {
       { slug: "nes", label: "NES", count: 3 },
       { slug: "snes", label: "SNES", count: 1 },
     ]);
-    expect(f.genres.map((g) => g.name)).toEqual(["Shooter", "Adventure", "Sport"]);
+    expect(f.genres.map((g) => g.name)).toEqual(["Adventure", "Shooter", "Sport"]);
+    expect(f.perspectives).toEqual([]);
   });
   it("tonight's picks are stable for a date", () => {
     const d = new Date(2026, 7, 28);

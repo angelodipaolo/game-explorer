@@ -98,7 +98,7 @@ export function Flip({ games }: { games: ShelfGame[] }) {
               <span className="text-text" data-testid="flip-counter">
                 {index + 1} / {deck.length}
               </span>
-              {active ? <span className="block">{describe(filters.players, filters.mode, filters.platforms, filters.genre, filters.length)}</span> : <span className="block">the whole shelf</span>}
+              {active ? <span className="block">{describe(filters.players, filters.mode, filters.platforms, filters.tags, filters.length)}</span> : <span className="block">the whole shelf</span>}
             </>
           ) : null}
         </div>
@@ -171,11 +171,11 @@ export function Flip({ games }: { games: ShelfGame[] }) {
   );
 }
 
-function describe(players: number | null, mode: string | null, platforms: string[], genre: string | null, length: string | null): string {
+function describe(players: number | null, mode: string | null, platforms: string[], tags: string[], length: string | null): string {
   const bits: string[] = [];
   if (players) bits.push(players === 1 ? "just me" : `${players}${players === 4 ? "+" : ""} players`);
   if (mode) bits.push(mode === "together" ? "at the same time" : mode);
-  if (genre) bits.push(genre.toLowerCase());
+  if (tags.length) bits.push(tags.map((t) => t.toLowerCase()).join(" + "));
   if (length) bits.push(length === "quick" ? "quick" : length === "evening" ? "an evening" : "a saga");
   if (platforms.length) bits.push(platforms.map((p) => platformLabel(p)).join(" or "));
   return bits.join(" · ");

@@ -15,11 +15,13 @@ export function normalizeTitle(title: string): string {
     .replace(/\s+/g, " ");
 }
 
-/** `Pac-Man [Tengen]` → `Pac-Man`; `Tetris (Tengen)` → `Tetris`. */
+/** `Pac-Man [Tengen]` → `Pac-Man`; `Tetris (Tengen)` → `Tetris`; `LEGO® Worlds™` → `LEGO Worlds`. */
 export function stripBrackets(title: string): string {
   return title
     .replace(/\s*\[[^\]]*\]/g, "")
     .replace(/\s*\([^)]*\)/g, "")
+    .replace(/[®™©]/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 

@@ -76,19 +76,36 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
           {PRESETS.map((p) => (
             <button
               key={p.label}
-              onClick={() => (isPreset(p) ? reset() : set({ q: "", platforms: [], players: null, mode: null, genre: null, length: null, era: null, ...p.patch }))}
+              onClick={() => (isPreset(p) ? reset() : set({ q: "", platforms: [], players: null, mode: null, tags: [], length: null, era: null, ...p.patch }))}
               aria-pressed={isPreset(p)}
-              className={cx("shrink-0 rounded-full border px-3 py-1.5 text-sm transition", isPreset(p) ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
+              className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", isPreset(p) ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
               data-testid="preset"
             >
               {p.label} <span className="opacity-60">· {p.hint}</span>
             </button>
           ))}
           {active ? (
-            <button onClick={reset} className="shrink-0 rounded-full px-3 py-1.5 text-sm text-accent-2 hover:underline">
+            <button onClick={reset} className="min-h-10 shrink-0 rounded-full px-3 text-sm text-accent-2 hover:underline">
               Clear
             </button>
           ) : null}
+        </div>
+        {/* Plays like: the top genres as one-tap toggles; the sheet has the rest. */}
+        <div className="scrollbar-none -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4" data-testid="genre-row">
+          {facets.genres.slice(0, 12).map((g) => {
+            const on = filters.tags.includes(g.name);
+            return (
+              <button
+                key={g.name}
+                onClick={() => set({ tags: on ? filters.tags.filter((t) => t !== g.name) : [...filters.tags, g.name] })}
+                aria-pressed={on}
+                className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent-2 bg-accent-2/15 text-accent-2 font-semibold" : "border-border/60 bg-bg-elev text-muted hover:text-text")}
+                data-testid="genre-chip"
+              >
+                {g.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -119,14 +136,14 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
           <div className="flex items-center gap-3 text-xs text-muted">
             <label className="flex items-center gap-1">
               Sort
-              <select value={filters.sort} onChange={(e) => set({ sort: e.target.value as Filters["sort"], seed: e.target.value === "shuffle" ? Date.now() % 100000 : null })} className="rounded-md border border-border bg-surface px-1.5 py-1 text-xs text-text">
+              <select value={filters.sort} onChange={(e) => set({ sort: e.target.value as Filters["sort"], seed: e.target.value === "shuffle" ? Date.now() % 100000 : null })} className="min-h-10 rounded-lg border border-border bg-surface px-2 text-sm text-text">
                 <option value="title">A–Z</option>
                 <option value="year">Year</option>
                 <option value="rating">Rating</option>
                 <option value="shuffle">Shuffle</option>
               </select>
             </label>
-            <button onClick={() => set({ view: filters.view === "grid" ? "list" : "grid" })} className="sm:hidden">
+            <button onClick={() => set({ view: filters.view === "grid" ? "list" : "grid" })} className="min-h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text sm:hidden">
               {filters.view === "grid" ? "List" : "Covers"}
             </button>
           </div>
@@ -147,7 +164,7 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
                 <div className="my-6 flex items-center gap-3 text-xs text-muted">
                   <span className="h-px flex-1 bg-border" />
                   <span>
-                    {result.maybe.length} more could work — no {filters.players || filters.mode ? "player" : filters.length ? "length" : ""} data yet
+                    {result.maybe.length} more could work — no {filters.players || filters.mode ? "player" : filters.length ? "length" : filters.era ? "year" : ""} data yet
                   </span>
                   <span className="h-px flex-1 bg-border" />
                 </div>
@@ -218,7 +235,7 @@ function EmptyState({ filters, set, reset, excluded }: { filters: Filters; set: 
   if (filters.strict) loosen.push({ label: "Include games with no data", patch: { strict: false } });
   if (filters.mode) loosen.push({ label: `Any way of playing`, patch: { mode: null } });
   if (filters.players && filters.players > 2) loosen.push({ label: "Any number of players", patch: { players: null } });
-  if (filters.genre) loosen.push({ label: `Any kind of game`, patch: { genre: null } });
+  if (filters.tags.length) loosen.push({ label: `Any kind of game`, patch: { tags: [] } });
   if (filters.length) loosen.push({ label: "Any length", patch: { length: null } });
   if (filters.era) loosen.push({ label: "Any era", patch: { era: null } });
   if (filters.platforms.length) loosen.push({ label: "Any platform", patch: { platforms: [] } });
