@@ -1,0 +1,229 @@
+// Game Explorer data model.
+//
+// The schema is the architectural seam: the app reads only these tables, and
+// exactly one module (src/lib/igdb) talks to IGDB.
+//
+// Two sides:
+//   - What Angelo OWNS: OwnedGame (+ GameFact overrides, import batches)
+//   - What IGDB KNOWS: CatalogGame, keyed by IGDB id, refreshed by sync
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A physical game Angelo owns. One row per (title, platform); `quantity`
+/// counts copies.
+model OwnedGame {
+  id              String   @id @default(cuid())
+  /// Title as written on the shelf / in the source data.
+  title           String
+  /// Lower-cased, punctuation-stripped title used for dedupe.
+  normalizedTitle String
+  /// Canonical platform slug, e.g. "nes". See src/lib/platforms.ts.
+  platform        String
+  quantity        Int      @default(1)
+  /// loose | cib | new | box-only | manual-only — free text from source data.
+  completeness    String?
+  condition       String?
+  notes           String?
+
+  /// Link into the catalog. Null when IGDB has no entry (e.g. Roller Games).
+  catalogGameId   Int?
+  catalogGame     CatalogGame? @relation(fields: [catalogGameId], references: [igdbId], onDelete: SetNull)
+  /// 0..1 confidence of the automatic match, null when set by hand.
+  matchConfidence Float?
+  /// auto | manual | agent
+  matchSource     String?
+
+  importBatchId   String?
+  importBatch     ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  facts           GameFact[]
+  importEffects   ImportEffect[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([normalizedTitle, platform])
+  @@index([platform])
+  @@index([catalogGameId])
+  @@index([importBatchId])
+}
+
+/// A fact about an owned game that overrides or fills in what the catalog
+/// says. Precedence when resolving: manual > agent > catalog.
+/// `field` is one of the keys in src/lib/facts.ts (e.g. "maxPlayers",
+/// "simultaneousPlay", "coop"). `value` is JSON-encoded.
+model GameFact {
+  id          String    @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  field       String
+  value       String
+  /// manual | agent
+  source      String
+  /// Where an agent found it. Required for agent-sourced facts.
+  sourceUrl   String?
+  note        String?
+  /// Identifies the enrichment run that wrote it, for reporting.
+  runId       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([ownedGameId, field])
+  @@index([source])
+  @@index([runId])
+}
+
+/// Cached IGDB metadata. `detail` tells how much was fetched:
+///   stub  — id, name, slug, cover only (a similar-game reference)
+///   full  — everything below
+model CatalogGame {
+  igdbId           Int      @id
+  name             String
+  slug             String
+  detail           String   @default("stub")
+  summary          String?
+  storyline        String?
+  firstReleaseDate DateTime?
+  /// IGDB image id for the cover; URL built in src/lib/igdb/images.ts.
+  coverImageId     String?
+  coverWidth       Int?
+  coverHeight      Int?
+  rating           Float?
+  ratingCount      Int?
+  /// JSON string[] of platform names IGDB lists for this game.
+  platformNames    String   @default("[]")
+  /// JSON number[] of IGDB platform ids.
+  platformIds      String   @default("[]")
+  /// JSON string[]
+  genres           String   @default("[]")
+  themes           String   @default("[]")
+  playerPerspectives String @default("[]")
+  keywords         String   @default("[]")
+  developers       String   @default("[]")
+  publishers       String   @default("[]")
+  /// JSON number[] — IGDB game_modes ids (1 single, 2 multi, 3 co-op, 4 split screen)
+  gameModes        String   @default("[]")
+  /// JSON {imageId,width,height}[]
+  screenshots      String   @default("[]")
+  /// JSON number[] of IGDB ids (each present in this table at least as a stub)
+  similarGameIds   String   @default("[]")
+
+  // --- multiplayer_modes tier (20% coverage). Null = IGDB has no record. ---
+  mpOfflineMax     Int?
+  mpOfflineCoopMax Int?
+  mpOfflineCoop    Boolean?
+  mpSplitscreen    Boolean?
+  mpCampaignCoop   Boolean?
+  mpDropIn         Boolean?
+  mpLanCoop        Boolean?
+  mpOnlineCoop     Boolean?
+  mpOnlineMax      Int?
+
+  /// Rough length in minutes from IGDB time_to_beat (normally), null when absent.
+  ttbNormally      Int?
+  ttbHastily       Int?
+  ttbCompletely    Int?
+
+  fetchedAt        DateTime @default(now())
+  ownedGames       OwnedGame[]
+
+  @@index([name])
+  @@index([detail])
+}
+
+/// A staged import: rows submitted by an agent (or a CSV drop), reviewed, then
+/// committed as one ImportBatch.
+model ImportSession {
+  id          String      @id @default(cuid())
+  label       String
+  /// agent | csv | migration
+  source      String      @default("agent")
+  /// open | committed | discarded
+  status      String      @default("open")
+  rows        ImportRow[]
+  batch       ImportBatch?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+/// One submitted row and everything the API decided about it.
+model ImportRow {
+  id              String        @id @default(cuid())
+  sessionId       String
+  session         ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  /// Position in submission order.
+  index           Int
+  /// Normalised input as JSON: {title, platform, quantity, completeness, condition, notes, igdbId?}
+  input           String
+  title           String
+  normalizedTitle String
+  platform        String
+  quantity        Int           @default(1)
+  /// JSON string[] of validation problems; empty means valid.
+  problems        String        @default("[]")
+  /// none | in-session | existing
+  dedupeKind      String        @default("none")
+  /// Id of the OwnedGame (existing) or ImportRow (in-session) it collides with.
+  dedupeTargetId  String?
+  /// JSON MatchCandidate[] ranked by confidence.
+  candidates      String        @default("[]")
+  /// auto | review | accepted | dropped | merge
+  decision        String        @default("review")
+  /// Why the API held it: no-match | ambiguous | low-confidence | duplicate | invalid
+  holdReason      String?
+  chosenIgdbId    Int?
+  chosenConfidence Float?
+  /// Who settled it: api | user | agent
+  decidedBy       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([sessionId, index])
+  @@index([sessionId, decision])
+}
+
+/// The unit of undo. Every write a commit makes is recorded as an
+/// ImportEffect so rollback removes exactly those changes and nothing else.
+model ImportBatch {
+  id           String        @id @default(cuid())
+  sessionId    String        @unique
+  session      ImportSession @relation(fields: [sessionId], references: [id])
+  label        String
+  /// committed | rolled_back
+  status       String        @default("committed")
+  ownedGames   OwnedGame[]
+  effects      ImportEffect[]
+  committedAt  DateTime      @default(now())
+  rolledBackAt DateTime?
+}
+
+model ImportEffect {
+  id          String      @id @default(cuid())
+  batchId     String
+  batch       ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  /// created | quantity
+  kind        String
+  ownedGameId String
+  ownedGame   OwnedGame   @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  /// For quantity effects: how much was added (reversed on rollback).
+  delta       Int?
+
+  @@index([batchId])
+}
+
+/// A batch enrichment run by an agent, for reporting what changed.
+model EnrichmentRun {
+  id         String   @id @default(cuid())
+  label      String?
+  /// JSON summary written at the end: {written, skipped, conflicts}
+  summary    String?
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+}

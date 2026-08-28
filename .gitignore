@@ -1,0 +1,40 @@
+# secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+/prisma/dev.db*
+# the shipped collection snapshot is committed as SQL, not as a binary
+/data/*.db
+
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
+
+# tests
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+coverage/
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+npm-debug.log*
+.vercel
+/scratch/
+/prisma/test.db*
+/.claude/settings.local.json
