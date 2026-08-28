@@ -20,6 +20,7 @@ export const PLATFORMS: PlatformInfo[] = [
   { slug: "wii", name: "Wii", short: "Wii", igdbId: 5, year: 2006, aliases: ["nintendo wii", "wii"] },
   { slug: "wiiu", name: "Wii U", short: "Wii U", igdbId: 41, year: 2012, aliases: ["wii u", "wiiu"] },
   { slug: "switch", name: "Nintendo Switch", short: "Switch", igdbId: 130, year: 2017, aliases: ["nintendo switch", "switch", "nsw"] },
+  { slug: "switch2", name: "Nintendo Switch 2", short: "Switch 2", igdbId: 508, year: 2025, aliases: ["nintendo switch 2", "switch 2", "switch2", "ns2"] },
   { slug: "gb", name: "Game Boy", short: "GB", igdbId: 33, year: 1989, aliases: ["game boy", "gameboy", "gb"] },
   { slug: "gbc", name: "Game Boy Color", short: "GBC", igdbId: 22, year: 1998, aliases: ["game boy color", "gameboy color", "gbc"] },
   { slug: "gba", name: "Game Boy Advance", short: "GBA", igdbId: 24, year: 2001, aliases: ["game boy advance", "gameboy advance", "gba"] },
@@ -42,6 +43,7 @@ export const PLATFORMS: PlatformInfo[] = [
   { slug: "atari2600", name: "Atari 2600", short: "2600", igdbId: 59, year: 1977, aliases: ["atari", "atari 2600", "2600", "vcs"] },
   { slug: "tg16", name: "TurboGrafx-16", short: "TG-16", igdbId: 86, year: 1987, aliases: ["turbografx", "turbografx-16", "turbografx 16", "tg16", "tg-16", "pc engine"] },
   { slug: "neogeo", name: "Neo Geo", short: "Neo Geo", igdbId: 80, year: 1990, aliases: ["neo geo", "neogeo", "neo-geo", "neo geo aes"] },
+  { slug: "3do", name: "3DO Interactive Multiplayer", short: "3DO", igdbId: 50, year: 1993, aliases: ["3do", "3do interactive multiplayer", "panasonic 3do"] },
   { slug: "pc", name: "PC", short: "PC", igdbId: 6, year: 1981, aliases: ["pc", "windows", "pc (microsoft windows)", "dos"] },
 ];
 
