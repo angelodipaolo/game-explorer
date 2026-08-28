@@ -1,0 +1,1311 @@
+{
+  "Super Mario Bros|18": [
+    {
+      "id": 1067,
+      "name": "Super Mario Bros. 2",
+      "slug": "super-mario-bros-2",
+      "game_type": 11,
+      "first_release_date": 592358400,
+      "cover": {
+        "image_id": "co7yq7",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 52,
+          "name": "Arcade"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 31879,
+          "name": "SMB 2"
+        },
+        {
+          "id": 120486,
+          "name": "Супер Братя Марио 2"
+        },
+        {
+          "id": 71126,
+          "name": "Mario 2"
+        },
+        {
+          "id": 71129,
+          "name": "Super Mario Brothers 2"
+        },
+        {
+          "id": 71130,
+          "name": "SMB2"
+        },
+        {
+          "id": 71131,
+          "name": "Super Mario Bros. USA"
+        },
+        {
+          "id": 113299,
+          "name": "Super Mario USA"
+        }
+      ],
+      "parent_game": 41233
+    },
+    {
+      "id": 358,
+      "name": "Super Mario Bros.",
+      "slug": "super-mario-bros",
+      "game_type": 0,
+      "first_release_date": 495417600,
+      "cover": {
+        "image_id": "co6pib",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 51,
+          "name": "Family Computer Disk System"
+        },
+        {
+          "id": 52,
+          "name": "Arcade"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 31810,
+          "name": "SMB"
+        },
+        {
+          "id": 120485,
+          "name": "Супер Братя Марио"
+        },
+        {
+          "id": 57009,
+          "name": "SMB1"
+        },
+        {
+          "id": 80400,
+          "name": "Super Mario Brothers"
+        },
+        {
+          "id": 135175,
+          "name": "Super Mario Bros. NES"
+        }
+      ]
+    },
+    {
+      "id": 1068,
+      "name": "Super Mario Bros. 3",
+      "slug": "super-mario-bros-3",
+      "game_type": 0,
+      "first_release_date": 593568000,
+      "cover": {
+        "image_id": "co7ozx",
+        "width": 820,
+        "height": 1093
+      },
+      "platforms": [
+        {
+          "id": 52,
+          "name": "Arcade"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 128616,
+          "name": "Супер Братя Марио 3"
+        },
+        {
+          "id": 71132,
+          "name": "Mario 3"
+        },
+        {
+          "id": 93750,
+          "name": "マリオ3"
+        },
+        {
+          "id": 108856,
+          "name": "Super Mario Brothers 3"
+        },
+        {
+          "id": 113303,
+          "name": "SMB3"
+        },
+        {
+          "id": 140790,
+          "name": "슈퍼 마리오 3"
+        },
+        {
+          "id": 140791,
+          "name": "슈마브3"
+        }
+      ]
+    },
+    {
+      "id": 69638,
+      "name": "Super Mario Bros. / Duck Hunt",
+      "slug": "super-mario-bros-slash-duck-hunt",
+      "game_type": 3,
+      "first_release_date": 594345600,
+      "cover": {
+        "image_id": "co22q8",
+        "width": 1500,
+        "height": 2000
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ]
+    },
+    {
+      "id": 77785,
+      "name": "Super Mario Bros. / Tetris / Nintendo World Cup",
+      "slug": "super-mario-bros-slash-tetris-slash-nintendo-world-cup",
+      "game_type": 3,
+      "first_release_date": 594345600,
+      "cover": {
+        "image_id": "co22nv",
+        "width": 1500,
+        "height": 2000
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ]
+    },
+    {
+      "id": 77227,
+      "name": "Super Mario Bros. / Duck Hunt / World Class Track Meet",
+      "slug": "super-mario-bros-slash-duck-hunt-slash-world-class-track-meet",
+      "game_type": 3,
+      "first_release_date": 660009600,
+      "cover": {
+        "image_id": "co22nt",
+        "width": 1095,
+        "height": 1460
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ]
+    }
+  ],
+  "SuperMarioBros|18": [],
+  "Gauntlet|18": [
+    {
+      "id": 3503,
+      "name": "Gauntlet II",
+      "slug": "gauntlet-ii",
+      "game_type": 0,
+      "first_release_date": 504921600,
+      "cover": {
+        "image_id": "co9hfl",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 52,
+          "name": "Arcade"
+        },
+        {
+          "id": 15,
+          "name": "Commodore C64/128/MAX"
+        },
+        {
+          "id": 26,
+          "name": "ZX Spectrum"
+        },
+        {
+          "id": 63,
+          "name": "Atari ST/STE"
+        },
+        {
+          "id": 13,
+          "name": "DOS"
+        },
+        {
+          "id": 16,
+          "name": "Amiga"
+        },
+        {
+          "id": 25,
+          "name": "Amstrad CPC"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 18724,
+          "name": "Gauntlet 2"
+        },
+        {
+          "id": 40674,
+          "name": "Gauntlet 2"
+        }
+      ]
+    },
+    {
+      "id": 7294,
+      "name": "Gauntlet",
+      "slug": "gauntlet--2",
+      "game_type": 11,
+      "first_release_date": 536630400,
+      "cover": {
+        "image_id": "co6v3b",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 52,
+          "name": "Arcade"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "parent_game": 3502
+    }
+  ],
+  "Duck Tales|18": [],
+  "DuckTales|18": [
+    {
+      "id": 6487,
+      "name": "Disney's DuckTales",
+      "slug": "disneys-ducktales--2",
+      "game_type": 0,
+      "first_release_date": 621734400,
+      "cover": {
+        "image_id": "co3wks",
+        "width": 920,
+        "height": 1226
+      },
+      "platforms": [
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 120480,
+          "name": "Патешки истории"
+        },
+        {
+          "id": 57948,
+          "name": "DuckTales 1 NES"
+        },
+        {
+          "id": 57949,
+          "name": "Duck Tales"
+        },
+        {
+          "id": 57950,
+          "name": "Duck Tails"
+        },
+        {
+          "id": 57951,
+          "name": "Wanpaku Dakku Yume Bouken"
+        },
+        {
+          "id": 57952,
+          "name": "Naughty Ducks Dream Adventures"
+        },
+        {
+          "id": 136547,
+          "name": "DuckTales"
+        }
+      ]
+    },
+    {
+      "id": 6488,
+      "name": "Disney's DuckTales 2",
+      "slug": "disneys-ducktales-2",
+      "game_type": 0,
+      "first_release_date": 735523200,
+      "cover": {
+        "image_id": "co6sm3",
+        "width": 665,
+        "height": 887
+      },
+      "platforms": [
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 57973,
+          "name": "DuckTales 2 NES"
+        },
+        {
+          "id": 57974,
+          "name": "DuckTails 2"
+        },
+        {
+          "id": 57975,
+          "name": "Disney's DuckTales 2"
+        },
+        {
+          "id": 120799,
+          "name": "Патешки истории 2"
+        },
+        {
+          "id": 136559,
+          "name": "DuckTales 2"
+        }
+      ]
+    }
+  ],
+  "Star Tropics|18": [],
+  "StarTropics|18": [
+    {
+      "id": 15901,
+      "name": "StarTropics",
+      "slug": "startropics",
+      "game_type": 0,
+      "first_release_date": 660009600,
+      "cover": {
+        "image_id": "co2sur",
+        "width": 776,
+        "height": 1034
+      },
+      "platforms": [
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 137801,
+          "name": "StarTropics: A Test of Island Courage!"
+        },
+        {
+          "id": 192105,
+          "name": "StarTropics: um teste de coragem!"
+        }
+      ]
+    },
+    {
+      "id": 48062,
+      "name": "Zoda's Revenge: StarTropics II",
+      "slug": "zodas-revenge-startropics-ii",
+      "game_type": 0,
+      "first_release_date": 762480000,
+      "cover": {
+        "image_id": "co3kch",
+        "width": 1259,
+        "height": 1680
+      },
+      "platforms": [
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 161852,
+          "name": "StarTropics 2"
+        }
+      ]
+    }
+  ],
+  "Duck Tales 2|18": [],
+  "DuckTales 2|18": [
+    {
+      "id": 6488,
+      "name": "Disney's DuckTales 2",
+      "slug": "disneys-ducktales-2",
+      "game_type": 0,
+      "first_release_date": 735523200,
+      "cover": {
+        "image_id": "co6sm3",
+        "width": 665,
+        "height": 887
+      },
+      "platforms": [
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 57973,
+          "name": "DuckTales 2 NES"
+        },
+        {
+          "id": 57974,
+          "name": "DuckTails 2"
+        },
+        {
+          "id": 57975,
+          "name": "Disney's DuckTales 2"
+        },
+        {
+          "id": 120799,
+          "name": "Патешки истории 2"
+        },
+        {
+          "id": 136559,
+          "name": "DuckTales 2"
+        }
+      ]
+    }
+  ],
+  "Star Tropics II: Zoda's Revenge|18": [],
+  "StarTropics II: Zoda's Revenge|18": [
+    {
+      "id": 48062,
+      "name": "Zoda's Revenge: StarTropics II",
+      "slug": "zodas-revenge-startropics-ii",
+      "game_type": 0,
+      "first_release_date": 762480000,
+      "cover": {
+        "image_id": "co3kch",
+        "width": 1259,
+        "height": 1680
+      },
+      "platforms": [
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 161852,
+          "name": "StarTropics 2"
+        }
+      ]
+    }
+  ],
+  "Star Tropics II|18": [],
+  "StarTropics II|18": [
+    {
+      "id": 48062,
+      "name": "Zoda's Revenge: StarTropics II",
+      "slug": "zodas-revenge-startropics-ii",
+      "game_type": 0,
+      "first_release_date": 762480000,
+      "cover": {
+        "image_id": "co3kch",
+        "width": 1259,
+        "height": 1680
+      },
+      "platforms": [
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 161852,
+          "name": "StarTropics 2"
+        }
+      ]
+    }
+  ],
+  "Pac-Man [Tengen]|18": [],
+  "Pac-Man|18": [
+    {
+      "id": 204672,
+      "name": "Pac-Man Championship Edition",
+      "slug": "pac-man-championship-edition--1",
+      "game_type": 8,
+      "first_release_date": 1592352000,
+      "cover": {
+        "image_id": "co71yw",
+        "width": 702,
+        "height": 935
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 91521,
+          "name": "Pac-Man CE NES"
+        }
+      ],
+      "parent_game": 20900
+    },
+    {
+      "id": 204385,
+      "name": "Pac-Man",
+      "slug": "pac-man--5",
+      "game_type": 11,
+      "first_release_date": 468201600,
+      "cover": {
+        "image_id": "co4ula",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 51,
+          "name": "Family Computer Disk System"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "parent_game": 2750
+    },
+    {
+      "id": 213871,
+      "name": "Ms. Pac-Man",
+      "slug": "ms-pac-man--4",
+      "game_type": 10,
+      "first_release_date": 662601600,
+      "cover": {
+        "image_id": "co53lz",
+        "width": 610,
+        "height": 813
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "parent_game": 7452
+    },
+    {
+      "id": 213870,
+      "name": "Ms. Pac-Man",
+      "slug": "ms-pac-man--3",
+      "game_type": 11,
+      "first_release_date": 662601600,
+      "cover": {
+        "image_id": "co7ask",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "parent_game": 7452
+    }
+  ],
+  "Contra|18": [
+    {
+      "id": 186207,
+      "name": "Contra",
+      "slug": "contra--1",
+      "game_type": 11,
+      "first_release_date": 570758400,
+      "cover": {
+        "image_id": "co6ys0",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 120470,
+          "name": "Контра"
+        }
+      ],
+      "parent_game": 4598
+    },
+    {
+      "id": 24978,
+      "name": "Contra Force",
+      "slug": "contra-force",
+      "game_type": 0,
+      "first_release_date": 717811200,
+      "cover": {
+        "image_id": "co7xbj",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ]
+    },
+    {
+      "id": 48202,
+      "name": "S.C.A.T.: Special Cybernetic Attack Team",
+      "slug": "s-dot-c-a-dot-t-special-cybernetic-attack-team",
+      "game_type": 11,
+      "first_release_date": 675734400,
+      "cover": {
+        "image_id": "co4qyt",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 98053,
+          "name": "S.C.A.T."
+        },
+        {
+          "id": 284380,
+          "name": "空中魂斗罗"
+        },
+        {
+          "id": 284381,
+          "name": "最终任务"
+        },
+        {
+          "id": 284382,
+          "name": "Aerial Contra"
+        }
+      ],
+      "parent_game": 215141
+    },
+    {
+      "id": 12594,
+      "name": "Star Wars: The Empire Strikes Back",
+      "slug": "star-wars-the-empire-strikes-back--1",
+      "game_type": 0,
+      "first_release_date": 699408000,
+      "cover": {
+        "image_id": "co6ow2",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 33,
+          "name": "Game Boy"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 192120,
+          "name": "Guerra nas estrelas: o Império contra ataca"
+        }
+      ]
+    },
+    {
+      "id": 84919,
+      "name": "Super C",
+      "slug": "super-c--1",
+      "game_type": 11,
+      "first_release_date": 633916800,
+      "cover": {
+        "image_id": "co6fkf",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 80266,
+          "name": "Super Contra"
+        }
+      ],
+      "parent_game": 4622
+    }
+  ],
+  "Legend of Zelda, The|18": [
+    {
+      "id": 1022,
+      "name": "The Legend of Zelda",
+      "slug": "the-legend-of-zelda",
+      "game_type": 0,
+      "first_release_date": 509328000,
+      "cover": {
+        "image_id": "co1uii",
+        "width": 1534,
+        "height": 2045
+      },
+      "platforms": [
+        {
+          "id": 51,
+          "name": "Family Computer Disk System"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 37766,
+          "name": "The Hyrule Fantasy: Legend of Zelda"
+        },
+        {
+          "id": 37767,
+          "name": "Zelda no Densetsu: The Hyrule Fantasy"
+        },
+        {
+          "id": 120471,
+          "name": "Легендата за Зелда"
+        },
+        {
+          "id": 71141,
+          "name": "LoZ"
+        },
+        {
+          "id": 71139,
+          "name": "TLoZ"
+        },
+        {
+          "id": 118554,
+          "name": "Zelda no Densetsu 1: The Hyrule Fantasy"
+        },
+        {
+          "id": 119301,
+          "name": "Zelda no Densetsu"
+        },
+        {
+          "id": 191961,
+          "name": "A lenda de Zelda"
+        }
+      ]
+    },
+    {
+      "id": 1025,
+      "name": "Zelda II: The Adventure of Link",
+      "slug": "zelda-ii-the-adventure-of-link",
+      "game_type": 0,
+      "first_release_date": 537580800,
+      "cover": {
+        "image_id": "co1uje",
+        "width": 1534,
+        "height": 2046
+      },
+      "platforms": [
+        {
+          "id": 51,
+          "name": "Family Computer Disk System"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 120468,
+          "name": "Зелда II: Приключението на Линк"
+        },
+        {
+          "id": 61167,
+          "name": "Zelda II"
+        },
+        {
+          "id": 61168,
+          "name": "Zelda 2: The Adventure of Link"
+        },
+        {
+          "id": 61169,
+          "name": "The Legend of Zelda 2: Link no Bouken"
+        },
+        {
+          "id": 61171,
+          "name": "The Legend of Zelda 2:"
+        },
+        {
+          "id": 120579,
+          "name": "Зелда II - Приключението на Линк"
+        },
+        {
+          "id": 120580,
+          "name": "Зелда II Приключението на Линк"
+        },
+        {
+          "id": 137826,
+          "name": "Zelda II: A Aventura de Link"
+        },
+        {
+          "id": 138001,
+          "name": "젤다2"
+        }
+      ]
+    },
+    {
+      "id": 163214,
+      "name": "Dōngfāng de Chuánshuō zhī Fēngyìn Dǎo",
+      "slug": "dongfang-de-chuanshuo-zhi-fengyin-dao",
+      "game_type": 0,
+      "first_release_date": 1135987200,
+      "cover": {
+        "image_id": "co7t3j",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 285083,
+          "name": "东方的传说之封印岛"
+        },
+        {
+          "id": 285084,
+          "name": "The Legend of Zelda: Link's Awakening"
+        },
+        {
+          "id": 285085,
+          "name": "东方の传说之封印岛"
+        },
+        {
+          "id": 285086,
+          "name": "Feng Yin Dao"
+        },
+        {
+          "id": 285087,
+          "name": "Dongfang de Chuanshuo zhi Fengyin Dao"
+        },
+        {
+          "id": 285088,
+          "name": "Dōngfāng zhi Chuánshuō zhī Fēngyìn Dǎo"
+        }
+      ]
+    }
+  ],
+  "The Legend of Zelda|18": [
+    {
+      "id": 1022,
+      "name": "The Legend of Zelda",
+      "slug": "the-legend-of-zelda",
+      "game_type": 0,
+      "first_release_date": 509328000,
+      "cover": {
+        "image_id": "co1uii",
+        "width": 1534,
+        "height": 2045
+      },
+      "platforms": [
+        {
+          "id": 51,
+          "name": "Family Computer Disk System"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 37766,
+          "name": "The Hyrule Fantasy: Legend of Zelda"
+        },
+        {
+          "id": 37767,
+          "name": "Zelda no Densetsu: The Hyrule Fantasy"
+        },
+        {
+          "id": 120471,
+          "name": "Легендата за Зелда"
+        },
+        {
+          "id": 71141,
+          "name": "LoZ"
+        },
+        {
+          "id": 71139,
+          "name": "TLoZ"
+        },
+        {
+          "id": 118554,
+          "name": "Zelda no Densetsu 1: The Hyrule Fantasy"
+        },
+        {
+          "id": 119301,
+          "name": "Zelda no Densetsu"
+        },
+        {
+          "id": 191961,
+          "name": "A lenda de Zelda"
+        }
+      ]
+    },
+    {
+      "id": 1025,
+      "name": "Zelda II: The Adventure of Link",
+      "slug": "zelda-ii-the-adventure-of-link",
+      "game_type": 0,
+      "first_release_date": 537580800,
+      "cover": {
+        "image_id": "co1uje",
+        "width": 1534,
+        "height": 2046
+      },
+      "platforms": [
+        {
+          "id": 51,
+          "name": "Family Computer Disk System"
+        },
+        {
+          "id": 37,
+          "name": "Nintendo 3DS"
+        },
+        {
+          "id": 5,
+          "name": "Wii"
+        },
+        {
+          "id": 41,
+          "name": "Wii U"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 120468,
+          "name": "Зелда II: Приключението на Линк"
+        },
+        {
+          "id": 61167,
+          "name": "Zelda II"
+        },
+        {
+          "id": 61168,
+          "name": "Zelda 2: The Adventure of Link"
+        },
+        {
+          "id": 61169,
+          "name": "The Legend of Zelda 2: Link no Bouken"
+        },
+        {
+          "id": 61171,
+          "name": "The Legend of Zelda 2:"
+        },
+        {
+          "id": 120579,
+          "name": "Зелда II - Приключението на Линк"
+        },
+        {
+          "id": 120580,
+          "name": "Зелда II Приключението на Линк"
+        },
+        {
+          "id": 137826,
+          "name": "Zelda II: A Aventura de Link"
+        },
+        {
+          "id": 138001,
+          "name": "젤다2"
+        }
+      ]
+    },
+    {
+      "id": 163214,
+      "name": "Dōngfāng de Chuánshuō zhī Fēngyìn Dǎo",
+      "slug": "dongfang-de-chuanshuo-zhi-fengyin-dao",
+      "game_type": 0,
+      "first_release_date": 1135987200,
+      "cover": {
+        "image_id": "co7t3j",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 99,
+          "name": "Family Computer"
+        },
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "alternative_names": [
+        {
+          "id": 285083,
+          "name": "东方的传说之封印岛"
+        },
+        {
+          "id": 285084,
+          "name": "The Legend of Zelda: Link's Awakening"
+        },
+        {
+          "id": 285085,
+          "name": "东方の传说之封印岛"
+        },
+        {
+          "id": 285086,
+          "name": "Feng Yin Dao"
+        },
+        {
+          "id": 285087,
+          "name": "Dongfang de Chuanshuo zhi Fengyin Dao"
+        },
+        {
+          "id": 285088,
+          "name": "Dōngfāng zhi Chuánshuō zhī Fēngyìn Dǎo"
+        }
+      ]
+    }
+  ],
+  "TheLegendofZelda|18": [],
+  "Roller Games|18": [],
+  "RollerGames|18": [
+    {
+      "id": 138793,
+      "name": "Rollergames",
+      "slug": "rollergames--1",
+      "game_type": 11,
+      "first_release_date": 652147200,
+      "cover": {
+        "image_id": "co7juh",
+        "width": 600,
+        "height": 800
+      },
+      "platforms": [
+        {
+          "id": 18,
+          "name": "Nintendo Entertainment System"
+        }
+      ],
+      "parent_game": 40076
+    }
+  ]
+}
