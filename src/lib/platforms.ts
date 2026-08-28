@@ -14,7 +14,7 @@ export type PlatformInfo = {
 
 export const PLATFORMS: PlatformInfo[] = [
   { slug: "nes", name: "Nintendo Entertainment System", short: "NES", igdbId: 18, year: 1985, aliases: ["nintendo", "famicom", "nintendo entertainment system", "nes"] },
-  { slug: "snes", name: "Super Nintendo Entertainment System", short: "SNES", igdbId: 19, year: 1991, aliases: ["super nintendo", "super nes", "super famicom", "sfc", "snes"] },
+  { slug: "snes", name: "Super Nintendo Entertainment System", short: "SNES", igdbId: 19, year: 1991, aliases: ["super nintendo", "super nes", "super nintendo entertainment system", "super famicom", "sfc", "snes"] },
   { slug: "n64", name: "Nintendo 64", short: "N64", igdbId: 4, year: 1996, aliases: ["nintendo 64", "n64"] },
   { slug: "gamecube", name: "Nintendo GameCube", short: "GameCube", igdbId: 21, year: 2001, aliases: ["gamecube", "game cube", "ngc", "gcn"] },
   { slug: "wii", name: "Wii", short: "Wii", igdbId: 5, year: 2006, aliases: ["nintendo wii", "wii"] },

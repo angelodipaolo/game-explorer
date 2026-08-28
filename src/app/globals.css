@@ -1,17 +1,84 @@
 @import "tailwindcss";
 
+/*
+  Living-room-at-night palette. Dark ground so cover art carries the colour;
+  one warm accent (the glow of a CRT) for the thing you should press next.
+*/
 :root {
-  --background: #0b0b10;
-  --foreground: #f2f2f5;
+  --bg: #0c0d12;
+  --bg-elev: #14161e;
+  --surface: #1a1d27;
+  --surface-2: #232736;
+  --border: #2d3245;
+  --text: #f3f2ee;
+  --muted: #9a9fb3;
+  --faint: #6a6f85;
+  --accent: #ffb454;
+  --accent-ink: #1a1200;
+  --accent-2: #63d3ff;
+  --good: #5ad28c;
+  --warn: #ffb454;
+  --bad: #ff6b6b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-2: var(--accent-2);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-display: "Avenir Next", "Futura", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--bg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe-area padding for phones with a home indicator. */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-up {
+  animation: fade-up 220ms ease-out both;
 }

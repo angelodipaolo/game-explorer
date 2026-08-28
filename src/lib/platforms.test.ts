@@ -9,6 +9,7 @@ describe("resolvePlatform", () => {
   });
   it("distinguishes SNES from NES", () => {
     expect(resolvePlatform("Super Nintendo")?.slug).toBe("snes");
+    expect(resolvePlatform("Super Nintendo Entertainment System")?.slug).toBe("snes");
     expect(resolvePlatform("SNES")?.slug).toBe("snes");
   });
   it("returns null for unknowns and blanks", () => {

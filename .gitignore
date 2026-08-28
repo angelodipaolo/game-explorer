@@ -38,3 +38,6 @@ npm-debug.log*
 /scratch/
 /prisma/test.db*
 /.claude/settings.local.json
+/.playwright-mcp/
+*.png
+!public/**/*.png
