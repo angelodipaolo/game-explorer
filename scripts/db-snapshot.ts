@@ -1,0 +1,27 @@
+/**
+ * Export the collection to data/snapshot.json so it ships with the repo.
+ * Skips import-session scaffolding except committed batches (needed for undo).
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { prisma } from "../src/lib/db";
+
+async function main() {
+  const out = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    catalogGames: await prisma.catalogGame.findMany({ orderBy: { igdbId: "asc" } }),
+    importSessions: await prisma.importSession.findMany({ where: { status: "committed" } }),
+    importRows: await prisma.importRow.findMany({ where: { session: { status: "committed" } }, orderBy: [{ sessionId: "asc" }, { index: "asc" }] }),
+    importBatches: await prisma.importBatch.findMany(),
+    ownedGames: await prisma.ownedGame.findMany({ orderBy: { title: "asc" } }),
+    importEffects: await prisma.importEffect.findMany(),
+    gameFacts: await prisma.gameFact.findMany(),
+    enrichmentRuns: await prisma.enrichmentRun.findMany(),
+  };
+  const file = path.resolve(__dirname, "../data/snapshot.json");
+  fs.writeFileSync(file, JSON.stringify(out, null, 1));
+  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts`);
+}
+
+main().finally(() => prisma.$disconnect());

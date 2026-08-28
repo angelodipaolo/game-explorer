@@ -156,7 +156,7 @@ export async function decideRow(sessionId: string, rowId: string, input: DecideR
   const row = session.rows.find((r) => r.id === rowId);
   if (!row) throw new ImportError("row not found", 404);
 
-  const data: Prisma.ImportRowUncheckedUpdateInput = { decision: input.decision, decidedBy: input.decidedBy, holdReason: null };
+  const data: Prisma.ImportRowUncheckedUpdateInput = input.decision ? { decision: input.decision, decidedBy: input.decidedBy, holdReason: null } : {};
   if (input.title || input.platform) {
     const p = prepare({ ...(JSON.parse(row.input) as ImportRowInput), title: input.title ?? row.title, platform: input.platform ?? row.platform }, null);
     if (p.problems.length) throw new ImportError(p.problems.join("; "), 400);

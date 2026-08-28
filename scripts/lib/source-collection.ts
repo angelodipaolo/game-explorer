@@ -4,6 +4,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { normalizeTitle } from "../../src/lib/catalog/normalize";
+import { resolvePlatform } from "../../src/lib/platforms";
 
 export type SourceRow = {
   id: string;
@@ -78,4 +79,18 @@ export function collapseTitles(rows: SourceRow[]): { games: CollapsedTitle[]; dr
     }
   }
   return { games: [...byKey.values()], dropped };
+}
+
+/**
+ * `Joe and Mac Super Nintendo` → { title: "Joe and Mac", platform: "Super Nintendo" }.
+ * Only strips when the trailing words are a known platform alias.
+ */
+export function splitPlatformSuffix(title: string): { title: string; platform: string | null } {
+  const words = title.trim().split(/\s+/);
+  for (let n = Math.min(4, words.length - 1); n >= 1; n--) {
+    const tail = words.slice(-n).join(" ");
+    const p = resolvePlatform(tail);
+    if (p) return { title: words.slice(0, -n).join(" "), platform: tail };
+  }
+  return { title, platform: null };
 }

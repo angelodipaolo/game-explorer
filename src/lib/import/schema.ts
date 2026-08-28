@@ -28,8 +28,8 @@ export const addRowsSchema = z.object({
 });
 
 export const decideRowSchema = z.object({
-  /** accepted: link to igdbId (or none); dropped: leave out; merge: fold into the colliding owned game. */
-  decision: z.enum(["accepted", "dropped", "merge"]),
+  /** accepted: link to igdbId (or none); dropped: leave out; merge: fold into the colliding owned game. Omit to keep the current decision (e.g. quantity-only edits). */
+  decision: z.enum(["accepted", "dropped", "merge"]).optional(),
   igdbId: z.number().int().positive().nullable().optional(),
   title: z.string().trim().min(1).max(200).optional(),
   platform: z.string().trim().max(60).optional(),

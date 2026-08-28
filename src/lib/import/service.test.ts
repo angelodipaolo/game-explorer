@@ -103,6 +103,12 @@ describe("decideRow", () => {
     expect(await decideRow(s.id, roller.id, { decision: "accepted", igdbId: null, decidedBy: "user" })).toMatchObject({ decision: "accepted", chosenIgdbId: null });
   });
 
+  it("updates quantity without disturbing an automatic decision", async () => {
+    const s = await createSession({ label: "t", source: "agent", defaultPlatform: "nes", rows: [{ title: "Contra", quantity: 3 }] }, { catalog: fakeCatalog() });
+    const row = await decideRow(s.id, s.rows[0].id, { quantity: 1, decidedBy: "user" });
+    expect(row).toMatchObject({ quantity: 1, decision: "auto", decidedBy: "api", chosenIgdbId: 1 });
+  });
+
   it("can rename a row to fix the title/platform", async () => {
     const s = await createSession({ label: "t", source: "agent", rows: [{ title: "Joe and Mac Super Nintendo", platform: "nes", quantity: 1 }] }, { catalog: fakeCatalog() });
     const row = await decideRow(s.id, s.rows[0].id, { decision: "accepted", igdbId: 42, title: "Joe & Mac", platform: "SNES", decidedBy: "user" });

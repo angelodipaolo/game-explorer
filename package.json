@@ -14,7 +14,10 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:snapshot": "tsx scripts/db-snapshot.ts",
+    "db:restore": "prisma migrate deploy && tsx scripts/db-restore.ts",
+    "import:collection": "tsx scripts/import-collection.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
