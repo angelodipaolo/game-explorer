@@ -63,10 +63,10 @@ test("view mode survives navigation and the URL is enough", async ({ page }) => 
 });
 
 test("an empty result explains itself and offers a way out", async ({ page }) => {
-  await page.goto("/?players=4&mode=coop&genre=Puzzle&length=long&strict=1");
+  await page.goto("/?players=4&mode=coop&tags=Puzzle&length=long&strict=1&q=zzqx");
   await expect(page.getByTestId("empty")).toBeVisible();
-  await page.getByTestId("empty").getByRole("button", { name: /Include games with no data/ }).click();
-  await expect(page).not.toHaveURL(/strict=1/);
+  await page.getByTestId("empty").getByRole("button", { name: /Clear search/ }).click();
+  await expect(page).not.toHaveURL(/q=zzqx/);
 });
 
 test("filters open as a sheet and apply instantly", async ({ page }) => {
