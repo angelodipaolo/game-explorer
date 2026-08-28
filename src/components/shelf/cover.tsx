@@ -10,7 +10,7 @@ export function coverUrl(imageId: string, size: Size = "big"): string {
 /** Cover art, or a typographic tile when IGDB has none. Always 3:4. */
 export function Cover({ imageId, title, size = "big", className, priority }: { imageId: string | null; title: string; size?: Size; className?: string; priority?: boolean }) {
   return (
-    <div className={cx("relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-surface-2", className)}>
+    <div className={cx("relative aspect-[3/4] overflow-hidden rounded-xl bg-surface-2", className)}>
       {imageId ? (
         <img
           src={coverUrl(imageId, size)}
