@@ -7,7 +7,7 @@ import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilter
 import { Button, cx } from "@/components/ui";
 import { FilterControls } from "./filter-controls";
 import { GameCard, GameRow } from "./game-card";
-import { useFilters, useScrollMemory } from "./use-filters";
+import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
 
 /** One-tap ways in. The first is the flagship. */
 const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
@@ -20,6 +20,7 @@ const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
 
 export function Shelf({ games }: { games: ShelfGame[] }) {
   const [filters, set, reset] = useFilters();
+  const [query, setQuery] = useDebouncedQuery(filters.q, set);
   const [sheetOpen, setSheetOpen] = useState(false);
   const facets = useMemo(() => buildFacets(games), [games]);
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
@@ -51,8 +52,8 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">⌕</span>
             <input
               type="search"
-              value={filters.q}
-              onChange={(e) => set({ q: e.target.value })}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search the shelf"
               aria-label="Search"
               className="h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"

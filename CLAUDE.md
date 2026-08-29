@@ -60,8 +60,11 @@ reuses the one on port 3000.
 - **Filters are three-valued.** Unknown data is shown separately, never hidden
   as a "no" — ~85% of the shelf has co-op yes/no, only ~30% exact counts.
 - **Filter state is the URL.** Any view must be linkable. `use-filters.ts`
-  restores the saved view once on mount only; do not rewrite the URL in
-  effects (Safari throttles `replaceState`).
+  writes it with native `history.replaceState` (no server round trip — the
+  shelf is filtered client-side), debounces the search box, and restores the
+  saved view once on mount only. Never rewrite the URL from effects and never
+  use `router.replace` for filter changes: it re-renders the server page and
+  re-sends the whole collection.
 - **Nothing outside `src/lib/igdb` and `src/lib/catalog` imports the IGDB
   client** — `boundary.test.ts` enforces it.
 - **Imports go through the API** (`POST /api/import/sessions`), never a

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_FILTERS, parseFilters, serializeFilters, type Filters } from "@/lib/filters";
 
 const VIEW_KEY = "shelf:view";
@@ -84,16 +84,45 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void, () =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
+  // Native replaceState: Next keeps useSearchParams in sync with it, and unlike
+  // router.replace it does not re-render the server page (which would re-send
+  // the whole collection on every keystroke).
   const set = useCallback(
     (patch: Partial<Filters>) => {
-      const next = { ...parseFilters(params), ...patch };
-      router.replace(`${pathname}${serializeFilters(next)}`, { scroll: false });
+      const next = { ...parseFilters(new URLSearchParams(window.location.search)), ...patch };
+      window.history.replaceState(null, "", `${pathname}${serializeFilters(next)}`);
     },
-    [params, pathname, router],
+    [pathname],
   );
   const reset = useCallback(() => {
-    const view = parseFilters(params).view;
-    router.replace(`${pathname}${serializeFilters({ ...DEFAULT_FILTERS, view })}`, { scroll: false });
-  }, [params, pathname, router]);
+    const view = parseFilters(new URLSearchParams(window.location.search)).view;
+    window.history.replaceState(null, "", `${pathname}${serializeFilters({ ...DEFAULT_FILTERS, view })}`);
+  }, [pathname]);
   return [filters, set, reset];
+}
+
+/** Local text that writes to the URL a beat after typing stops, so the input never waits on anything. */
+export function useDebouncedQuery(value: string, set: (patch: Partial<Filters>) => void, delay = 150): [string, (v: string) => void] {
+  const [text, setText] = useState(value);
+  const timer = useRef<number | null>(null);
+  const last = useRef(value);
+  // Follow external changes (Clear, presets) without clobbering in-flight typing.
+  useEffect(() => {
+    if (value !== last.current) {
+      last.current = value;
+      setText(value);
+    }
+  }, [value]);
+  const update = useCallback(
+    (v: string) => {
+      setText(v);
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => {
+        last.current = v;
+        set({ q: v });
+      }, delay);
+    },
+    [set, delay],
+  );
+  return [text, update];
 }
