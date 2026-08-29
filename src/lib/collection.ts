@@ -190,16 +190,22 @@ export function matchSimilarToOwned(similarIds: number[], similarParents: Map<nu
   return out;
 }
 
-/** Fallback "more like this": owned games sharing genres/themes/perspective, ranked by overlap. */
+/**
+ * "More like this" by tag overlap, using the effective tags (IGDB's plus yours
+ * and an agent's, minus hidden) so tagging shapes what shows up here.
+ */
 export function relatedOnShelf(game: ShelfGame, shelf: ShelfGame[], n = 8): ShelfGame[] {
-  const tags = new Set([...game.genres, ...game.themes, ...game.perspectives]);
+  const tags = new Set(game.tags.map((t) => t.key));
   if (!tags.size) return [];
+  const genreKeys = new Set(game.genres.map((g) => g.toLowerCase()));
   return shelf
     .filter((g) => g.id !== game.id)
     .map((g) => {
-      const overlap = [...g.genres, ...g.themes, ...g.perspectives].filter((t) => tags.has(t)).length;
-      const genreHit = g.genres.some((t) => game.genres.includes(t)) ? 1 : 0;
-      return { g, score: overlap + genreHit * 2 + (g.copies.some((c) => game.copies.some((d) => d.platform === c.platform)) ? 0.5 : 0) };
+      const overlap = g.tags.filter((t) => tags.has(t.key)).length;
+      // A shared non-IGDB tag (yours/agent) is a strong signal: it was chosen, not inferred.
+      const chosen = g.tags.filter((t) => t.source !== "igdb" && tags.has(t.key)).length;
+      const genreHit = g.genres.some((t) => genreKeys.has(t.toLowerCase())) ? 1 : 0;
+      return { g, score: overlap + chosen * 2 + genreHit * 2 + (g.copies.some((c) => game.copies.some((d) => d.platform === c.platform)) ? 0.5 : 0) };
     })
     .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score || (b.g.rating ?? 0) - (a.g.rating ?? 0))
@@ -244,7 +250,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     });
   }
   similarGames.sort((a, b) => Number(!!b.ownedId) - Number(!!a.ownedId));
-  const related = relatedOnShelf(shelf, allShelf).filter((r) => !seenOwned.has(r.id));
+  const related = relatedOnShelf(shelf, allShelf, 12).filter((r) => !seenOwned.has(r.id));
   const profile = resolvePlayerProfile(
     c ? { gameModes: JSON.parse(c.gameModes), mpOfflineMax: c.mpOfflineMax, mpOfflineCoopMax: c.mpOfflineCoopMax, mpOfflineCoop: c.mpOfflineCoop, mpSplitscreen: c.mpSplitscreen, mpCampaignCoop: c.mpCampaignCoop, ttbNormally: c.ttbNormally } : null,
     g.facts,

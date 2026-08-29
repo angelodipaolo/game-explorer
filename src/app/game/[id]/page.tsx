@@ -21,6 +21,11 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   if (!game) notFound();
   const owned = game.similarGames.filter((s) => s.ownedId);
   const notOwned = game.similarGames.filter((s) => !s.ownedId);
+  // One list: IGDB's picks first (red ring), then tag-overlap picks to fill it out.
+  const onShelf = [
+    ...owned.map((s) => ({ id: s.ownedId!, name: s.name, cover: s.cover, platformLabel: s.platformLabel, why: "igdb" as const })),
+    ...game.related.map((r) => ({ id: r.id, name: r.name, cover: r.cover, platformLabel: r.copies.map((c) => c.platformLabel).join(" · "), why: "tags" as const })),
+  ].slice(0, 12);
   return (
     <div className="mx-auto max-w-6xl px-4 pb-safe">
       <div className="flex items-center justify-between py-2">
@@ -88,34 +93,21 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
 
       <section className="mt-8">
         <h2 className="mb-3 font-display text-base font-bold">
-          Similar, and on the shelf {owned.length ? <span className="text-muted">· {owned.length}</span> : null}
+          Similar, and on the shelf {onShelf.length ? <span className="text-muted">· {onShelf.length}</span> : null}
         </h2>
-        {owned.length ? (
+        {onShelf.length ? (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]" data-testid="similar-owned">
-            {owned.map((s) => (
-              <Link key={s.igdbId} href={`/game/${s.ownedId}`} className="group" prefetch={false}>
-                <Cover imageId={s.cover} title={s.name} className="ring-2 ring-accent/70 transition group-hover:-translate-y-1" />
+            {onShelf.map((s) => (
+              <Link key={s.id} href={`/game/${s.id}`} className="group" prefetch={false}>
+                <Cover imageId={s.cover} title={s.name} className={cx("transition group-hover:-translate-y-1", s.why === "igdb" && "ring-2 ring-accent/70")} />
                 <div className="mt-1.5 line-clamp-2 text-xs font-medium">{s.name}</div>
                 <div className="text-[11px] text-muted">{s.platformLabel}</div>
               </Link>
             ))}
           </div>
-        ) : game.related.length ? null : (
-          <p className="text-sm text-faint">{game.similarGames.length ? "None of the similar games are on the shelf." : "IGDB lists no similar games."}</p>
+        ) : (
+          <p className="text-sm text-faint">Nothing on the shelf looks similar yet — tags would help here.</p>
         )}
-        {game.related.length ? (
-          <div className="mt-5">
-            <h3 className="mb-2 text-sm text-muted">{owned.length ? "More like it on the shelf" : "Closest things on the shelf, by genre"}</h3>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(100px,1fr))]" data-testid="related">
-              {game.related.map((r) => (
-                <Link key={r.id} href={`/game/${r.id}`} className="group" prefetch={false}>
-                  <Cover imageId={r.cover} title={r.name} size="small" className="transition group-hover:-translate-y-1" />
-                  <div className="mt-1 line-clamp-2 text-[11px]">{r.name}</div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ) : null}
         {notOwned.length ? (
           <details className="mt-4 group">
             <summary className="cursor-pointer text-sm text-muted hover:text-text">Similar, not owned · {notOwned.length}</summary>
