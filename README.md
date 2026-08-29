@@ -1,9 +1,6 @@
 # Game Explorer
 
-Browse the shelf, pick a game. A local-first web app for a physical game
-collection: cover art, filters that stay honest with sparse data, a way to
-flip through matches across the room, and a game page that answers "should we
-play this?"
+Browse a game collection.
 
 Metadata comes from [IGDB](https://api-docs.igdb.com/) and is cached in local
 SQLite tables. The app never calls IGDB at browse time.
