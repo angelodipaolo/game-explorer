@@ -17,7 +17,7 @@ async function expectNoConsoleErrors(page: Page, run: () => Promise<void>) {
 test("load, filter, flip, open", async ({ page, isMobile }) => {
   await expectNoConsoleErrors(page, async () => {
     await page.goto("/");
-    await expect(page.getByTestId("result-count")).toContainText("All 730 games");
+    await expect(page.getByTestId("result-count")).toContainText(/All \d+ games/);
     await expect(page.getByTestId("game-card").first()).toBeVisible();
 
     // Flagship query, one tap.
@@ -52,7 +52,7 @@ test("load, filter, flip, open", async ({ page, isMobile }) => {
 
 test("view mode survives navigation and the URL is enough", async ({ page }) => {
   await page.goto("/?players=4");
-  await expect(page.getByTestId("result-count")).not.toContainText("All 730");
+  await expect(page.getByTestId("result-count")).not.toContainText(/All \d+ games/);
   await page.goto("/?view=list&tags=Shooter");
   await expect(page.getByTestId("list")).toBeVisible();
   await page.getByTestId("game-row").first().click();

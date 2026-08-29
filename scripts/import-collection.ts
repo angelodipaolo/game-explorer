@@ -1,9 +1,9 @@
 /**
- * Phase 4: import Angelo's collection from a COPY of game-manage's dev.db,
+ * Import a collection from a COPY of a game-manage dev.db,
  * through the import API (never a private write path).
  *
  *   cp /path/to/game-manage/apps/web/prisma/dev.db scratch/game-manage.db
- *   npx tsx scripts/import-collection.ts scratch/game-manage.db http://localhost:3001 [report.md]
+ *   npx tsx scripts/import-collection.ts scratch/game-manage.db http://localhost:3000 [report.md]
  *
  * Creates one session, submits rows in batches of 25, then prints a report of
  * everything held for review and every title IGDB places on another platform.

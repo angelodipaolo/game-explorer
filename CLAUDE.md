@@ -1,13 +1,13 @@
 # Game Explorer
 
-A local-first web app for Angelo's physical game collection: browse it as cover
+A local-first web app for a physical game collection: browse it as cover
 art, narrow it to "2 of us, co-op, NES", flip through the matches across a
 room, open a game and decide. Runs on one Mac, reachable by phones on the wifi.
 No hosting, no accounts.
 
 Read `AGENTS.md` too — it holds the architecture constraints and the block
-Next.js maintains itself. The Sabin notes for the ticket (`sabin context --json`)
-hold the plan, `decisions.md`, and `import-report.md`; read them before
+Next.js maintains itself. If this checkout is managed by Sabin (`sabin context --json`), the ticket
+notes hold the plan, `decisions.md`, and `import-report.md`; read them before
 re-litigating anything about matching, quantities, or game types.
 
 ## Stack
@@ -35,7 +35,7 @@ reuses the one on port 3000.
 
 | Path | What |
 | --- | --- |
-| `prisma/schema.prisma` | The seam. `OwnedGame`/`GameFact`/import tables = what Angelo owns; `CatalogGame` = what IGDB knows. |
+| `prisma/schema.prisma` | The seam. `OwnedGame`/`GameFact`/import tables = what the owner owns; `CatalogGame` = what IGDB knows. |
 | `src/lib/igdb/` | The only code that talks to IGDB. Client (token, 4 req/s, 429 backoff), query builder, schemas. |
 | `src/lib/catalog/` | Matching (`match.ts`: confidence scoring), normalization, `sync.ts` (upsert + parent backfill), `index.ts` (the `CatalogPort` everything else uses). |
 | `src/lib/import/` | Staged import: sessions → rows → decisions → one transactional commit → batch rollback. |
@@ -49,7 +49,7 @@ reuses the one on port 3000.
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
 | `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection` — the agent playbooks for the write paths. |
 | `scripts/` | Baseline/import/snapshot tooling. `scratch/` is gitignored throwaway. |
-| `data/snapshot.json` | The committed collection. |
+| `data/snapshot.json` | Your collection export — gitignored, private. See `data/README.md`. |
 
 ## Invariants (the ones that bite silently)
 
@@ -70,9 +70,9 @@ reuses the one on port 3000.
 - **Imports go through the API** (`POST /api/import/sessions`), never a
   private write path. Every commit is an undoable batch.
 - **Manual facts and tags are never overwritten** by IGDB sync or agents.
-- **`.env` holds a live Twitch secret.** Never print or commit it. `igdb.env` is gone; don't recreate it.
-- Quantities in the shelf are per copy; the original game-manage rows were
-  triplicated by test runs, so everything imported at quantity 1.
+- **`.env` holds a live Twitch secret.** Never print or commit it.
+- Quantities are per copy; when a source export repeats rows (test runs,
+  re-exports), import at quantity 1 rather than counting rows.
 
 ## Verifying UI work
 
@@ -90,6 +90,6 @@ Collection-size assertions live in `e2e/shelf.spec.ts` and `e2e/smoke.spec.ts`
 
 - Commit at each verified milestone with the ticket id in the message
   (`GAMEEXPLOR-0001: …`); never commit a red state.
-- Keep durable findings in the Sabin notes directory, not in chat.
+- Keep durable findings in the notes directory (Sabin) when one exists, not in chat.
 - Don't add: RAWG, a provider abstraction, hosting, auth, pricing, live LLM
   calls on browse paths, a column-mapping wizard, ratings/playlists (v1).

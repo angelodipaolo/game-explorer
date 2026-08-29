@@ -4,7 +4,7 @@
 // exactly one module (src/lib/igdb) talks to IGDB.
 //
 // Two sides:
-//   - What Angelo OWNS: OwnedGame (+ GameFact overrides, import batches)
+//   - What the owner OWNS: OwnedGame (+ GameFact overrides, import batches)
 //   - What IGDB KNOWS: CatalogGame, keyed by IGDB id, refreshed by sync
 
 generator client {
@@ -16,7 +16,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// A physical game Angelo owns. One row per (title, platform); `quantity`
+/// A physical game the owner owns. One row per (title, platform); `quantity`
 /// counts copies.
 model OwnedGame {
   id              String   @id @default(cuid())
@@ -82,7 +82,7 @@ model GameFact {
 }
 
 /// A tag on an owned game. Layered over IGDB's genres/perspectives/themes:
-///   manual    — Angelo added it
+///   manual    — the owner added it
 ///   agent     — an enrichment run added it (cite sourceUrl)
 ///   igdb-hide — hides an IGDB tag for this game without touching the catalog
 /// `key` is the normalised form used for matching; `tag` is how it is shown.

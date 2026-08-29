@@ -1,6 +1,6 @@
 # Game Explorer — agent notes
 
-Local-first web app for browsing Angelo's physical game collection and deciding
+Local-first web app for browsing a physical game collection and deciding
 what to play. Next.js 16 (App Router) + React 19 + TypeScript strict, Tailwind 4,
 Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e).
 
@@ -42,7 +42,7 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 - Fact precedence is `manual > agent > igdb`. A `manual` value is never
   overwritten by IGDB sync or an agent. Agents cite a source per claim and
   leave a field null rather than guess.
-- `game-manage`'s database is read read-only; never write to that project.
+- Any source database (e.g. `game-manage`) is read read-only; never write to it.
 
 ## Secrets
 

@@ -1,5 +1,5 @@
 /**
- * Reads Angelo's collection out of a COPY of game-manage's SQLite file.
+ * Reads the owner's collection out of a COPY of game-manage's SQLite file.
  * Never points at the original: the copy is made by the caller.
  */
 import { execFileSync } from "node:child_process";

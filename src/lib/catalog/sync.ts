@@ -4,7 +4,7 @@ import { igdbApi, type IgdbApi, type IgdbGame, type IgdbSearchHit } from "@/lib/
 /**
  * Pulls IGDB detail for a set of game ids into CatalogGame, plus stubs for
  * every similar game so the "similar" section can show names and covers of
- * games Angelo does not own.
+ * games the owner does not own.
  *
  * A port's own entry is often thinner than the original it was ported from
  * (no screenshots, no summary). When a game has a parent, missing fields are

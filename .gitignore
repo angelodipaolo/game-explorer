@@ -10,8 +10,10 @@
 *.db-shm
 *.db-wal
 /prisma/dev.db*
-# the shipped collection snapshot is committed as SQL, not as a binary
+# your collection is private: the snapshot stays local (see data/README.md)
 /data/*.db
+/data/snapshot.json
+/data/*.private.json
 
 # dependencies
 node_modules/
@@ -38,6 +40,7 @@ npm-debug.log*
 /scratch/
 /prisma/test.db*
 /.claude/settings.local.json
+/.sabin
 /.playwright-mcp/
 *.png
 !public/**/*.png

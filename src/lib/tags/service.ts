@@ -23,7 +23,7 @@ export async function tagsFor(ownedGameId: string) {
   return prisma.gameTag.findMany({ where: { ownedGameId }, orderBy: { createdAt: "asc" } });
 }
 
-/** Angelo adds a tag. Replaces any agent tag with the same key. */
+/** the owner adds a tag. Replaces any agent tag with the same key. */
 export async function addManualTag(ownedGameId: string, tag: string, note?: string) {
   const key = tagKey(tag);
   if (!key) throw new EnrichmentError("empty tag", 400);

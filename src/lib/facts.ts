@@ -1,6 +1,6 @@
 /**
  * Player facts, resolved from three sources with fixed precedence:
- *   manual  — Angelo set it by hand; never overwritten
+ *   manual  — the owner set it by hand; never overwritten
  *   agent   — an enrichment run found it, with a cited source
  *   catalog — IGDB, in two tiers: game_modes (co-op yes/no) and
  *             multiplayer_modes (exact counts)

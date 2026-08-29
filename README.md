@@ -10,7 +10,9 @@ SQLite tables. The app never calls IGDB at browse time.
 ```bash
 cp .env.example .env      # add your Twitch/IGDB credentials
 npm install
-npm run db:restore        # builds prisma/dev.db from the committed snapshot
+npm run db:migrate        # creates prisma/dev.db (empty)
+# or, if you have a private data/snapshot.json from another machine:
+npm run db:restore
 npm run dev
 ```
 
@@ -52,13 +54,14 @@ Full endpoint list: `src/app/api/**/route.ts`, each with a comment on its shape.
 
 ## Data
 
-- `prisma/schema.prisma` — the seam. What Angelo **owns** (`OwnedGame`,
+- `prisma/schema.prisma` — the seam. What you **own** (`OwnedGame`,
   `GameFact`, import sessions/batches) vs. what IGDB **knows** (`CatalogGame`).
-- `data/snapshot.json` — the whole database, committed so the app never starts
-  empty. `npm run db:snapshot` regenerates it; `npm run db:restore` loads it.
+- `data/snapshot.json` — a full export of your database, **gitignored** so your
+  collection stays private. `npm run db:snapshot` writes it; `npm run db:restore`
+  loads it. See `data/README.md`.
 - `npm run catalog:sync` refreshes every linked catalog entry from IGDB.
-- `npm run import:collection <db copy>` re-runs the original migration from a
-  copy of `game-manage`'s database (read-only; copy it first).
+- `npm run import:collection <sqlite copy>` imports from a copy of a
+  `game-manage` inventory database, if you have one.
 
 ## Checks
 
@@ -67,5 +70,5 @@ npm run check        # lint + typecheck + unit tests + build
 npm run test:e2e     # Playwright: load, filter, flip, open — desktop and phone
 ```
 
-`AGENTS.md` has the architecture constraints; the notes directory (Sabin)
-has the plan, the decisions, and the import report.
+`AGENTS.md` and `CLAUDE.md` have the architecture constraints and a map of
+the code for agents working on the repo. MIT licensed.
