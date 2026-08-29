@@ -44,6 +44,7 @@ model OwnedGame {
   importBatch     ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
   facts           GameFact[]
+  tags            GameTag[]
   importEffects   ImportEffect[]
 
   createdAt DateTime @default(now())
@@ -77,6 +78,28 @@ model GameFact {
 
   @@unique([ownedGameId, field])
   @@index([source])
+  @@index([runId])
+}
+
+/// A tag on an owned game. Layered over IGDB's genres/perspectives/themes:
+///   manual    — Angelo added it
+///   agent     — an enrichment run added it (cite sourceUrl)
+///   igdb-hide — hides an IGDB tag for this game without touching the catalog
+/// `key` is the normalised form used for matching; `tag` is how it is shown.
+model GameTag {
+  id          String    @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  key         String
+  tag         String
+  source      String
+  sourceUrl   String?
+  note        String?
+  runId       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([ownedGameId, key, source])
+  @@index([key])
   @@index([runId])
 }
 

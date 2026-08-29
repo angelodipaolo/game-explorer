@@ -41,12 +41,13 @@ reuses the one on port 3000.
 | `src/lib/import/` | Staged import: sessions → rows → decisions → one transactional commit → batch rollback. |
 | `src/lib/enrichment/` | Agent-written facts with citations; never overwrite manual facts. |
 | `src/lib/facts.ts` | Resolves player facts: manual > agent > IGDB tiers > derived. |
+| `src/lib/tags.ts`, `src/lib/tags/` | Tags: IGDB genres/perspectives/themes ∪ manual ∪ agent − hidden. Manual beats agent; IGDB tags hide, never delete. |
 | `src/lib/collection.ts` | Shelf/game view models. `groupShelf` collapses one game on several platforms into one entry. |
 | `src/lib/filters.ts` | URL ⇄ filter state; three-valued verdicts (yes / no / unknown). |
 | `src/lib/platforms.ts` | Platform slugs, aliases, IGDB ids. Add new consoles here. |
 | `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`. |
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
-| `.claude/skills/` | `import-collection`, `enrich-collection` — the agent playbooks for the two write paths. |
+| `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection` — the agent playbooks for the write paths. |
 | `scripts/` | Baseline/import/snapshot tooling. `scratch/` is gitignored throwaway. |
 | `data/snapshot.json` | The committed collection. |
 
@@ -65,7 +66,7 @@ reuses the one on port 3000.
   client** — `boundary.test.ts` enforces it.
 - **Imports go through the API** (`POST /api/import/sessions`), never a
   private write path. Every commit is an undoable batch.
-- **Manual facts are never overwritten** by IGDB sync or agents.
+- **Manual facts and tags are never overwritten** by IGDB sync or agents.
 - **`.env` holds a live Twitch secret.** Never print or commit it. `igdb.env` is gone; don't recreate it.
 - Quantities in the shelf are per copy; the original game-manage rows were
   triplicated by test runs, so everything imported at quantity 1.

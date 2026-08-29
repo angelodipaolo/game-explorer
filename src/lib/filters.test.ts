@@ -20,16 +20,21 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
     playtime: null,
     players: { label: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
     hasScreenshots: false,
+    tags: [],
     similar: [],
     summary: null,
     ...over,
   };
 }
 
-const contra = game({ title: "Contra", players: { label: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false }, genres: ["Shooter"] });
-const zelda = game({ title: "Zelda", players: { label: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false }, genres: ["Adventure"], playtime: 600 });
+function withTags(g: ShelfGame): ShelfGame {
+  return { ...g, tags: [...g.genres, ...g.perspectives, ...g.themes].map((t) => ({ tag: t, key: t.toLowerCase(), source: "igdb" as const })) };
+}
+
+const contra = withTags(game({ title: "Contra", players: { label: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false }, genres: ["Shooter"] }));
+const zelda = withTags(game({ title: "Zelda", players: { label: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false }, genres: ["Adventure"], playtime: 600 }));
 const mystery = game({ title: "Mystery", year: null });
-const tecmo = game({ title: "Tecmo Bowl", players: { label: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false }, genres: ["Sport"], platform: "snes", platformLabel: "SNES" });
+const tecmo = withTags(game({ title: "Tecmo Bowl", players: { label: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false }, genres: ["Sport"], platform: "snes", platformLabel: "SNES" }));
 const all = [contra, zelda, mystery, tecmo];
 
 describe("parse/serialize", () => {
@@ -86,7 +91,11 @@ describe("verdicts", () => {
     expect(verdictFor(contra, f("era=80s"))).toBe("yes");
   });
   it("tags AND together across genres, perspectives and themes; legacy genre= still works", () => {
-    const side = game({ title: "Side", genres: ["Platform"], perspectives: ["Side view"], themes: ["Fantasy"] });
+    const side = withTags(game({ title: "Side", genres: ["Platform"], perspectives: ["Side view"], themes: ["Fantasy"] }));
+    const tagged = { ...side, tags: [...side.tags, { tag: "Metroidvania", key: "metroidvania", source: "manual" as const }] };
+    expect(verdictFor(tagged, f("tags=metroidvania"))).toBe("yes");
+    expect(verdictFor(side, f("tags=Metroidvania"))).toBe("no");
+    expect(facets([tagged]).yours).toEqual([{ name: "Metroidvania", count: 1 }]);
     expect(verdictFor(side, f("tags=Platform,Side view"))).toBe("yes");
     expect(verdictFor(side, f("tags=Platform,Fantasy"))).toBe("yes");
     expect(verdictFor(side, f("tags=Platform,Top-down"))).toBe("no");

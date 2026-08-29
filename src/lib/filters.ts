@@ -1,4 +1,5 @@
 import type { ShelfGame } from "./collection";
+import { tagKey } from "./tags";
 
 /**
  * Filter state lives in the URL so any view is a link. Every filter is
@@ -78,7 +79,7 @@ export function activeFilterCount(f: Filters): number {
 }
 
 export function gameTags(g: ShelfGame): Set<string> {
-  return new Set([...g.genres, ...g.perspectives, ...g.themes]);
+  return new Set(g.tags.map((t) => t.key));
 }
 
 export type Verdict = "yes" | "no" | "unknown";
@@ -130,7 +131,10 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
     vs.push(g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q) || g.genres.some((x) => x.toLowerCase().includes(q)) ? "yes" : "no");
   }
   if (f.platforms.length) vs.push(g.copies.some((c) => f.platforms.includes(c.platform)) ? "yes" : "no");
-  if (f.tags.length) vs.push(f.tags.every((t) => gameTags(g).has(t)) ? "yes" : "no");
+  if (f.tags.length) {
+    const have = gameTags(g);
+    vs.push(f.tags.every((t) => have.has(tagKey(t))) ? "yes" : "no");
+  }
   if (f.players) vs.push(playersVerdict(g, f.players));
   if (f.mode) vs.push(modeVerdict(g, f.mode));
   if (f.length) vs.push(lengthVerdict(g, f.length));
@@ -186,7 +190,7 @@ export function applyFilters(games: ShelfGame[], f: Filters): FilterResult {
 }
 
 export type TagFacet = { name: string; count: number };
-export type Facets = { platforms: { slug: string; label: string; count: number }[]; genres: TagFacet[]; perspectives: TagFacet[]; themes: TagFacet[] };
+export type Facets = { platforms: { slug: string; label: string; count: number }[]; genres: TagFacet[]; perspectives: TagFacet[]; themes: TagFacet[]; yours: TagFacet[] };
 
 export function facets(games: ShelfGame[]): Facets {
   const p = new Map<string, { label: string; count: number }>();
@@ -204,9 +208,10 @@ export function facets(games: ShelfGame[]): Facets {
   }
   return {
     platforms: [...p].map(([slug, v]) => ({ slug, ...v })).sort((a, b) => b.count - a.count),
-    genres: count((g) => g.genres),
-    perspectives: count((g) => g.perspectives),
-    themes: count((g) => g.themes),
+    genres: count((g) => g.tags.filter((t) => t.source === "igdb" && g.genres.includes(t.tag)).map((t) => t.tag)),
+    perspectives: count((g) => g.tags.filter((t) => t.source === "igdb" && g.perspectives.includes(t.tag)).map((t) => t.tag)),
+    themes: count((g) => g.tags.filter((t) => t.source === "igdb" && g.themes.includes(t.tag)).map((t) => t.tag)),
+    yours: count((g) => g.tags.filter((t) => t.source !== "igdb").map((t) => t.tag)),
   };
 }
 

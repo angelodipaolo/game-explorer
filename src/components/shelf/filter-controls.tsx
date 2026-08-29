@@ -24,6 +24,11 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
       <Group label="Platform (pick any number)">
         <MultiChips value={filters.platforms} onChange={(v) => set({ platforms: v })} options={facets.platforms.map((p) => [p.slug, `${p.label} · ${p.count}`])} />
       </Group>
+      {facets.yours.length ? (
+        <Group label="Your tags">
+          <MultiChips value={filters.tags} onChange={(v) => set({ tags: v })} options={facets.yours.map((g) => [g.name, `${g.name} · ${g.count}`])} />
+        </Group>
+      ) : null}
       <Group label="Kind of game (pick any number — all must apply)">
         <MultiChips value={filters.tags} onChange={(v) => set({ tags: v })} options={facets.genres.map((g) => [g.name, `${g.name} · ${g.count}`])} />
       </Group>

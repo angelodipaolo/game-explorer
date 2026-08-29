@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { playerSummary, resolvePlayerProfile, type PlayerProfile } from "@/lib/facts";
 import { platformBySlug, platformLabel } from "@/lib/platforms";
+import { resolveTags, type EffectiveTag } from "@/lib/tags";
 
 /**
  * View models the UI reads. Built server-side from local tables only, then
@@ -39,6 +40,8 @@ export type ShelfGame = {
     verified: boolean;
   };
   hasScreenshots: boolean;
+  /** Effective tags: IGDB genres/perspectives/themes ∪ yours ∪ agents − hidden. */
+  tags: EffectiveTag[];
   /** IGDB ids of similar games (owned or not); resolved by the UI against the shelf. */
   similar: number[];
   summary: string | null;
@@ -69,6 +72,7 @@ export function groupShelf(rows: ShelfGame[]): ShelfGame[] {
     // Facts may live on any copy; prefer the copy that knows more.
     if (g.players.tier === "unknown" && r.players.tier !== "unknown") g.players = r.players;
     if (g.playtime == null && r.playtime != null) g.playtime = r.playtime;
+    for (const t of r.tags) if (!g.tags.some((x) => x.key === t.key)) g.tags = [...g.tags, t];
   }
   for (const g of groups.values()) {
     g.copies.sort((a, b) => (platformBySlug(a.platform)?.year ?? 9999) - (platformBySlug(b.platform)?.year ?? 9999));
@@ -109,7 +113,7 @@ export async function loadShelf(): Promise<ShelfGame[]> {
 
 /** One ShelfGame per owned row, before grouping. */
 export async function loadOwnedRows(): Promise<ShelfGame[]> {
-  const owned = await prisma.ownedGame.findMany({ include: { catalogGame: true, facts: true }, orderBy: { title: "asc" } });
+  const owned = await prisma.ownedGame.findMany({ include: { catalogGame: true, facts: true, tags: true }, orderBy: { title: "asc" } });
   return owned.map((g) => {
     const c = g.catalogGame;
     const profile = resolvePlayerProfile(
@@ -135,6 +139,7 @@ export async function loadOwnedRows(): Promise<ShelfGame[]> {
       playtime: playtimeFact.value,
       players: profileToShelfPlayers(profile),
       hasScreenshots: c ? arr(c.screenshots).length > 0 : false,
+      tags: resolveTags({ genres: c ? arr(c.genres) : [], perspectives: c ? arr(c.playerPerspectives) : [], themes: c ? arr(c.themes) : [] }, g.tags),
       similar: c ? (JSON.parse(c.similarGameIds) as number[]) : [],
       summary: c?.summary ?? null,
     };
@@ -159,6 +164,8 @@ export type GameDetail = ShelfGame & {
   similarGames: SimilarGame[];
   /** Genre-overlap fallback when IGDB's similar list finds nothing owned. */
   related: ShelfGame[];
+  /** IGDB tags hidden on this game, so they can be shown again. */
+  hiddenTags: { key: string; tag: string }[];
 };
 
 export type SimilarGame = { igdbId: number; name: string; cover: string | null; year: number | null; ownedId: string | null; platformLabel: string | null };
@@ -201,7 +208,7 @@ export function relatedOnShelf(game: ShelfGame, shelf: ShelfGame[], n = 8): Shel
 }
 
 export async function loadGame(id: string): Promise<GameDetail | null> {
-  const g = await prisma.ownedGame.findUnique({ where: { id }, include: { catalogGame: true, facts: true } });
+  const g = await prisma.ownedGame.findUnique({ where: { id }, include: { catalogGame: true, facts: true, tags: true } });
   if (!g) return null;
   const c = g.catalogGame;
   const allShelf = await loadShelf();
@@ -260,5 +267,6 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     matchSource: g.matchSource,
     similarGames,
     related,
+    hiddenTags: g.tags.filter((t) => t.source === "igdb-hide").map((t) => ({ key: t.key, tag: t.tag })),
   };
 }

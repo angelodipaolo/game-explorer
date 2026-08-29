@@ -17,11 +17,12 @@ async function main() {
     ownedGames: await prisma.ownedGame.findMany({ orderBy: { title: "asc" } }),
     importEffects: await prisma.importEffect.findMany(),
     gameFacts: await prisma.gameFact.findMany(),
+    gameTags: await prisma.gameTag.findMany(),
     enrichmentRuns: await prisma.enrichmentRun.findMany(),
   };
   const file = path.resolve(__dirname, "../data/snapshot.json");
   fs.writeFileSync(file, JSON.stringify(out, null, 1));
-  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts`);
+  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts, ${out.gameTags.length} tags`);
 }
 
 main().finally(() => prisma.$disconnect());

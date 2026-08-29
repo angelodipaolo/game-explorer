@@ -92,3 +92,20 @@ test("filters open as a sheet and apply instantly", async ({ page }) => {
   await page.getByTestId("close-filters").click();
   await expect(page.getByTestId("result-count")).toContainText("games");
 });
+
+test("tags can be added by hand and are filterable at once", async ({ page }) => {
+  await page.goto("/?q=Contra&platform=nes");
+  await page.getByTestId("game-card").first().click();
+  await expect(page.getByTestId("game-title")).toHaveText("Contra");
+  await page.getByTestId("edit-tags").click();
+  await page.getByTestId("tag-input").fill("E2E run-and-gun");
+  await page.getByTestId("tag-input").press("Enter");
+  await expect(page.getByTestId("tag-editor").getByRole("link", { name: "E2E run-and-gun" })).toBeVisible();
+  await page.goto("/?tags=E2E%20run-and-gun");
+  await expect(page.getByTestId("result-count")).toContainText("1 game");
+  // clean up
+  await page.getByTestId("game-card").first().click();
+  await page.getByTestId("edit-tags").click();
+  await page.getByRole("button", { name: "Remove E2E run-and-gun" }).click();
+  await expect(page.getByTestId("tag-editor").getByRole("link", { name: "E2E run-and-gun" })).toHaveCount(0);
+});

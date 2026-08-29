@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/game/back-link";
 import { Screenshots } from "@/components/game/screenshots";
+import { TagEditor } from "@/components/game/tag-editor";
 import { Cover } from "@/components/shelf/cover";
 import { minutesLabel } from "@/components/shelf/players-line";
 import { Badge, cx } from "@/components/ui";
@@ -60,24 +61,21 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
             <div className="rounded-xl border border-border bg-surface p-3">
               <div className="text-xs text-muted">Plays like</div>
               <div className="mt-1 flex flex-wrap gap-1">
-                {[...game.genres, ...game.perspectives].slice(0, 4).map((g) => (
-                  <Badge key={g}>{g}</Badge>
-                ))}
-                {!game.genres.length ? <span className="text-faint">?</span> : null}
+                {game.tags
+                  .filter((t) => t.source !== "igdb" || game.genres.includes(t.tag) || game.perspectives.includes(t.tag))
+                  .slice(0, 4)
+                  .map((t) => (
+                    <Badge key={t.key} tone={t.source === "manual" ? "good" : t.source === "agent" ? "info" : "muted"}>
+                      {t.tag}
+                    </Badge>
+                  ))}
+                {!game.tags.length ? <span className="text-faint">?</span> : null}
               </div>
             </div>
           </div>
 
           {game.summary ? <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-text/90">{game.summary}</p> : <p className="mt-5 text-sm text-faint">No description in the catalog{game.igdbId ? "" : " — this cartridge is not linked to IGDB yet"}.</p>}
-          {game.themes.length || game.keywords.length ? (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {[...game.themes, ...game.keywords.filter((k) => !/fan translation|hack/i.test(k)).slice(0, 6)].map((k) => (
-                <span key={k} className="rounded-full bg-surface px-2.5 py-1 text-xs text-muted">
-                  {k}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <TagEditor gameId={game.id} tags={game.tags} hidden={game.hiddenTags} />
         </div>
       </div>
 

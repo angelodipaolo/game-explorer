@@ -7,7 +7,7 @@ function row(title: string, platform: string, igdbId: number | null, ownedId = `
     copies: [{ ownedId, platform, platformLabel: platform.toUpperCase(), quantity: 1 }], quantity: 1,
     igdbId, cover: null, year: null, genres: [], themes: [], perspectives: [], rating: null, playtime: null,
     players: { label: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
-    hasScreenshots: false, similar: [], summary: null,
+    hasScreenshots: false, tags: [], similar: [], summary: null,
   };
 }
 
