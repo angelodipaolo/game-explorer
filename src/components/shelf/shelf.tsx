@@ -7,7 +7,7 @@ import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilter
 import { Button, cx } from "@/components/ui";
 import { FilterControls } from "./filter-controls";
 import { GameCard, GameRow } from "./game-card";
-import { useFilters } from "./use-filters";
+import { useFilters, useScrollMemory } from "./use-filters";
 
 /** One-tap ways in. The first is the flagship. */
 const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
@@ -26,6 +26,7 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
   const active = activeFilterCount(filters);
   const picks = useMemo(() => tonightsPicks(games), [games]);
   const qs = serializeFilters(filters);
+  useScrollMemory(qs);
 
   useEffect(() => {
     if (!sheetOpen) return;

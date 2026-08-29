@@ -14,6 +14,50 @@ const VIEW_KEY = "shelf:view";
  * the user does something; Safari throttles history.replaceState and a
  * chatty effect can exhaust that budget and make every control look dead.
  */
+/**
+ * Remember the shelf's scroll position per URL and put it back when the same
+ * URL is shown again (coming back from a game page). Browsers only restore
+ * scroll on history navigations; this covers the link-based route too.
+ */
+export function useScrollMemory(key: string) {
+  useEffect(() => {
+    const storageKey = `shelf:scroll:${key}`;
+    let ready = false; // don't record until any restore has settled, or the mount-time scroll-to-top overwrites it
+    let raf = 0;
+    const arm = () => {
+      ready = true;
+    };
+    try {
+      const saved = Number(window.sessionStorage.getItem(storageKey) ?? "0");
+      if (saved > 0) {
+        let tries = 0;
+        const attempt = () => {
+          window.scrollTo(0, saved);
+          if (Math.abs(window.scrollY - saved) > 2 && tries++ < 20) requestAnimationFrame(attempt);
+          else setTimeout(arm, 100);
+        };
+        requestAnimationFrame(attempt);
+      } else setTimeout(arm, 300);
+    } catch {
+      arm();
+    }
+    const onScroll = () => {
+      if (!ready) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        try {
+          window.sessionStorage.setItem(storageKey, String(Math.round(window.scrollY)));
+        } catch {}
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [key]);
+}
+
 export function useFilters(): [Filters, (patch: Partial<Filters>) => void, () => void] {
   const params = useSearchParams();
   const router = useRouter();

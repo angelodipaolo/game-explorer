@@ -62,6 +62,21 @@ test("view mode survives navigation and the URL is enough", async ({ page }) => 
   await expect(page.getByTestId("list")).toBeVisible();
 });
 
+test("opening a game and coming back keeps the shelf scroll position", async ({ page }) => {
+  await page.goto("/?platform=nes");
+  await page.getByTestId("game-card").nth(40).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+  const before = await page.evaluate(() => window.scrollY);
+  expect(before).toBeGreaterThan(500);
+  await page.getByTestId("game-card").nth(40).click();
+  await expect(page.getByTestId("game-title")).toBeVisible();
+  await page.getByTestId("back-link").click();
+  await expect(page.getByTestId("result-count")).toBeVisible();
+  await page.waitForTimeout(600);
+  const after = await page.evaluate(() => window.scrollY);
+  expect(Math.abs(after - before)).toBeLessThan(50);
+});
+
 test("an empty result explains itself and offers a way out", async ({ page }) => {
   await page.goto("/?players=4&mode=coop&tags=Puzzle&length=long&strict=1&q=zzqx");
   await expect(page.getByTestId("empty")).toBeVisible();

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSyncExternalStore } from "react";
 
 function subscribe() {
@@ -14,12 +15,31 @@ function read(): string {
   }
 }
 
-/** Back to wherever the shelf was last filtered to, so the set survives opening a game. */
+/**
+ * Back to wherever the shelf was last filtered to. When we got here from
+ * inside the app, go back through history so the browser restores the
+ * scroll position; a page opened from a shared link falls back to the URL.
+ */
 export function BackLink() {
   const href = useSyncExternalStore(subscribe, read, () => "/");
+  const router = useRouter();
   const label = href.startsWith("/flip") ? "◂ Back to flipping" : "◂ Shelf";
   return (
-    <Link href={href} className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm text-muted hover:text-text" data-testid="back-link">
+    <Link
+      href={href}
+      onClick={(e) => {
+        let cameFromApp = false;
+        try {
+          cameFromApp = window.history.length > 1 && window.sessionStorage.getItem("shelf:last") != null;
+        } catch {}
+        if (cameFromApp) {
+          e.preventDefault();
+          router.back();
+        }
+      }}
+      className="inline-flex min-h-11 items-center rounded-xl px-2 text-sm text-muted hover:text-text"
+      data-testid="back-link"
+    >
       {label}
     </Link>
   );
