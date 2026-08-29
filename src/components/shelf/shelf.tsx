@@ -1,27 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ShelfGame } from "@/lib/collection";
 import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilters, tonightsPicks, type Filters } from "@/lib/filters";
 import { Button, cx } from "@/components/ui";
-import { FilterControls } from "./filter-controls";
+import { FilterSheet, PresetRow } from "./filter-sheet";
 import { GameCard, GameRow } from "./game-card";
 import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
-
-/** One-tap ways in. The first is the flagship. */
-const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
-  { label: "2 of us, co-op", hint: "NES", patch: { platforms: ["nes"], players: 2, mode: "coop" } },
-  { label: "Head to head", hint: "versus", patch: { players: 2, mode: "versus" } },
-  { label: "Just me", hint: "single player", patch: { players: 1 } },
-  { label: "4 players", hint: "party", patch: { players: 4 } },
-  { label: "Something quick", hint: "under an hour", patch: { length: "quick" } },
-];
 
 export function Shelf({ games }: { games: ShelfGame[] }) {
   const [filters, set, reset] = useFilters();
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
   const facets = useMemo(() => buildFacets(games), [games]);
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
   const active = activeFilterCount(filters);
@@ -29,19 +21,6 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
   const qs = serializeFilters(filters);
   useScrollMemory(qs);
 
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSheetOpen(false);
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [sheetOpen]);
-
-  const isPreset = (p: (typeof PRESETS)[number]) =>
-    Object.entries(p.patch).every(([k, v]) => (Array.isArray(v) ? JSON.stringify(v) === JSON.stringify(filters[k as keyof Filters]) : filters[k as keyof Filters] === v)) && active === Object.keys(p.patch).length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-28 sm:pb-10">
@@ -74,23 +53,8 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
             Flip through ▸
           </Link>
         </div>
-        <div className="scrollbar-none -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4">
-          {PRESETS.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => (isPreset(p) ? reset() : set({ q: "", platforms: [], players: null, mode: null, tags: [], length: null, era: null, ...p.patch }))}
-              aria-pressed={isPreset(p)}
-              className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", isPreset(p) ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
-              data-testid="preset"
-            >
-              {p.label} <span className="opacity-60">· {p.hint}</span>
-            </button>
-          ))}
-          {active ? (
-            <button onClick={reset} className="min-h-10 shrink-0 rounded-full px-3 text-sm text-accent-2 hover:underline">
-              Clear
-            </button>
-          ) : null}
+        <div className="mt-2">
+          <PresetRow filters={filters} active={active} set={set} reset={reset} />
         </div>
         {/* Plays like: the top genres as one-tap toggles; the sheet has the rest. */}
         <div className="scrollbar-none -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4" data-testid="genre-row">
@@ -186,29 +150,7 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
         Flip through ▸
       </Link>
 
-      {/* Filter sheet */}
-      {sheetOpen ? (
-        <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Filters">
-          <button className="absolute inset-0 bg-black/60" aria-label="Close filters" onClick={() => setSheetOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl border-t border-border bg-bg-elev p-5 pb-safe shadow-2xl sm:inset-auto sm:right-4 sm:top-16 sm:w-[28rem] sm:rounded-2xl sm:border">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-lg font-bold">Narrow it down</h2>
-              <div className="flex gap-2">
-                {active ? (
-                  <Button variant="ghost" onClick={reset}>
-                    Clear
-                  </Button>
-                ) : null}
-                <Button variant="primary" onClick={() => setSheetOpen(false)} data-testid="close-filters">
-                  Show {result.confirmed.length}
-                  {result.maybe.length ? ` (+${result.maybe.length})` : ""}
-                </Button>
-              </div>
-            </div>
-            <FilterControls filters={filters} facets={facets} set={set} />
-          </div>
-        </div>
-      ) : null}
+      <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} />
     </div>
   );
 }

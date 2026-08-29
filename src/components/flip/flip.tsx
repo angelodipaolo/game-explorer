@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ShelfGame } from "@/lib/collection";
-import { applyFilters, activeFilterCount, serializeFilters } from "@/lib/filters";
+import { applyFilters, activeFilterCount, facets as buildFacets, serializeFilters } from "@/lib/filters";
+import { FilterSheet } from "@/components/shelf/filter-sheet";
 import { Badge, cx } from "@/components/ui";
 import { Cover } from "@/components/shelf/cover";
 import { PlayersLine, minutesLabel } from "@/components/shelf/players-line";
@@ -16,8 +17,11 @@ import { platformLabel } from "@/lib/platforms";
  * shuffle button that lands somewhere new.
  */
 export function Flip({ games }: { games: ShelfGame[] }) {
-  const [filters, set] = useFilters();
+  const [filters, set, reset] = useFilters();
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
+  const facets = useMemo(() => buildFacets(games), [games]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
   const deck = useMemo(() => [...result.confirmed, ...result.maybe], [result]);
   const confirmedCount = result.confirmed.length;
   const [index, setIndex] = useState(0);
@@ -102,10 +106,21 @@ export function Flip({ games }: { games: ShelfGame[] }) {
             </>
           ) : null}
         </div>
-        <button onClick={() => set({ sort: "shuffle", seed: Date.now() % 100000 })} className="min-h-11 rounded-xl px-2 text-sm text-muted hover:text-text" title="Reshuffle the order">
-          ⇄
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => set({ sort: "shuffle", seed: Date.now() % 100000 })} className="min-h-11 rounded-xl px-2 text-sm text-muted hover:text-text" title="Reshuffle the order" aria-label="Reshuffle">
+            ⇄
+          </button>
+          <button
+            onClick={() => setSheetOpen(true)}
+            className={cx("min-h-11 rounded-xl px-3 text-sm", active ? "bg-accent font-semibold text-accent-ink" : "border border-border bg-surface text-text")}
+            data-testid="flip-open-filters"
+            aria-expanded={sheetOpen}
+          >
+            Filters{active ? ` · ${active}` : ""}
+          </button>
+        </div>
       </header>
+      <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} showPresets />
 
       {!game ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">

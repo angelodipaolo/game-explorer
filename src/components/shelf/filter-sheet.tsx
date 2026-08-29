@@ -1,0 +1,92 @@
+"use client";
+
+import { useEffect } from "react";
+import type { Facets, Filters } from "@/lib/filters";
+import { Button, cx } from "@/components/ui";
+import { FilterControls } from "./filter-controls";
+
+/** One-tap ways in. The first is the flagship. Shared by the shelf and Flip. */
+export const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
+  { label: "2 of us, co-op", hint: "NES", patch: { platforms: ["nes"], players: 2, mode: "coop" } },
+  { label: "Head to head", hint: "versus", patch: { players: 2, mode: "versus" } },
+  { label: "Just me", hint: "single player", patch: { players: 1 } },
+  { label: "4 players", hint: "party", patch: { players: 4 } },
+  { label: "Something quick", hint: "under an hour", patch: { length: "quick" } },
+];
+
+const CLEARED: Partial<Filters> = { q: "", platforms: [], players: null, mode: null, tags: [], length: null, era: null };
+
+export function isPreset(p: (typeof PRESETS)[number], filters: Filters, active: number): boolean {
+  return Object.entries(p.patch).every(([k, v]) => (Array.isArray(v) ? JSON.stringify(v) === JSON.stringify(filters[k as keyof Filters]) : filters[k as keyof Filters] === v)) && active === Object.keys(p.patch).length;
+}
+
+export function PresetRow({ filters, active, set, reset }: { filters: Filters; active: number; set: (p: Partial<Filters>) => void; reset: () => void }) {
+  return (
+    <div className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4">
+      {PRESETS.map((p) => {
+        const on = isPreset(p, filters, active);
+        return (
+          <button
+            key={p.label}
+            onClick={() => (on ? reset() : set({ ...CLEARED, ...p.patch }))}
+            aria-pressed={on}
+            className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
+            data-testid="preset"
+          >
+            {p.label} <span className="opacity-60">· {p.hint}</span>
+          </button>
+        );
+      })}
+      {active ? (
+        <button onClick={reset} className="min-h-10 shrink-0 rounded-full px-3 text-sm text-accent-2 hover:underline">
+          Clear
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The filter sheet: bottom sheet on phones, popover on larger screens. The
+ * same one is used on the shelf and in Flip, so the two never drift.
+ */
+export function FilterSheet({ open, onClose, filters, facets, set, reset, active, confirmed, maybe, showPresets }: { open: boolean; onClose: () => void; filters: Filters; facets: Facets; set: (p: Partial<Filters>) => void; reset: () => void; active: number; confirmed: number; maybe: number; showPresets?: boolean }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Filters">
+      <button className="absolute inset-0 bg-black/60" aria-label="Close filters" onClick={onClose} />
+      <div className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl border-t border-border bg-bg-elev p-5 pb-safe shadow-2xl sm:inset-auto sm:right-4 sm:top-16 sm:w-[28rem] sm:rounded-2xl sm:border">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold">Narrow it down</h2>
+          <div className="flex gap-2">
+            {active ? (
+              <Button variant="ghost" onClick={reset}>
+                Clear
+              </Button>
+            ) : null}
+            <Button variant="primary" onClick={onClose} data-testid="close-filters">
+              Show {confirmed}
+              {maybe ? ` (+${maybe})` : ""}
+            </Button>
+          </div>
+        </div>
+        {showPresets ? (
+          <div className="mb-5">
+            <PresetRow filters={filters} active={active} set={set} reset={reset} />
+          </div>
+        ) : null}
+        <FilterControls filters={filters} facets={facets} set={set} />
+      </div>
+    </div>
+  );
+}
