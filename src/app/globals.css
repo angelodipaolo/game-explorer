@@ -1,24 +1,27 @@
 @import "tailwindcss";
 
 /*
-  Living-room-at-night palette. Dark ground so cover art carries the colour;
-  one warm accent (the glow of a CRT) for the thing you should press next.
+  NES palette on a black ground. Nintendo red is the one thing you press next;
+  surfaces are the greys of the console and cartridge plastic; the secondary
+  colours come straight from the NES hardware palette (light blue, green,
+  yellow) so the whole thing reads as the box art shelf it is.
 */
 :root {
-  --bg: #0c0d12;
-  --bg-elev: #14161e;
-  --surface: #1a1d27;
-  --surface-2: #232736;
-  --border: #2d3245;
-  --text: #f3f2ee;
-  --muted: #9a9fb3;
-  --faint: #6a6f85;
-  --accent: #ffb454;
-  --accent-ink: #1a1200;
-  --accent-2: #63d3ff;
-  --good: #5ad28c;
-  --warn: #ffb454;
-  --bad: #ff6b6b;
+  --bg: #0a0a0a;
+  --bg-elev: #141414;
+  --surface: #1c1c1e;
+  --surface-2: #2a2a2d;
+  --border: #3b3b3f;
+  --text: #f4f4f4;
+  --muted: #a8a8ac;
+  --faint: #6e6e73;
+  --accent: #e60012; /* Nintendo red */
+  --accent-ink: #ffffff;
+  --accent-2: #3cbcfc; /* NES palette light blue */
+  --good: #58d854; /* NES palette green */
+  --warn: #f8b800; /* NES palette yellow */
+  --bad: #f83800; /* NES palette orange-red */
+  --nes-grey: #8f8f8f; /* cartridge plastic */
 }
 
 @theme inline {
@@ -36,6 +39,7 @@
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  --color-nes-grey: var(--nes-grey);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-display: "Avenir Next", "Futura", ui-sans-serif, system-ui, sans-serif;
 }
@@ -81,4 +85,9 @@ body {
 }
 .animate-fade-up {
   animation: fade-up 220ms ease-out both;
+}
+
+/* The red stripe from the NES box. */
+.nes-stripe {
+  background: linear-gradient(90deg, var(--accent) 0 60%, #b8000e 60% 62%, var(--accent) 62% 100%);
 }
