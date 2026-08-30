@@ -46,6 +46,7 @@ model OwnedGame {
   facts           GameFact[]
   tags            GameTag[]
   codes           GameCode[]
+  maps            GameMap[]
   importEffects   ImportEffect[]
 
   createdAt DateTime @default(now())
@@ -289,4 +290,58 @@ model EnrichmentRun {
   summary    String?
   startedAt  DateTime @default(now())
   finishedAt DateTime?
+}
+
+/// One map image for an owned copy — an overworld, a dungeon floor, a level
+/// select — plus the markers placed on it. Coordinates are pixels of the
+/// stored image, so the same rows render at any zoom.
+///
+/// Like GameCode there is no `source` and no precedence: a map placed by hand
+/// and one written by a research skill are the same record.
+///
+/// The image bytes live on disk under data/maps/<id>.png (private, gitignored,
+/// not in the snapshot) and are served by /api/maps/:id/image.
+model GameMap {
+  id          String      @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame   @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  /// URL-safe handle unique per game: "overworld", "underworld", "moon".
+  slug        String
+  title       String
+  subtitle    String?
+  /// Pixel size of the stored image; 0 until an image is uploaded.
+  width       Int         @default(0)
+  height      Int         @default(0)
+  /// Where the image came from, when whoever added it had a link.
+  sourceUrl   String?
+  note        String?
+  /// Display order among a game's maps.
+  position    Int         @default(0)
+  markers     MapMarker[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([ownedGameId, slug])
+  @@index([ownedGameId])
+}
+
+/// A point of interest on a GameMap, in image pixels.
+model MapMarker {
+  id        String   @id @default(cuid())
+  mapId     String
+  map       GameMap  @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  name      String
+  /// town | castle | dungeon | cave | shop | boss | item | secret | travel | other
+  kind      String   @default("other")
+  x         Int
+  y         Int
+  /// One line: what you do or find there.
+  note      String?
+  sourceUrl String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([mapId, name])
+  @@index([mapId])
 }

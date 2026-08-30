@@ -44,3 +44,7 @@ npm-debug.log*
 /.playwright-mcp/
 *.png
 !public/**/*.png
+
+# map images
+/data/maps/
+/scripts/scratch/
