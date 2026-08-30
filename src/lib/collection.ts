@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { playerSummary, resolvePlayerProfile, type PlayerProfile } from "@/lib/facts";
 import { platformBySlug, platformLabel } from "@/lib/platforms";
 import { resolveTags, type EffectiveTag } from "@/lib/tags";
+import { codesFor, type GameCode } from "@/lib/codes/service";
 
 /**
  * View models the UI reads. Built server-side from local tables only, then
@@ -166,6 +167,8 @@ export type GameDetail = ShelfGame & {
   related: ShelfGame[];
   /** IGDB tags hidden on this game, so they can be shown again. */
   hiddenTags: { key: string; tag: string }[];
+  /** Passwords and cheat codes for this copy, in display order. */
+  codes: GameCode[];
 };
 
 export type SimilarGame = { igdbId: number; name: string; cover: string | null; year: number | null; ownedId: string | null; platformLabel: string | null };
@@ -220,9 +223,10 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   const allShelf = await loadShelf();
   const shelf = allShelf.find((s) => s.copies.some((c) => c.ownedId === id))!;
   const similarIds = c ? (JSON.parse(c.similarGameIds) as number[]) : [];
-  const [similarCatalog, ownedLinks] = await Promise.all([
+  const [similarCatalog, ownedLinks, codes] = await Promise.all([
     similarIds.length ? prisma.catalogGame.findMany({ where: { igdbId: { in: similarIds } } }) : Promise.resolve([]),
     prisma.ownedGame.findMany({ where: { catalogGameId: { not: null } }, select: { id: true, catalogGameId: true, platform: true, catalogGame: { select: { parentIgdbId: true } } } }),
+    codesFor(id),
   ]);
   const ownedMatches = matchSimilarToOwned(
     similarIds,
@@ -274,5 +278,6 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     similarGames,
     related,
     hiddenTags: g.tags.filter((t) => t.source === "igdb-hide").map((t) => ({ key: t.key, tag: t.tag })),
+    codes,
   };
 }

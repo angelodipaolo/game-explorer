@@ -41,13 +41,14 @@ reuses the one on port 3000.
 | `src/lib/import/` | Staged import: sessions → rows → decisions → one transactional commit → batch rollback. |
 | `src/lib/enrichment/` | Agent-written facts with citations; never overwrite manual facts. |
 | `src/lib/facts.ts` | Resolves player facts: manual > agent > IGDB tiers > derived. |
+| `src/lib/codes/` | Passwords, cheats, Game Genie / Action Replay codes per owned copy. No `source` column and no precedence — a code you typed and a code a skill wrote are one kind of record. |
 | `src/lib/tags.ts`, `src/lib/tags/` | Tags: IGDB genres/perspectives/themes ∪ manual ∪ agent − hidden. Manual beats agent; IGDB tags hide, never delete. |
 | `src/lib/collection.ts` | Shelf/game view models. `groupShelf` collapses one game on several platforms into one entry. |
 | `src/lib/filters.ts` | URL ⇄ filter state; three-valued verdicts (yes / no / unknown). |
 | `src/lib/platforms.ts` | Platform slugs, aliases, IGDB ids. Add new consoles here. |
-| `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`. |
+| `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`. |
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
-| `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection` — the agent playbooks for the write paths. |
+| `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection`, `find-codes` — the agent playbooks for the write paths. |
 | `scripts/` | Baseline/import/snapshot tooling. `scratch/` is gitignored throwaway. |
 | `data/snapshot.json` | Your collection export — gitignored, private. See `data/README.md`. |
 
@@ -70,7 +71,12 @@ reuses the one on port 3000.
 - **Imports go through the API** (`POST /api/import/sessions`), never a
   private write path. Every commit is an undoable batch.
 - **Manual facts and tags are never overwritten** by IGDB sync or agents.
+  Codes are the deliberate exception: they are a list, not a contested value,
+  so `GameCode` has no `source` and no precedence at all.
 - **`.env` holds a live Twitch secret.** Never print or commit it.
+- **A new table must be added to `scripts/db-snapshot.ts` and
+  `scripts/db-restore.ts` by hand.** Both enumerate tables explicitly; miss one
+  and every row of it vanishes on the next `npm run db:restore`.
 - Quantities are per copy; when a source export repeats rows (test runs,
   re-exports), import at quantity 1 rather than counting rows.
 

@@ -11,6 +11,7 @@ async function main() {
   const snap = JSON.parse(fs.readFileSync(file, "utf8"));
   await prisma.$transaction(async (tx) => {
     await tx.importEffect.deleteMany();
+    await tx.gameCode.deleteMany();
     await tx.gameTag.deleteMany();
     await tx.gameFact.deleteMany();
     await tx.ownedGame.deleteMany();
@@ -27,6 +28,7 @@ async function main() {
     await tx.importEffect.createMany({ data: snap.importEffects });
     await tx.gameFact.createMany({ data: snap.gameFacts });
     await tx.gameTag.createMany({ data: snap.gameTags ?? [] });
+    await tx.gameCode.createMany({ data: snap.gameCodes ?? [] });
     await tx.enrichmentRun.createMany({ data: snap.enrichmentRuns ?? [] });
   });
   console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows from ${snap.exportedAt}`);

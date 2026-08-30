@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/game/back-link";
 import { Screenshots } from "@/components/game/screenshots";
+import { CodeList } from "@/components/game/code-list";
 import { TagEditor } from "@/components/game/tag-editor";
 import { Cover } from "@/components/shelf/cover";
 import { minutesLabel } from "@/components/shelf/players-line";
@@ -83,6 +84,8 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           <TagEditor gameId={game.id} tags={game.tags} hidden={game.hiddenTags} />
         </div>
       </div>
+
+      <CodeList gameId={game.id} codes={game.codes} />
 
       {game.screenshots.length ? (
         <section className="mt-8">

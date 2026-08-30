@@ -45,6 +45,7 @@ model OwnedGame {
 
   facts           GameFact[]
   tags            GameTag[]
+  codes           GameCode[]
   importEffects   ImportEffect[]
 
   createdAt DateTime @default(now())
@@ -101,6 +102,41 @@ model GameTag {
   @@unique([ownedGameId, key, source])
   @@index([key])
   @@index([runId])
+}
+
+/// A password, cheat, or cheat-device code for one owned copy. Per copy, not
+/// per game: Game Genie codes differ by platform.
+///
+/// Unlike GameFact and GameTag there is no `source` — a code typed in by hand
+/// and a code written by a research skill are the same kind of record, written
+/// through the same API. Nothing here outranks anything else.
+model GameCode {
+  id          String    @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  /// password | cheat | game-genie | action-replay
+  kind        String
+  /// What it does, in plain words: "Start on level 5", "Infinite lives".
+  effect      String
+  /// The code itself. Null for cheats where the entry sequence IS the code.
+  code        String?
+  /// Upper-cased, non-alphanumerics stripped — dedupe key. Falls back to the
+  /// normalised `effect` when `code` is null.
+  codeKey     String
+  /// How to enter it: "At the title screen, press Up Up Down Down…".
+  howTo       String?
+  /// Where it came from, when whoever added it had a link. Never required.
+  sourceUrl   String?
+  note        String?
+  /// Tried on hardware and it works. Anyone may set it.
+  verified    Boolean   @default(false)
+  /// Display order within a kind.
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([ownedGameId, kind, codeKey])
+  @@index([ownedGameId])
 }
 
 /// Cached IGDB metadata. `detail` tells how much was fetched:
