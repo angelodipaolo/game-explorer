@@ -57,3 +57,6 @@ npm-debug.log*
 
 # journal photos
 /data/journal/
+
+# manual page scans
+/data/manuals/

@@ -15,11 +15,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
  * game's maps is showing; the first one when absent.
  */
 export default async function MapPage({ params }: { params: Promise<{ id: string }> }) {
-  const game = await loadGame((await params).id);
+  // The route id, not `game.id`: on a game owned on two platforms `loadGame`
+  // returns the *primary* copy's id (`groupShelf` sets it to `copies[0]`),
+  // while the maps it loaded are this copy's. Handing the viewer `game.id`
+  // pointed the back link and the map switcher at a different cartridge, so
+  // switching maps navigated to a copy that may not have that slug at all.
+  const { id } = await params;
+  const game = await loadGame(id);
   if (!game) notFound();
   return (
     <Suspense>
-      <MapViewer gameId={game.id} gameName={game.name} maps={game.maps} />
+      <MapViewer gameId={id} gameName={game.name} maps={game.maps} />
     </Suspense>
   );
 }

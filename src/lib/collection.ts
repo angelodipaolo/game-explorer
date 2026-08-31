@@ -4,6 +4,8 @@ import { platformBySlug, platformLabel } from "@/lib/platforms";
 import { resolveTags, type EffectiveTag } from "@/lib/tags";
 import { codesFor, type GameCode } from "@/lib/codes/service";
 import { mapsFor, type MapWithMarkers } from "@/lib/maps/service";
+import { bookmarksFor, type GameBookmark } from "@/lib/bookmarks/service";
+import { manualsFor, type ManualWithPages } from "@/lib/manuals/service";
 import { entriesFor, type JournalEntry } from "@/lib/journal/service";
 import { NEVER_PLAYED, listOpenSessions, loadQueue, playStateFor, sessionsFor, type PlaySession, type PlayState, type PlayingCopy } from "@/lib/play/service";
 
@@ -212,6 +214,10 @@ export type GameDetail = ShelfGame & {
   codes: GameCode[];
   /** Interactive maps for this copy, with markers, in display order. */
   maps: MapWithMarkers[];
+  /** Links kept for this copy — guides, wikis, longplays — grouped by kind. */
+  bookmarks: GameBookmark[];
+  /** Scanned manuals for this copy, with their pages in reading order. */
+  manuals: ManualWithPages[];
   /** Runs at this copy, newest first. Play state is derived from these, never stored. */
   sessions: PlaySession[];
   /** Notes and photos for this copy, newest first. */
@@ -272,11 +278,13 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   const allShelf = await loadShelf();
   const shelf = allShelf.find((s) => s.copies.some((c) => c.ownedId === id))!;
   const similarIds = c ? (JSON.parse(c.similarGameIds) as number[]) : [];
-  const [similarCatalog, ownedLinks, codes, maps, sessions, journal, queueEntry] = await Promise.all([
+  const [similarCatalog, ownedLinks, codes, maps, bookmarks, manuals, sessions, journal, queueEntry] = await Promise.all([
     similarIds.length ? prisma.catalogGame.findMany({ where: { igdbId: { in: similarIds } } }) : Promise.resolve([]),
     prisma.ownedGame.findMany({ where: { catalogGameId: { not: null } }, select: { id: true, catalogGameId: true, platform: true, catalogGame: { select: { parentIgdbId: true } } } }),
     codesFor(id),
     mapsFor(id),
+    bookmarksFor(id),
+    manualsFor(id),
     sessionsFor(id),
     entriesFor(id),
     prisma.queueEntry.findUnique({ where: { ownedGameId: id }, select: { id: true } }),
@@ -333,6 +341,8 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     hiddenTags: g.tags.filter((t) => t.source === "igdb-hide").map((t) => ({ key: t.key, tag: t.tag })),
     codes,
     maps,
+    bookmarks,
+    manuals,
     sessions,
     journal,
     queued: queueEntry != null,

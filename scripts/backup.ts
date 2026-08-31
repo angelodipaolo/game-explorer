@@ -3,7 +3,7 @@
  * `backups/game-explorer-<ISO8601>.tar.gz`, holding a consistent copy of
  * `prisma/dev.db`, the portable `data/snapshot.json` export, and the blob
  * directories the snapshot deliberately leaves out (`data/maps/`,
- * `data/journal/`).
+ * `data/journal/`, `data/manuals/`).
  *
  * The database is copied with SQLite's `VACUUM INTO`, never `fs.copyFile`:
  * the dev server may be mid-write and a byte copy of a live WAL database is a
@@ -25,7 +25,7 @@ import { prisma } from "../src/lib/db";
 const ROOT = path.resolve(__dirname, "..");
 
 /** Directories whose bytes are NOT in snapshot.json and must be archived as files. */
-const BLOB_DIRS = ["maps", "journal"] as const;
+const BLOB_DIRS = ["maps", "journal", "manuals"] as const;
 
 function parseArgs(argv: string[]) {
   let out = path.join(ROOT, "backups");
@@ -81,6 +81,9 @@ async function warnOnMissingBlobs(counts: Record<string, number>) {
     // Only photos that actually have bytes: a row POSTed but not yet PUT is
     // not a missing file, and warning about it would train you to ignore this.
     journal: await prisma.journalEntry.count({ where: { kind: "photo", width: { gt: 0 } } }),
+    // Same rule for manual pages: a page row POSTed but not yet PUT has no
+    // file to miss, so only pages that recorded a pixel size count.
+    manuals: await prisma.manualPage.count({ where: { width: { gt: 0 } } }),
   };
   for (const dir of BLOB_DIRS) {
     if (rows[dir] > 0 && (counts[dir] ?? 0) === 0) {

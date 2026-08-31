@@ -42,10 +42,13 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   `PlaySession` rows — there is no status column on `OwnedGame` and there must
   never be one, or replaying a game becomes unrepresentable.
 - **Agents do not write game guides.** They research and source material and
-  record it with a citation, the way `find-maps` and `find-codes` do. A prose
-  walkthrough authored by an agent has no citation granularity, which is the
-  one thing every write path here refuses to produce. A structured walkthrough
-  would have to be an ordered list of steps with a source per step.
+  record it with a citation, the way `find-maps`, `find-codes` and
+  `find-references` do. A prose walkthrough authored by an agent has no
+  citation granularity, which is the one thing every write path here refuses to
+  produce. A structured walkthrough would have to be an ordered list of steps
+  with a source per step. Bookmarks (GAMEEXPLOR-0010) are the sanctioned shape:
+  link the real GameFAQs guide with one line saying why — the bookmark *is* its
+  own citation, which is why `GameBookmark` has no `sourceUrl`.
 - **Agents never author play history or journal entries.** Codes and maps share
   one API between the owner and a research skill because they are public facts
   about a game. A playthrough is not; nobody but the owner can produce it.
@@ -70,8 +73,10 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 - Migration `20260831032612_one_open_run_per_copy` is **hand-written SQL** — a
   partial unique index Prisma's schema language cannot express, so
   `prisma migrate diff` will not regenerate it. Never squash or rewrite it away.
-- `data/journal/` holds journal photo bytes and, like `data/maps/`, is **not**
-  in `db:snapshot`. `npm run backup` is what captures both.
+- `data/journal/` (journal photos) and `data/manuals/` (manual page scans,
+  keyed by `ManualPage` id) hold bytes that, like `data/maps/`, are **not** in
+  `db:snapshot`. `npm run backup` is what captures all three — a new blob
+  directory must be added to `BLOB_DIRS` in `scripts/backup.ts`.
 - Any source database (e.g. `game-manage`) is read read-only; never write to it.
 
 ## Secrets

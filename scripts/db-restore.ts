@@ -13,6 +13,9 @@ async function main() {
     await tx.importEffect.deleteMany();
     await tx.mapMarker.deleteMany();
     await tx.gameMap.deleteMany();
+    await tx.manualPage.deleteMany();
+    await tx.gameManual.deleteMany();
+    await tx.gameBookmark.deleteMany();
     await tx.gameCode.deleteMany();
     await tx.gameTag.deleteMany();
     await tx.gameFact.deleteMany();
@@ -36,13 +39,17 @@ async function main() {
     await tx.gameCode.createMany({ data: snap.gameCodes ?? [] });
     await tx.gameMap.createMany({ data: snap.gameMaps ?? [] });
     await tx.mapMarker.createMany({ data: snap.mapMarkers ?? [] });
+    await tx.gameBookmark.createMany({ data: snap.gameBookmarks ?? [] });
+    // Manuals before the pages that point at them.
+    await tx.gameManual.createMany({ data: snap.gameManuals ?? [] });
+    await tx.manualPage.createMany({ data: snap.manualPages ?? [] });
     // Sessions before the entries that point at them; the queue last.
     await tx.playSession.createMany({ data: snap.playSessions ?? [] });
     await tx.journalEntry.createMany({ data: snap.journalEntries ?? [] });
     await tx.queueEntry.createMany({ data: snap.queueEntries ?? [] });
     await tx.enrichmentRun.createMany({ data: snap.enrichmentRuns ?? [] });
   });
-  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued from ${snap.exportedAt}`);
+  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued, ${(snap.gameBookmarks ?? []).length} bookmarks, ${(snap.manualPages ?? []).length} manual pages from ${snap.exportedAt}`);
 }
 
 main().finally(() => prisma.$disconnect());

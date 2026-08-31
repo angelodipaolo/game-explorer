@@ -5,6 +5,8 @@ import { BackLink } from "@/components/game/back-link";
 import { Screenshots } from "@/components/game/screenshots";
 import { CodeList } from "@/components/game/code-list";
 import { MapCards } from "@/components/game/map-cards";
+import { ManualCards } from "@/components/game/manual-cards";
+import { Bookmarks } from "@/components/game/bookmarks";
 import { Journal } from "@/components/game/journal";
 import { PlayHistory } from "@/components/game/play-history";
 import { TagEditor } from "@/components/game/tag-editor";
@@ -106,6 +108,12 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
       <MapCards gameId={id} maps={game.maps} />
 
       <CodeList gameId={id} codes={game.codes} />
+
+      <ManualCards gameId={id} manuals={game.manuals} />
+
+      {/* Reference material sits with the codes and maps: it is the same kind
+          of thing — impersonal, the same for every owner, and agent-fillable. */}
+      <Bookmarks gameId={id} bookmarks={game.bookmarks} />
 
       {game.screenshots.length ? (
         <section className="mt-8">

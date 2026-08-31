@@ -46,20 +46,23 @@ reuses the one on port 3000.
 | `src/lib/codes/` | Passwords, cheats, Game Genie / Action Replay codes per owned copy. No `source` column and no precedence — a code you typed and a code a skill wrote are one kind of record. |
 | `src/lib/images/` | Disk cache for IGDB art: `.cache/igdb-images/<size>/<id>.jpg`, served by `/api/img/:size/:imageId`, which backfills on a miss and 307s to the CDN when offline. The only place `images.igdb.com` is named. |
 | `src/lib/maps/` | Interactive maps: `GameMap` (image on disk under `data/maps/`, served by `/api/maps/:id/image`) + `MapMarker` in image pixels. Same no-`source`, no-precedence stance as codes. Viewer is `src/components/maps/map-viewer.tsx`. |
+| `src/lib/bookmarks/` | Reference links per owned copy — guide / wiki / video / longplay / article, each with a required `why` line. Same no-`source`, no-precedence stance as codes; the bookmark **is** its own citation, so there is no `sourceUrl`. Section is `src/components/game/bookmarks.tsx`. |
+| `src/lib/manuals/` | Scanned manuals: `GameManual` + `ManualPage` (dense `position` 0..n-1), page images on disk under `data/manuals/`, served by `/api/manual-pages/:pageId/image`. Viewer is `src/components/manuals/manual-viewer.tsx`. |
 | `src/lib/tags.ts`, `src/lib/tags/` | Tags: IGDB genres/perspectives/themes ∪ manual ∪ agent − hidden. Manual beats agent; IGDB tags hide, never delete. |
 | `src/lib/play/` | Play history and the one ordered "up next" queue. `PlaySession` rows are the log play state is derived from; `startSession` dequeues in the same transaction. No agent write path. |
 | `src/lib/journal/` | Dated notes and photos per owned copy (`kind: note \| photo`), optionally tied to the run they were written during. Photos live in `data/journal/`, served by `/api/journal/:entryId/image`. No agent write path. |
-| `src/lib/media/` | `createImageStore(dir)` + `sniffImage` — the on-disk blob store behind `data/maps/` and `data/journal/`. |
+| `src/lib/media/` | `createImageStore(dir)` + `sniffImage` — the on-disk blob store behind `data/maps/`, `data/journal/` and `data/manuals/`. Reuse it; never add a fourth. |
 | `src/lib/collection.ts` | Shelf/game view models. `groupShelf` collapses one game on several platforms into one entry (and rolls play state up across copies). `loadPlaying` is the `/playing` view model. |
 | `src/lib/filters.ts` | URL ⇄ filter state; three-valued verdicts (yes / no / unknown). `play` is the one two-valued filter — it reads your own log, not IGDB, so "never played" is a fact and not a gap. |
 | `src/lib/platforms.ts` | Platform slugs, aliases, IGDB ids. Add new consoles here. |
-| `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`. |
+| `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`, `/api/games/[id]/bookmarks`, `/api/bookmarks/*`, `/game/[id]/manual`, `/api/games/[id]/manuals`, `/api/manuals/*`, `/api/manual-pages/*`. |
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
 | `src/components/game/play-history.tsx`, `journal.tsx` | The two write surfaces on the game page: runs (start / finish / past runs / queue) and the journal feed with its client-side photo downscale. |
-| `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection`, `find-codes`, `find-maps` — the agent playbooks for the write paths. |
+| `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection`, `find-codes`, `find-maps`, `find-references` — the agent playbooks for the write paths. |
 | `scripts/` | Baseline/import/snapshot tooling. `scratch/` is gitignored throwaway. |
 | `data/snapshot.json` | Your collection export — gitignored, private. See `data/README.md`. |
 | `data/maps/` | Map images, one file per `GameMap` id. Gitignored, **not in the snapshot** — back it up with it. |
+| `data/manuals/` | Manual page scans, one file per `ManualPage` id (`MANUALS_DIR` overrides). Gitignored, **not in the snapshot** — same stance as `data/maps/`. |
 
 ## Invariants (the ones that bite silently)
 
@@ -80,8 +83,9 @@ reuses the one on port 3000.
 - **Imports go through the API** (`POST /api/import/sessions`), never a
   private write path. Every commit is an undoable batch.
 - **Manual facts and tags are never overwritten** by IGDB sync or agents.
-  Codes and maps are the deliberate exception: they are lists, not contested
-  values, so `GameCode`, `GameMap` and `MapMarker` have no `source` and no
+  Codes, maps, bookmarks and manuals are the deliberate exception: they are
+  lists, not contested values, so `GameCode`, `GameMap`, `MapMarker`,
+  `GameBookmark`, `GameManual` and `ManualPage` have no `source` and no
   precedence at all.
 - **`.env` holds a live Twitch secret.** Never print or commit it.
 - **Play state is derived from the `PlaySession` log, never stored.** There is
@@ -89,16 +93,29 @@ reuses the one on port 3000.
   represent playing a game twice. `endedAt is null` is the only definition of
   "playing now", and the `play` filter is two-valued because of it: no rows
   means never played, which is a fact and not a gap.
-- **`data/journal/` is outside the snapshot**, like `data/maps/`: the snapshot
-  carries the entries, the files carry the pixels. `npm run backup` archives
-  both. Photos are downscaled in the browser (2400px, JPEG q0.85) before upload.
+- **`data/journal/` and `data/manuals/` are outside the snapshot**, like
+  `data/maps/`: the snapshot carries the rows, the files carry the pixels.
+  `npm run backup` archives all three. Journal photos are downscaled in the
+  browser (2400px, JPEG q0.85) before upload. Note the one gap all three share:
+  the service delete paths unlink the files, but a **SQL cascade does not** — an
+  import rollback that removes an `OwnedGame` takes the rows and leaves the
+  bytes. Orphaned files are harmless, just never reclaimed.
+- **Agents research and source reference material; they never author it.**
+  `find-references` links the real guide and writes one line saying why — a
+  bookmark is its own citation. An agent-written prose walkthrough has no
+  citation granularity and stays out; see AGENTS.md.
 - **Migration `20260831032612_one_open_run_per_copy` is hand-written SQL.** It
   is a partial unique index, which Prisma cannot express — `prisma migrate
   diff` will not regenerate it, and a `db push`-style test database would
   silently lack it.
 - **A new table must be added to `scripts/db-snapshot.ts` and
   `scripts/db-restore.ts` by hand.** Both enumerate tables explicitly; miss one
-  and every row of it vanishes on the next `npm run db:restore`.
+  and every row of it vanishes on the next `npm run db:restore`. The list today:
+  catalog, import session/row/batch/effect, `OwnedGame`, `GameFact`, `GameTag`,
+  `GameCode`, `GameMap`, `MapMarker`, `GameBookmark`, `GameManual`,
+  `ManualPage`, `PlaySession`, `JournalEntry`, `QueueEntry`, `EnrichmentRun`.
+  A table holding blobs also needs its directory in `BLOB_DIRS` in
+  `scripts/backup.ts`.
 - Quantities are per copy; when a source export repeats rows (test runs,
   re-exports), import at quantity 1 rather than counting rows.
 
