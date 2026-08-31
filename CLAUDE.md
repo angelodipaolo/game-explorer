@@ -2,8 +2,33 @@
 
 A local-first web app for a physical game collection: browse it as cover
 art, narrow it to "2 of us, co-op, NES", flip through the matches across a
-room, open a game and decide. Runs on one Mac, reachable by phones on the wifi.
-No hosting, no accounts.
+room, open a game and decide. It runs on the owner's Mac mini and is reached
+from phones on the wifi and, through a Cloudflare Tunnel, from anywhere:
+public read, owner write, one password and no accounts (GAMEEXPLOR-0002).
+
+## Where the collection lives — read this before writing any data
+
+**The Mac mini is the source of truth.** The real collection — games, facts,
+tags, codes, maps, bookmarks, manuals, series, play history, journal, and the
+image files behind them — lives on the mini and is reached over HTTP at
+`$GAME_EXPLORER_URL`. The `prisma/dev.db` in *this* checkout is a **disposable
+dev copy**: nothing written to it reaches the collection, and it is overwritten
+whenever someone refreshes it from the mini's backup.
+
+- **Curation and enrichment always go to `$GAME_EXPLORER_URL` through the
+  API** — adding a game, a code, a map, a tag, a bookmark, a manual page, a
+  series. Use the skills in `.claude/skills/`. Never write collection data to
+  the local database, never through Prisma directly, and never by pointing a
+  skill at `localhost`.
+- **If `GAME_EXPLORER_URL` is unset, stop and ask.** Do not fall back to
+  localhost. Writing to the wrong collection looks exactly like success and
+  stays invisible until the owner notices the game never appeared on their
+  shelf.
+- **The local copy is for building and debugging the app**: `npm run dev`,
+  tests, migrations, throwaway seed rows. Write freely there — just never call
+  it the collection.
+
+Local is for code. The mini is for data.
 
 Read `AGENTS.md` too — it holds the architecture constraints and the block
 Next.js maintains itself. If this checkout is managed by Sabin (`sabin context --json`), the ticket
@@ -20,11 +45,11 @@ Next 16 differs from older Next: async `params`/`searchParams`, `proxy.ts` not
 ## Commands
 
 ```bash
-npm run dev            # http://localhost:3000, bound to 0.0.0.0 for the LAN
+npm run dev            # http://localhost:3000 — the local DEV COPY, never the collection
 npm run check          # lint + typecheck + unit tests + build — run before every commit
 npm run test:e2e       # Playwright, desktop + phone; reuses a running dev server on :3000
-npm run db:restore     # rebuild prisma/dev.db from data/snapshot.json
-npm run db:snapshot    # export the DB to data/snapshot.json (commit it after imports)
+npm run db:restore     # rebuild the local dev prisma/dev.db from data/snapshot.json
+npm run db:snapshot    # export the local dev DB to data/snapshot.json
 npm run catalog:sync   # refresh every linked catalog entry from IGDB
 scripts/deploy.sh      # on the Mac mini only: pull → build → restart the service (ops/README.md)
 npm run backup         # one tar.gz of prisma/dev.db + data/ into backups/ (-- --out <dir>)
@@ -72,6 +97,12 @@ reuses the one on port 3000.
 
 ## Invariants (the ones that bite silently)
 
+- **Collection writes go to the mini, never to the local database.** The shelf
+  the owner sees lives at `$GAME_EXPLORER_URL`; `prisma/dev.db` here is a
+  disposable copy. An agent that curates into the local copy gets a clean 200
+  and changes nothing the owner will ever see — the failure is silent by
+  construction, which is why the rule is absolute. Unset `GAME_EXPLORER_URL`
+  means stop and ask, not fall back to localhost.
 - **Every IGDB game query carries a `game_type` filter.** Default is
   `(0,3,8,9,10,11)`; mod/DLC/pack types throw. See `decisions.md` for why
   `= 0` alone was wrong.

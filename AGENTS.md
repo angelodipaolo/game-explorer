@@ -33,6 +33,14 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   app (`src/lib/auth.ts`, enforced in `src/proxy.ts`) rather than at the edge,
   because the same token has to work for the skills and a future iOS client.
   Ops runbook: `ops/README.md`.
+- **That mini is the source of truth for collection data, and a checkout's
+  `prisma/dev.db` is a disposable dev copy.** Curation and enrichment — games,
+  facts, tags, codes, maps, bookmarks, manuals, series — always go to
+  `$GAME_EXPLORER_URL` through the API, never to a local database and never
+  through Prisma directly. If `GAME_EXPLORER_URL` is unset, stop and ask rather
+  than falling back to `localhost`: writing to the wrong collection returns a
+  clean 200 and silently changes nothing the owner will see. The local copy is
+  for building and debugging the app. Local is for code, the mini is for data.
 - **No cost, price, ROI, or resale tracking.** That is `game-manage`'s job.
   Carve-out, GAMEEXPLOR-0008: outbound price-lookup links are in — the game
   page links out to a PriceCharting and eBay search for the copy you own
