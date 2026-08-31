@@ -11,7 +11,7 @@ import { PlatformSidebar } from "./platform-sidebar";
 import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
 
 export function Shelf({ games }: { games: ShelfGame[] }) {
-  const [filters, set, reset] = useFilters();
+  const [filters, set, reset] = useFilters({ scrollTopOnChange: true });
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [platformsOpen, setPlatformsOpen] = useState(false);

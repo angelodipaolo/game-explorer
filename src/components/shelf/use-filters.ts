@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_FILTERS, parseFilters, serializeFilters, type Filters } from "@/lib/filters";
 
 const VIEW_KEY = "shelf:view";
+const SCROLL_PREFIX = "shelf:scroll:";
 
 /**
  * Filter state is the URL. `set` merges a patch and replaces the URL without
@@ -21,7 +22,7 @@ const VIEW_KEY = "shelf:view";
  */
 export function useScrollMemory(key: string) {
   useEffect(() => {
-    const storageKey = `shelf:scroll:${key}`;
+    const storageKey = `${SCROLL_PREFIX}${key}`;
     let ready = false; // don't record until any restore has settled, or the mount-time scroll-to-top overwrites it
     let raf = 0;
     const arm = () => {
@@ -58,7 +59,12 @@ export function useScrollMemory(key: string) {
   }, [key]);
 }
 
-export function useFilters(): [Filters, (patch: Partial<Filters>) => void, () => void] {
+/**
+ * `scrollTopOnChange` is the shelf's: a filter change there is a new set of
+ * games and starts at the top. Flip has one card and no scroll memory, so it
+ * leaves it off and nothing moves.
+ */
+export function useFilters({ scrollTopOnChange = false }: { scrollTopOnChange?: boolean } = {}): [Filters, (patch: Partial<Filters>) => void, () => void] {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -87,18 +93,55 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void, () =>
   // Native replaceState: Next keeps useSearchParams in sync with it, and unlike
   // router.replace it does not re-render the server page (which would re-send
   // the whole collection on every keystroke).
+  const apply = useCallback(
+    (current: Filters, next: Filters) => {
+      // Round-trip through the parser so one canonical string is the URL, the
+      // comparison, and the scroll key. useScrollMemory is keyed off parsed
+      // params, and the parser trims `q` while the search box does not — an
+      // untrimmed key would be dead and its stale position would undo the jump.
+      const normalized = parseFilters(new URLSearchParams(serializeFilters(next)));
+      const qs = serializeFilters(normalized);
+      window.history.replaceState(null, "", `${pathname}${qs}`);
+      if (scrollTopOnChange && isNewResultSet(current, normalized)) jumpToTop(qs);
+    },
+    [pathname, scrollTopOnChange],
+  );
   const set = useCallback(
     (patch: Partial<Filters>) => {
-      const next = { ...parseFilters(new URLSearchParams(window.location.search)), ...patch };
-      window.history.replaceState(null, "", `${pathname}${serializeFilters(next)}`);
+      const current = parseFilters(new URLSearchParams(window.location.search));
+      apply(current, { ...current, ...patch });
     },
-    [pathname],
+    [apply],
   );
   const reset = useCallback(() => {
-    const view = parseFilters(new URLSearchParams(window.location.search)).view;
-    window.history.replaceState(null, "", `${pathname}${serializeFilters({ ...DEFAULT_FILTERS, view })}`);
-  }, [pathname]);
+    const current = parseFilters(new URLSearchParams(window.location.search));
+    apply(current, { ...DEFAULT_FILTERS, view: current.view });
+  }, [apply]);
   return [filters, set, reset];
+}
+
+/**
+ * A filter change is a new set of games, so it starts at the top — the user is
+ * looking at something else now, not the same list further down. Only a real
+ * change counts: view (covers/list) shows the same games, and a patch that
+ * changes nothing (re-picking the platform already picked) must not move the
+ * page. Deliberately NOT an effect on the URL — back from a game page has to
+ * land where it left, and scroll restoration owns that path.
+ */
+function isNewResultSet(current: Filters, next: Filters): boolean {
+  return serializeFilters({ ...current, view: "grid" }) !== serializeFilters({ ...next, view: "grid" });
+}
+
+function jumpToTop(qs: string) {
+  // Zero the new URL's remembered position first, or useScrollMemory would put
+  // back where this filter was last left and undo the jump. The scroll itself
+  // is also seen by the outgoing (still armed) listener, so the URL being left
+  // behind records 0 too — which is what we want: coming back to it is another
+  // filter change, and that starts at the top as well.
+  try {
+    window.sessionStorage.setItem(`${SCROLL_PREFIX}${qs}`, "0");
+  } catch {}
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
 /** Local text that writes to the URL a beat after typing stops, so the input never waits on anything. */

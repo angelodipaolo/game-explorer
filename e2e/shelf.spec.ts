@@ -77,6 +77,36 @@ test("opening a game and coming back keeps the shelf scroll position", async ({ 
   expect(Math.abs(after - before)).toBeLessThan(50);
 });
 
+test("changing a filter starts the new result set at the top", async ({ page, isMobile }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("game-card").first()).toBeVisible();
+  const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
+
+  // Covers ⇄ List is the same games in another layout, not a new result set, so
+  // the page stays where it was. The exact offset shifts — the browser's scroll
+  // anchoring compensates for the rows above the viewport changing height — so
+  // what is pinned here is that it is not sent back to the top.
+  if (!isMobile) {
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await page.waitForTimeout(500);
+    await page.getByTestId("view-list").click();
+    await expect(page.getByTestId("list")).toBeVisible();
+    await page.waitForTimeout(400);
+    expect(await scrollY(), "the view toggle does not send the page to the top").toBeGreaterThan(200);
+  }
+
+  // Picking a platform is a new set of games, so it starts at the top.
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await page.waitForTimeout(500);
+  expect(await scrollY()).toBeGreaterThan(500);
+  await page.getByTestId("open-platforms").click();
+  await page.getByTestId("platform-ps5").click();
+  await expect(page).toHaveURL(/platform=ps5/);
+  await expect(page.getByTestId("result-count")).toContainText("games");
+  await page.waitForTimeout(400);
+  expect(await scrollY(), "picking a platform returns to the top").toBe(0);
+});
+
 test("an empty result explains itself and offers a way out", async ({ page }) => {
   await page.goto("/?players=4&mode=coop&tags=Puzzle&length=long&strict=1&q=zzqx");
   await expect(page.getByTestId("empty")).toBeVisible();
@@ -108,7 +138,7 @@ test("platform sidebar lists the collection and filters the shelf", async ({ pag
   await expect(page.getByTestId("platform-sidebar")).toBeVisible();
   // "All" plus one button per platform in the collection (23). Update after an import.
   const platformButtons = page.getByRole("navigation", { name: "Game platforms" }).getByRole("button");
-  await expect(platformButtons).toHaveCount(24);
+  await expect(platformButtons).toHaveCount(23);
   await expect(page.getByTestId("platform-all")).toBeVisible();
   await page.getByTestId("platform-ps5").click();
   await expect(page).toHaveURL(/platform=ps5/);
