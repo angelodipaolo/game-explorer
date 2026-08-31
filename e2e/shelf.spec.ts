@@ -93,6 +93,22 @@ test("filters open as a sheet and apply instantly", async ({ page }) => {
   await expect(page.getByTestId("result-count")).toContainText("games");
 });
 
+test("platform sidebar lists the collection and filters the shelf", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("open-platforms").click();
+  await expect(page.getByTestId("platform-sidebar")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Game platforms" }).getByRole("button")).toHaveCount(18);
+  await page.getByTestId("platform-ps5").click();
+  await expect(page).toHaveURL(/platform=ps5/);
+  await expect(page.getByTestId("result-count")).toContainText("games");
+
+  await page.getByTestId("open-platforms").click();
+  await expect(page.getByTestId("platform-ps5")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("platform-all").click();
+  await expect(page).not.toHaveURL(/platform=/);
+  await expect(page.getByTestId("result-count")).toContainText(/All \d+ games/);
+});
+
 test("tags can be added by hand and are filterable at once", async ({ page }) => {
   await page.goto("/?q=Contra&platform=nes");
   await page.getByTestId("game-card").first().click();

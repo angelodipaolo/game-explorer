@@ -87,6 +87,19 @@ body {
   animation: fade-up 220ms ease-out both;
 }
 
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.platform-drawer {
+  animation: drawer-in 180ms steps(6, end) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-drawer,
+  .animate-fade-up { animation: none; }
+}
+
 /* The red stripe from the NES box. */
 .nes-stripe {
   background: linear-gradient(90deg, var(--accent) 0 60%, #b8000e 60% 62%, var(--accent) 62% 100%);
