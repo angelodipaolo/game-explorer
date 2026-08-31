@@ -92,7 +92,11 @@ test("start a run, write a note on it, finish the run", async ({ page }, testInf
   await expect(page.getByTestId("open-run")).toBeVisible();
   await expect(page.getByTestId("open-run")).toContainText("Playing since");
 
-  // The composer sits behind a "＋ Add a note" button now (GAMEEXPLOR-0023).
+  // The composer sits behind a "＋ Add a note" button now (GAMEEXPLOR-0023),
+  // and the Journal section itself collapses at rest when it is empty (round
+  // 2, item E) — a never-played game starts with none, so open it first.
+  const journalToggle = page.getByTestId("section-toggle-journal");
+  if ((await journalToggle.getAttribute("aria-expanded")) !== "true") await journalToggle.click();
   await page.getByTestId("journal-add-note").click();
 
   // While a run is open, what you write defaults to it — visibly, as a chip.

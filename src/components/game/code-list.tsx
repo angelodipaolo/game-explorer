@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { GameCode } from "@prisma/client";
 import { CODE_KINDS, KIND_LABELS, KIND_OPTIONS, MAX_CODES_PER_GAME, kindRank, type CodeKind } from "@/lib/codes/kinds";
 import { cx } from "@/components/ui";
-import { Section } from "@/components/game/section";
+import { Section, openSection } from "@/components/game/section";
 
 /**
  * Codes on a game page: passwords, cheats, Game Genie. Collapsed by default
@@ -62,10 +62,29 @@ export function CodeList({ gameId, codes, canEdit, forceOpen }: { gameId: string
       </button>
     ) : null;
 
+  // A section with nothing in it stays a single quiet row at rest — the "+
+  // code" affordance rides in the header instead of costing a whole open
+  // drawer for onboarding copy nobody reads twice (GAMEEXPLOR-0023 round 2,
+  // item E). Jumps straight into the form rather than just opening on an
+  // empty body.
+  const emptyAddButton =
+    !codes.length && canEdit ? (
+      <button
+        onClick={() => {
+          openSection("codes");
+          setAdding(true);
+        }}
+        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        data-testid="add-code-empty"
+      >
+        + code
+      </button>
+    ) : null;
+
   return (
     // Capped width: a code and its copy button should stay in one glance rather
     // than sit at opposite ends of a wide screen.
-    <Section id="codes" title="Codes & passwords" count={codes.length} testId="code-list" collapsible defaultOpen={false} storageKey="codes" forceOpen={forceOpen} action={editButton} className="max-w-3xl">
+    <Section id="codes" title="Codes & passwords" count={codes.length} testId="code-list" collapsible defaultOpen={false} storageKey="codes" forceOpen={forceOpen} action={editButton} emptyAction={emptyAddButton} className="max-w-3xl">
       {groups.map((g) => (
         <KindGroup
           key={g.kind}

@@ -16,7 +16,9 @@ export type NavSection = { id: string; label: string };
  * DOM is what an `IntersectionObserver` watches, rather than a scroll
  * listener, to decide when the header has scrolled out of view. The bar
  * itself only mounts once that happens, `position: sticky` right under
- * `SiteHeader` (44px, same as its own height, so they never overlap).
+ * `SiteHeader` — that header is 48px (a 4px stripe plus its 44px row), so
+ * this sticks at `top-12`, not `top-11`, or it tucks a few px under it
+ * (GAMEEXPLOR-0023 round 2, item H).
  */
 export function SectionNav({ sections }: { sections: NavSection[] }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -42,10 +44,11 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
         const onScreen = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (onScreen[0]) setActive(onScreen[0].target.id);
       },
-      // Top offset clears the site header (44px) plus this bar (44px); the
-      // generous bottom margin means a section only has to reach the upper
-      // part of the screen to count as "in view", not fill it.
-      { rootMargin: "-92px 0px -65% 0px", threshold: 0 },
+      // Top offset clears the site header (48px: a 4px stripe plus its 44px
+      // row) plus this bar's own height (~48px); the generous bottom margin
+      // means a section only has to reach the upper part of the screen to
+      // count as "in view", not fill it.
+      { rootMargin: "-96px 0px -65% 0px", threshold: 0 },
     );
     targets.forEach((t) => obs.observe(t));
     return () => obs.disconnect();
@@ -55,7 +58,7 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
     <>
       <div ref={sentinelRef} aria-hidden />
       {pastHeader ? (
-        <div className="sticky top-11 z-20 -mx-4 border-b border-border/70 bg-bg/90 px-4 backdrop-blur" data-testid="section-nav">
+        <div className="sticky top-12 z-20 -mx-4 border-b border-border/70 bg-bg/90 px-4 backdrop-blur" data-testid="section-nav">
           <div className="scrollbar-none flex gap-1.5 overflow-x-auto py-1.5">
             {sections.map((s) => (
               <button

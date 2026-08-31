@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, PlaySession } from "@prisma/client";
 import { apiError, cx, day, dateInput } from "@/components/ui";
-import { Section } from "@/components/game/section";
+import { Section, openSection } from "@/components/game/section";
 
 /**
  * The game journal: dated notes and photos about this copy, newest first.
@@ -180,8 +180,36 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
       </button>
     ) : null;
 
+  // Nothing written yet stays a quiet closed row, "＋ Add a note" in the
+  // header instead of an open drawer of onboarding copy (GAMEEXPLOR-0023
+  // round 2, item E) — jumps straight to the composer.
+  const emptyAddButton =
+    !entries.length && canEdit ? (
+      <button
+        onClick={() => {
+          openSection("journal");
+          setComposerOpen(true);
+        }}
+        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        data-testid="journal-add-note-empty"
+      >
+        ＋ Add a note
+      </button>
+    ) : null;
+
   return (
-    <Section id="journal" title="Journal" count={entries.length} testId="journal" collapsible defaultOpen storageKey="journal" action={editButton} className="max-w-3xl">
+    <Section
+      id="journal"
+      title="Journal"
+      count={entries.length}
+      testId="journal"
+      collapsible
+      defaultOpen={entries.length > 0}
+      storageKey="journal"
+      action={editButton}
+      emptyAction={emptyAddButton}
+      className="max-w-3xl"
+    >
       {canEdit ? (
         composerOpen ? (
           <form

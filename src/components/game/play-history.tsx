@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { PlaySession } from "@prisma/client";
 import { apiError, cx, day, dateInput } from "@/components/ui";
-import { Section } from "@/components/game/section";
+import { Section, openSection } from "@/components/game/section";
 
 /**
  * Past runs for one owned copy: the log this game's play state is derived
@@ -59,8 +59,37 @@ export function PlayHistory({ gameId, sessions, canEdit }: { gameId: string; ses
       </button>
     ) : null;
 
+  // Nothing to read here yet — the CTA lives above the fold now — so this
+  // stays a quiet closed row, "+ a run that already happened" in the header
+  // instead of an open drawer of onboarding copy (GAMEEXPLOR-0023 round 2,
+  // item E).
+  const emptyAddButton =
+    !closed.length && canEdit ? (
+      <button
+        onClick={() => {
+          openSection("play");
+          setPastOpen(true);
+        }}
+        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        data-testid="add-past-run-empty"
+      >
+        + a run that already happened
+      </button>
+    ) : null;
+
   return (
-    <Section id="play" title="Play history" count={sessions.length} testId="play-history" collapsible defaultOpen storageKey="play" action={editButton} className="max-w-3xl">
+    <Section
+      id="play"
+      title="Play history"
+      count={sessions.length}
+      testId="play-history"
+      collapsible
+      defaultOpen={closed.length > 0}
+      storageKey="play"
+      action={editButton}
+      emptyAction={emptyAddButton}
+      className="max-w-3xl"
+    >
       {closed.length ? (
         <ul className="flex flex-col gap-2">
           {closed.map((s) =>

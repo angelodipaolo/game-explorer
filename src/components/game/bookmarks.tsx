@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { GameBookmark } from "@prisma/client";
 import { BOOKMARK_KINDS, KIND_LABELS, KIND_OPTIONS, MAX_BOOKMARKS_PER_GAME, hostOf, kindRank, type BookmarkKind } from "@/lib/bookmarks/kinds";
 import { cx } from "@/components/ui";
-import { Section } from "@/components/game/section";
+import { Section, openSection } from "@/components/game/section";
 
 /**
  * Reference links on a game page, grouped by kind. Read-only until you press
@@ -63,10 +63,37 @@ export function Bookmarks({ gameId, bookmarks, canEdit }: { gameId: string; book
       </button>
     ) : null;
 
+  // Empty stays a single quiet row at rest, "+ link" in the header rather
+  // than an open drawer of onboarding copy (GAMEEXPLOR-0023 round 2, item E).
+  const emptyAddButton =
+    !bookmarks.length && canEdit ? (
+      <button
+        onClick={() => {
+          openSection("guides");
+          setAdding(true);
+        }}
+        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        data-testid="add-bookmark-empty"
+      >
+        + link
+      </button>
+    ) : null;
+
   return (
     // Capped width: a title and its why-line should read as one paragraph
     // rather than stretch across a desktop monitor.
-    <Section id="guides" title="Guides & links" count={bookmarks.length} testId="bookmarks" collapsible defaultOpen={bookmarks.length <= 3} storageKey="guides" action={editButton} className="max-w-3xl">
+    <Section
+      id="guides"
+      title="Guides & links"
+      count={bookmarks.length}
+      testId="bookmarks"
+      collapsible
+      defaultOpen={bookmarks.length > 0 && bookmarks.length <= 3}
+      storageKey="guides"
+      action={editButton}
+      emptyAction={emptyAddButton}
+      className="max-w-3xl"
+    >
       {groups.map((g) => (
         <div key={g.kind} className="mb-4">
           <h3 className="mb-2 font-display text-sm font-bold text-muted">{KIND_LABELS[g.kind as BookmarkKind] ?? g.kind}</h3>

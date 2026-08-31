@@ -71,6 +71,7 @@ export function Section({
   defaultOpen = true,
   storageKey,
   action,
+  emptyAction,
   forceOpen = false,
   testId,
   className,
@@ -83,6 +84,14 @@ export function Section({
   defaultOpen?: boolean;
   storageKey?: string;
   action?: ReactNode;
+  /**
+   * Rendered in the header instead of `action`, and only while the section is
+   * *closed* — the "+ code" / "+ link" affordance a section with nothing in
+   * it shows so the resting, collapsed row still has something to tap
+   * (GAMEEXPLOR-0023 round 2, item E). `action` (Edit) only makes sense once
+   * there is something open to edit, so the two are never shown at once.
+   */
+  emptyAction?: ReactNode;
   forceOpen?: boolean;
   testId?: string;
   className?: string;
@@ -127,7 +136,7 @@ export function Section({
   }
 
   return (
-    <section id={id} className={cx("mt-8 scroll-mt-20", className)} data-testid={testId}>
+    <section id={id} className={cx("mt-8 border-t border-border/60 pt-5 scroll-mt-20", className)} data-testid={testId}>
       <div
         role={collapsible ? "button" : undefined}
         tabIndex={collapsible ? 0 : undefined}
@@ -143,21 +152,24 @@ export function Section({
               }
             : undefined
         }
-        className={cx("mb-3 flex min-h-11 items-center gap-2", collapsible && "cursor-pointer select-none")}
+        className={cx(
+          "mb-3 flex min-h-11 items-center gap-2",
+          collapsible && "-mx-2 cursor-pointer select-none rounded-lg px-2 transition-colors hover:bg-surface-2/60 active:bg-surface-2",
+        )}
         data-testid={`section-toggle-${id}`}
       >
         {collapsible ? (
-          <span aria-hidden className={cx("inline-block shrink-0 text-faint transition-transform", open && "rotate-90")}>
+          <span aria-hidden className={cx("inline-block shrink-0 text-sm text-muted transition-transform duration-200", open && "rotate-90")}>
             ▸
           </span>
         ) : null}
-        <h2 className="font-display text-base font-bold">
+        <h2 className="font-display text-lg font-bold">
           {title}
-          {count ? <span className="ml-1 font-normal text-muted">· {count}</span> : null}
+          {count ? <span className="ml-1 text-base font-normal text-muted">· {count}</span> : null}
         </h2>
-        {action ? (
+        {(open ? action : emptyAction) ? (
           <span className="ml-auto" onClick={(e) => e.stopPropagation()}>
-            {action}
+            {open ? action : emptyAction}
           </span>
         ) : null}
       </div>

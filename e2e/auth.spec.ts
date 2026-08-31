@@ -139,12 +139,18 @@ test("signing in brings the edit controls back, on this phone and this desktop",
 
   await openContra(page);
   await expect(page.getByTestId("edit-tags")).toBeVisible();
-  // Codes and the journal composer are behind a collapsed section / a "＋ Add
-  // a note" button now (GAMEEXPLOR-0023) — open them the way a person would.
+  // Codes and Journal are collapsed sections when there is nothing in them
+  // yet (GAMEEXPLOR-0023 round 2, item E) — open them the way a person would
+  // before reaching for what is inside, whichever affordance the header is
+  // currently showing (Edit vs. the empty-state "+").
   await page.getByTestId("section-toggle-codes").click();
   await expect(page.getByTestId("add-code")).toBeVisible();
+  const journalToggle = page.getByTestId("section-toggle-journal");
+  if ((await journalToggle.getAttribute("aria-expanded")) !== "true") await journalToggle.click();
   await page.getByTestId("journal-add-note").click();
   await expect(page.getByTestId("journal-composer")).toBeVisible();
+  const bookmarksToggle = page.getByTestId("section-toggle-guides");
+  if ((await bookmarksToggle.getAttribute("aria-expanded")) === "false") await bookmarksToggle.click();
   await expect(page.getByTestId("add-bookmark")).toBeVisible();
   await expect(page.locator('[data-testid="start-run"], [data-testid="play-again"]')).toHaveCount(1);
 

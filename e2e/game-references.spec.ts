@@ -32,6 +32,17 @@ async function cleanUpBookmarks(page: Page, gameId: string, prefix: string) {
   );
 }
 
+/**
+ * Guides & links collapses at rest when there is nothing in it yet
+ * (GAMEEXPLOR-0023 round 2, item E) — open it the way a person would before
+ * touching anything inside. Idempotent, like `openCodes` in
+ * `game-codes.spec.ts`.
+ */
+async function openGuides(page: Page) {
+  const toggle = page.getByTestId("section-toggle-guides");
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+}
+
 async function cleanUpManuals(page: Page, gameId: string, title: string) {
   await page.evaluate(
     async ([id, mine]) => {
@@ -73,6 +84,7 @@ test("a bookmark can be added from the game page and groups under its kind", asy
   // Everything past this point can leave a row behind on the live database, so
   // the clean-up is a finally, not a last line.
   try {
+    await openGuides(page);
     await page.getByTestId("add-bookmark").click();
     await page.getByTestId("bookmark-url").fill(URL_);
     await page.getByTestId("bookmark-title").fill(TITLE);

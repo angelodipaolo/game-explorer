@@ -90,19 +90,30 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            {/* Separation is flex gaps, not literal "·" glyphs (GAMEEXPLOR-0023
+                round 2, item G) — a dot glued to the front of the developer
+                name orphans itself at the start of a line the moment that
+                name wraps. The developer name is truncated to one line for
+                the same reason: "Nintendo Entertainment Planning &
+                Development" wrapping mid-row is what broke this in the
+                first place. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted">
               {game.copies.map((c) => (
-                <Badge key={c.platform}>
+                <Badge key={c.platform} className="shrink-0">
                   {c.platformLabel}
                   {c.quantity > 1 ? ` ×${c.quantity}` : ""}
                 </Badge>
               ))}
-              {game.year ? <span>{game.year}</span> : null}
-              {game.developers[0] ? <span>· {game.developers[0]}</span> : null}
+              {game.year ? <span className="shrink-0">{game.year}</span> : null}
+              {game.developers[0] ? <span className="max-w-[60vw] truncate sm:max-w-xs">{game.developers[0]}</span> : null}
               {/* Rating demoted from its own tile (step 2) into a chip here —
                   it reads faster beside the platform and year than as a
                   fourth thing to scan below. */}
-              {game.rating != null ? <Badge tone="accent" title={game.ratingCount ? `${game.ratingCount} votes on IGDB` : "IGDB rating"}>★{game.rating}</Badge> : null}
+              {game.rating != null ? (
+                <Badge tone="accent" className="shrink-0" title={game.ratingCount ? `${game.ratingCount} votes on IGDB` : "IGDB rating"}>
+                  ★{game.rating}
+                </Badge>
+              ) : null}
             </div>
             <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl" data-testid="game-title">
               {game.name}

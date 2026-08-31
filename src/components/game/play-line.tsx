@@ -27,11 +27,11 @@ export function PlayLine({ profile, playersFallback, playtimeCompletely }: { pro
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-h-11 w-full items-center gap-1.5 text-left text-[15px]" aria-expanded={open} aria-controls="play-line-detail" data-testid="play-line">
         <span className={cx(segments.length ? "text-text" : "text-faint")}>{segments.length ? segments.join(" · ") : "Nothing known about how it plays yet."}</span>
         {inferred ? (
-          <Badge tone="info" className="shrink-0">
+          <Badge tone="muted" className="shrink-0">
             inferred
           </Badge>
         ) : null}
-        <span aria-hidden className={cx("ml-auto shrink-0 text-faint transition-transform", open && "rotate-90")}>
+        <span aria-hidden className={cx("shrink-0 text-faint transition-transform", open && "rotate-90")}>
           ▸
         </span>
       </button>
@@ -63,12 +63,23 @@ function buildLine(p: PlayerProfile, fallback: ShelfGame["players"]): Segments {
     segments.push(fallback.label);
   }
 
-  if (p.coop.value === true) {
-    segments.push("Co-op");
-    noteDerived(p.coop.source);
-  } else if (p.coop.value === false) {
-    segments.push("No co-op");
-    noteDerived(p.coop.source);
+  // A game known to top out at one player already implies no co-op — the
+  // segment below would be pure noise ("1 player · No co-op"), so it is
+  // suppressed outright rather than rendered.
+  const singlePlayerOnly = maxKnown && p.maxPlayers.value! <= 1;
+  if (!singlePlayerOnly) {
+    if (p.coop.value === true) {
+      segments.push("Co-op");
+      noteDerived(p.coop.source);
+    } else if (p.coop.value === false) {
+      // "No co-op" leads with an absence; a game confirmed to have more than
+      // one player is entirely about playing against someone, so name that
+      // instead. Confirmed either by an exact count, or by the mode-tier
+      // fallback saying "Co-op"/"Multiplayer" rather than "1 player".
+      const multiplayerConfirmed = maxKnown ? p.maxPlayers.value! > 1 : fallback.tier === "mode" && fallback.label !== "1 player";
+      segments.push(multiplayerConfirmed ? "Versus" : "No co-op");
+      noteDerived(p.coop.source);
+    }
   }
 
   // Only meaningful once we know there is more than one player — "Turns" on a
