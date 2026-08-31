@@ -49,8 +49,6 @@ export function kindColor(kind: string): string {
 /** Enough to hold a dense overworld; more than that is a list nobody scrolls. */
 export const MAX_MARKERS_PER_MAP = 300;
 export const MAX_MAPS_PER_GAME = 20;
-/** Image upload cap, bytes. A 4096² palette PNG is well under 1 MB; a photo screenshot is a few MB. */
-export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 
 /** "Lunar Path 1 (north)" → "lunar-path-1-north". */
 export function slugify(s: string): string {

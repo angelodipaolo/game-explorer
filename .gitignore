@@ -51,3 +51,9 @@ npm-debug.log*
 # map images
 /data/maps/
 /scripts/scratch/
+
+# local backups (npm run backup)
+/backups/
+
+# journal photos
+/data/journal/

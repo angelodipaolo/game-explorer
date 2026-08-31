@@ -3,8 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { EnrichmentError } from "@/lib/enrichment/service";
 import { platformLabel } from "@/lib/platforms";
+import { MAX_IMAGE_BYTES } from "@/lib/media/image-store";
 import { deleteImage, sniffImage, writeImage } from "./image";
-import { MARKER_KINDS, MAX_IMAGE_BYTES, MAX_MAPS_PER_GAME, MAX_MARKERS_PER_MAP, isMarkerKind, slugify } from "./kinds";
+import { MARKER_KINDS, MAX_MAPS_PER_GAME, MAX_MARKERS_PER_MAP, isMarkerKind, slugify } from "./kinds";
 
 /**
  * Interactive maps for one owned copy: an image plus markers in image pixels.

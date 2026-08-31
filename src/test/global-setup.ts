@@ -10,7 +10,11 @@ export default function globalSetup() {
     fs.rmSync(dbPath + suffix, { force: true });
   }
   process.env.DATABASE_URL = "file:./test.db";
-  execSync("npx prisma db push --skip-generate --accept-data-loss", {
+  // `migrate deploy` rather than `db push`: some DDL lives only in migration
+  // SQL because Prisma's schema language cannot express it — the partial
+  // unique index that allows one open PlaySession per copy is the first. A
+  // pushed schema would silently lack the constraints production has.
+  execSync("npx prisma migrate deploy", {
     stdio: "pipe",
     env: { ...process.env, DATABASE_URL: "file:./test.db" },
   });

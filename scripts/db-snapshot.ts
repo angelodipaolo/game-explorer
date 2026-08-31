@@ -21,11 +21,14 @@ async function main() {
     gameCodes: await prisma.gameCode.findMany(),
     gameMaps: await prisma.gameMap.findMany(),
     mapMarkers: await prisma.mapMarker.findMany(),
+    playSessions: await prisma.playSession.findMany(),
+    journalEntries: await prisma.journalEntry.findMany(),
+    queueEntries: await prisma.queueEntry.findMany(),
     enrichmentRuns: await prisma.enrichmentRun.findMany(),
   };
   const file = path.resolve(__dirname, "../data/snapshot.json");
   fs.writeFileSync(file, JSON.stringify(out, null, 1));
-  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts, ${out.gameTags.length} tags, ${out.gameCodes.length} codes, ${out.gameMaps.length} maps (${out.mapMarkers.length} markers — images stay in data/maps/)`);
+  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts, ${out.gameTags.length} tags, ${out.gameCodes.length} codes, ${out.gameMaps.length} maps (${out.mapMarkers.length} markers — images stay in data/maps/), ${out.playSessions.length} play sessions, ${out.journalEntries.length} journal entries (photos stay in data/journal/), ${out.queueEntries.length} queued`);
 }
 
 main().finally(() => prisma.$disconnect());

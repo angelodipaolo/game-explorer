@@ -19,14 +19,14 @@ datasource db {
 /// A physical game the owner owns. One row per (title, platform); `quantity`
 /// counts copies.
 model OwnedGame {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   /// Title as written on the shelf / in the source data.
   title           String
   /// Lower-cased, punctuation-stripped title used for dedupe.
   normalizedTitle String
   /// Canonical platform slug, e.g. "nes". See src/lib/platforms.ts.
   platform        String
-  quantity        Int      @default(1)
+  quantity        Int     @default(1)
   /// loose | cib | new | box-only | manual-only — free text from source data.
   completeness    String?
   condition       String?
@@ -40,14 +40,17 @@ model OwnedGame {
   /// auto | manual | agent
   matchSource     String?
 
-  importBatchId   String?
-  importBatch     ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
-  facts           GameFact[]
-  tags            GameTag[]
-  codes           GameCode[]
-  maps            GameMap[]
-  importEffects   ImportEffect[]
+  facts         GameFact[]
+  tags          GameTag[]
+  codes         GameCode[]
+  maps          GameMap[]
+  sessions      PlaySession[]
+  journal       JournalEntry[]
+  queueEntry    QueueEntry?
+  importEffects ImportEffect[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -144,39 +147,39 @@ model GameCode {
 ///   stub  — id, name, slug, cover only (a similar-game reference)
 ///   full  — everything below
 model CatalogGame {
-  igdbId           Int      @id
-  name             String
-  slug             String
-  detail           String   @default("stub")
-  summary          String?
-  storyline        String?
-  firstReleaseDate DateTime?
+  igdbId             Int       @id
+  name               String
+  slug               String
+  detail             String    @default("stub")
+  summary            String?
+  storyline          String?
+  firstReleaseDate   DateTime?
   /// IGDB image id for the cover; served from the local cache by src/lib/images/.
-  coverImageId     String?
-  coverWidth       Int?
-  coverHeight      Int?
-  rating           Float?
-  ratingCount      Int?
+  coverImageId       String?
+  coverWidth         Int?
+  coverHeight        Int?
+  rating             Float?
+  ratingCount        Int?
   /// JSON string[] of platform names IGDB lists for this game.
-  platformNames    String   @default("[]")
+  platformNames      String    @default("[]")
   /// JSON number[] of IGDB platform ids.
-  platformIds      String   @default("[]")
+  platformIds        String    @default("[]")
   /// JSON string[]
-  genres           String   @default("[]")
-  themes           String   @default("[]")
-  playerPerspectives String @default("[]")
-  keywords         String   @default("[]")
-  developers       String   @default("[]")
-  publishers       String   @default("[]")
+  genres             String    @default("[]")
+  themes             String    @default("[]")
+  playerPerspectives String    @default("[]")
+  keywords           String    @default("[]")
+  developers         String    @default("[]")
+  publishers         String    @default("[]")
   /// JSON number[] — IGDB game_modes ids (1 single, 2 multi, 3 co-op, 4 split screen)
-  gameModes        String   @default("[]")
+  gameModes          String    @default("[]")
   /// JSON {imageId,width,height}[]
-  screenshots      String   @default("[]")
+  screenshots        String    @default("[]")
   /// JSON number[] of IGDB ids (each present in this table at least as a stub)
-  similarGameIds   String   @default("[]")
+  similarGameIds     String    @default("[]")
   /// IGDB parent_game / version_parent: a port's original, a remake's base. Similar-game
   /// links usually point at the parent, so ownership is matched through it too.
-  parentIgdbId     Int?
+  parentIgdbId       Int?
 
   // --- multiplayer_modes tier (20% coverage). Null = IGDB has no record. ---
   mpOfflineMax     Int?
@@ -190,12 +193,12 @@ model CatalogGame {
   mpOnlineMax      Int?
 
   /// Rough length in minutes from IGDB time_to_beat (normally), null when absent.
-  ttbNormally      Int?
-  ttbHastily       Int?
-  ttbCompletely    Int?
+  ttbNormally   Int?
+  ttbHastily    Int?
+  ttbCompletely Int?
 
-  fetchedAt        DateTime @default(now())
-  ownedGames       OwnedGame[]
+  fetchedAt  DateTime    @default(now())
+  ownedGames OwnedGame[]
 
   @@index([name])
   @@index([detail])
@@ -205,49 +208,49 @@ model CatalogGame {
 /// A staged import: rows submitted by an agent (or a CSV drop), reviewed, then
 /// committed as one ImportBatch.
 model ImportSession {
-  id          String      @id @default(cuid())
-  label       String
+  id        String       @id @default(cuid())
+  label     String
   /// agent | csv | migration
-  source      String      @default("agent")
+  source    String       @default("agent")
   /// open | committed | discarded
-  status      String      @default("open")
-  rows        ImportRow[]
-  batch       ImportBatch?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  status    String       @default("open")
+  rows      ImportRow[]
+  batch     ImportBatch?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 }
 
 /// One submitted row and everything the API decided about it.
 model ImportRow {
-  id              String        @id @default(cuid())
-  sessionId       String
-  session         ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  sessionId        String
+  session          ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   /// Position in submission order.
-  index           Int
+  index            Int
   /// Normalised input as JSON: {title, platform, quantity, completeness, condition, notes, igdbId?}
-  input           String
-  title           String
-  normalizedTitle String
-  platform        String
-  quantity        Int           @default(1)
+  input            String
+  title            String
+  normalizedTitle  String
+  platform         String
+  quantity         Int           @default(1)
   /// JSON string[] of validation problems; empty means valid.
-  problems        String        @default("[]")
+  problems         String        @default("[]")
   /// none | in-session | existing
-  dedupeKind      String        @default("none")
+  dedupeKind       String        @default("none")
   /// Id of the OwnedGame (existing) or ImportRow (in-session) it collides with.
-  dedupeTargetId  String?
+  dedupeTargetId   String?
   /// JSON MatchCandidate[] ranked by confidence.
-  candidates      String        @default("[]")
+  candidates       String        @default("[]")
   /// auto | review | accepted | dropped | merge
-  decision        String        @default("review")
+  decision         String        @default("review")
   /// Why the API held it: no-match | ambiguous | low-confidence | duplicate | invalid
-  holdReason      String?
-  chosenIgdbId    Int?
+  holdReason       String?
+  chosenIgdbId     Int?
   chosenConfidence Float?
   /// Who settled it: api | user | agent
-  decidedBy       String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  decidedBy        String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@unique([sessionId, index])
   @@index([sessionId, decision])
@@ -256,15 +259,15 @@ model ImportRow {
 /// The unit of undo. Every write a commit makes is recorded as an
 /// ImportEffect so rollback removes exactly those changes and nothing else.
 model ImportBatch {
-  id           String        @id @default(cuid())
-  sessionId    String        @unique
-  session      ImportSession @relation(fields: [sessionId], references: [id])
+  id           String         @id @default(cuid())
+  sessionId    String         @unique
+  session      ImportSession  @relation(fields: [sessionId], references: [id])
   label        String
   /// committed | rolled_back
-  status       String        @default("committed")
+  status       String         @default("committed")
   ownedGames   OwnedGame[]
   effects      ImportEffect[]
-  committedAt  DateTime      @default(now())
+  committedAt  DateTime       @default(now())
   rolledBackAt DateTime?
 }
 
@@ -284,11 +287,11 @@ model ImportEffect {
 
 /// A batch enrichment run by an agent, for reporting what changed.
 model EnrichmentRun {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   label      String?
   /// JSON summary written at the end: {written, skipped, conflicts}
   summary    String?
-  startedAt  DateTime @default(now())
+  startedAt  DateTime  @default(now())
   finishedAt DateTime?
 }
 
@@ -344,4 +347,77 @@ model MapMarker {
 
   @@unique([mapId, name])
   @@index([mapId])
+}
+
+/// One run at one owned copy. The log, not a status: a game played every few
+/// years has several of these, each with its own dates and its own journal.
+/// `endedAt` null is the only definition of "playing now" — there is no status
+/// column on OwnedGame and there must never be one.
+model PlaySession {
+  id          String         @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame      @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  /// Null while the run is open.
+  endedAt     DateTime?
+  /// playing | completed | abandoned. Constrained against endedAt in the
+  /// service: open runs are always "playing", ended runs never are.
+  outcome     String         @default("playing")
+  /// One line: "stuck on world 5", "second playthrough, hard mode".
+  note        String?
+  entries     JournalEntry[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([ownedGameId, startedAt])
+  @@index([endedAt])
+}
+
+/// A dated note or photo about one owned copy. `sessionId` ties it to a run
+/// when there is one, so notes written during the 2026 playthrough stay with
+/// the 2026 playthrough after a 2029 replay. Deleting a run nulls the link
+/// rather than destroying the writing.
+///
+/// Like GameCode and GameMap there is no `source` and no precedence — but
+/// unlike them there is no agent write path at all. Only the owner writes here.
+model JournalEntry {
+  id          String       @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame    @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  session     PlaySession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  /// note | photo
+  kind        String
+  /// Optional for both kinds: a photo's caption, a note's heading.
+  title       String?
+  /// The writing. Null for a bare photo.
+  body        String?
+  /// When it happened — defaults to now, editable so a memory can be backdated.
+  occurredAt  DateTime
+  /// Pixel size of the stored image; 0 until one is uploaded. Photos only.
+  width       Int          @default(0)
+  height      Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([ownedGameId, occurredAt])
+  @@index([sessionId])
+}
+
+/// The one ordered "up next" list. `ownedGameId` is unique — a game is queued
+/// at most once — and there is deliberately no `name`/`list` column, because
+/// one queue is a decision about what to play next and several named lists are
+/// a filing system. Kept disjoint from open runs by the service: starting a
+/// run removes the game from here, and a game with an open run cannot be added.
+model QueueEntry {
+  id          String    @id @default(cuid())
+  ownedGameId String    @unique
+  ownedGame   OwnedGame @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  /// Dense 0..n-1, renumbered on every reorder.
+  position    Int
+  /// "after I finish FF7", "borrowed — play it before giving it back".
+  note        String?
+  addedAt     DateTime  @default(now())
+
+  @@index([position])
 }

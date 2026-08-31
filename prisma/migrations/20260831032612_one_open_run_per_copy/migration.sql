@@ -1,0 +1,11 @@
+-- One open run per owned copy, enforced by the database.
+--
+-- The service checks this too and returns a friendly 409, but a check inside a
+-- transaction is still only a check: two taps on "Start playing" 50ms apart are
+-- two requests, and without a constraint both can win. "Playing this twice at
+-- once" is not a state the rest of the app can render.
+--
+-- Written by hand because Prisma's schema language cannot express a partial
+-- (filtered) index; `prisma migrate diff` will not reproduce it, so it must
+-- survive as its own migration.
+CREATE UNIQUE INDEX "PlaySession_one_open_run" ON "PlaySession"("ownedGameId") WHERE "endedAt" IS NULL;

@@ -16,6 +16,9 @@ async function main() {
     await tx.gameCode.deleteMany();
     await tx.gameTag.deleteMany();
     await tx.gameFact.deleteMany();
+    await tx.queueEntry.deleteMany();
+    await tx.journalEntry.deleteMany();
+    await tx.playSession.deleteMany();
     await tx.ownedGame.deleteMany();
     await tx.importBatch.deleteMany();
     await tx.importRow.deleteMany();
@@ -33,9 +36,13 @@ async function main() {
     await tx.gameCode.createMany({ data: snap.gameCodes ?? [] });
     await tx.gameMap.createMany({ data: snap.gameMaps ?? [] });
     await tx.mapMarker.createMany({ data: snap.mapMarkers ?? [] });
+    // Sessions before the entries that point at them; the queue last.
+    await tx.playSession.createMany({ data: snap.playSessions ?? [] });
+    await tx.journalEntry.createMany({ data: snap.journalEntries ?? [] });
+    await tx.queueEntry.createMany({ data: snap.queueEntries ?? [] });
     await tx.enrichmentRun.createMany({ data: snap.enrichmentRuns ?? [] });
   });
-  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows from ${snap.exportedAt}`);
+  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued from ${snap.exportedAt}`);
 }
 
 main().finally(() => prisma.$disconnect());
