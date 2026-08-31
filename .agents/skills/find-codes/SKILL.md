@@ -34,12 +34,12 @@ A server must be reachable, and every call is authenticated:
   (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
   `401`.
 
-Both are exported from the owner's `~/.zshrc`, which a **non-interactive shell
-does not source** — and an agent's shell is non-interactive, so they are
-usually absent unless you load them. Start every session with:
+Both are exported from the owner's `~/.zshenv`, which **every** zsh sources —
+interactive, non-interactive and scripts alike — so they are already in your
+environment. They are *not* in `.env`. Confirm before you start, and stop if
+either is missing rather than inventing a value:
 
 ```bash
-set -a; . ~/.zshrc >/dev/null 2>&1; set +a   # the exports live here, not in .env
 : "${GAME_EXPLORER_URL:?stop and ask the owner which server}"
 : "${GAME_EXPLORER_TOKEN:?stop and ask the owner for an API token}"
 ```
