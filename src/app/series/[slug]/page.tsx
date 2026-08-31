@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SeriesGrid } from "@/components/series/series-grid";
+import { LinkButton } from "@/components/ui";
 import { parseMissing } from "@/lib/series/shape";
 import { seriesBySlug } from "@/lib/series/service";
 import { readViewer } from "@/lib/viewer";
@@ -46,9 +47,21 @@ export default async function SeriesPage({ params, searchParams }: Props) {
         <Link href="/series" className="mt-4 inline-flex min-h-11 items-center text-sm text-muted hover:text-text">
           ← All series
         </Link>
-        <h1 className="mt-1 font-display text-2xl font-bold tracking-tight sm:text-3xl" data-testid="series-title">
-          {series.name}
-        </h1>
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl" data-testid="series-title">
+            {series.name}
+          </h1>
+          {/* Curation lives on its own page (GAMEEXPLOR-0020), the way /flip is
+              its own page: this one is the shelf's grid, and hanging ▲/▼/× on
+              every card would turn what you look at into what you fiddle with.
+              Drawn only for the owner — `/series/:slug/edit` is in OWNER_PAGES,
+              so for anyone else the link would lead to a login page. */}
+          {viewer.canEdit ? (
+            <LinkButton href={`/series/${series.slug}/edit`} className="shrink-0" prefetch={false} data-testid="edit-series">
+              Edit
+            </LinkButton>
+          ) : null}
+        </div>
         {series.blurb ? <p className="mt-1 max-w-prose text-sm text-muted">{series.blurb}</p> : null}
         <Suspense>
           <SeriesGrid slug={series.slug} owned={series.owned} total={series.total} missing={missing} sections={sections} viewer={viewer} />

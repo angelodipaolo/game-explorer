@@ -88,13 +88,35 @@ test("a signed-out visitor reads a game page and finds nothing to press", async 
   await expect(page.locator('[data-testid="nav-import"]')).toHaveCount(0);
 });
 
-test("/import and /series/new send a visitor to the login page", async ({ page }) => {
+test("/import, /series/new and a series' edit page send a visitor to the login page", async ({ page }) => {
   await page.goto(`${base}/import`);
   await expect(page).toHaveURL(/\/login\?next=%2Fimport$/);
   await expect(page.getByTestId("login-form")).toBeVisible();
 
   await page.goto(`${base}/series/new`);
   await expect(page).toHaveURL(/\/login\?next=%2Fseries%2Fnew$/);
+
+  // The slug is part of the path, so the rule is a pattern — and it must turn
+  // a visitor away before the page renders, whether or not the series exists.
+  // Hiding the "Edit" control is a courtesy; this is the fence.
+  await page.goto(`${base}/series/no-such-series/edit`);
+  await expect(page).toHaveURL(/\/login\?next=%2Fseries%2Fno-such-series%2Fedit$/);
+
+  // …while the series page itself stays public.
+  await page.goto(`${base}/series`);
+  await expect(page).toHaveURL(`${base}/series`);
+  await expect(page.getByTestId("new-series")).toHaveCount(0);
+
+  // And a real series page draws no Edit control for a visitor. Worth its own
+  // assertion: every other spec runs with AUTH_OPEN=1, where `canEdit` is
+  // always true, so this is the only place a dropped `canEdit ?` guard on that
+  // control would be caught.
+  const card = page.getByTestId("series-card").first();
+  if (await card.count()) {
+    await card.click();
+    await expect(page.getByTestId("series-title")).toBeVisible();
+    await expect(page.getByTestId("edit-series")).toHaveCount(0);
+  }
 });
 
 test("a wrong password says so and changes nothing", async ({ page }) => {

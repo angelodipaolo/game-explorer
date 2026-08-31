@@ -68,8 +68,18 @@ export function dateInput(d: Date | string = new Date()): string {
  * real failure with "Unexpected end of JSON input". Falls back to the status.
  */
 export async function apiError(res: Response): Promise<Error> {
-  const body = (await res.json().catch(() => null)) as { error?: string } | null;
-  return new Error(body?.error || res.statusText || `HTTP ${res.status}`);
+  const body = (await res.json().catch(() => null)) as { error?: string; details?: unknown } | null;
+  // A zod failure comes back as the constant "invalid input" with the sentence
+  // a person can act on — "slug must be lower-case words joined by hyphens" —
+  // buried in `details`. Showing only `error` turned every validation failure
+  // into two useless words, which is worst on a form with several fields.
+  return new Error([body?.error, detailMessages(body?.details)].filter(Boolean).join(" — ") || res.statusText || `HTTP ${res.status}`);
+}
+
+/** The messages out of a zod issue list, if that is what `details` holds. */
+function detailMessages(details: unknown): string {
+  if (!Array.isArray(details)) return "";
+  return [...new Set(details.map((d) => (d && typeof d === "object" && "message" in d ? String((d as { message: unknown }).message) : "")).filter(Boolean))].join("; ");
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {

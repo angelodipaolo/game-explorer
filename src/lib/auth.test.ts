@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { isOwnerPage } from "@/proxy";
 import {
   SECURE_SESSION_COOKIE,
   SESSION_COOKIE,
@@ -253,6 +254,34 @@ describe("isOwnerRequest — what src/proxy.ts sees", () => {
     expect(await isOwnerRequest(req({ cookie: `${SECURE_SESSION_COOKIE}=${good}` }), ENFORCED)).toBe(true);
     // A cookie a subdomain could have written must not win over the prefixed one.
     expect(await isOwnerRequest(req({ cookie: `${SESSION_COOKIE}=${good}; ${SECURE_SESSION_COOKIE}=${forged}` }), ENFORCED)).toBe(false);
+  });
+});
+
+describe("isOwnerPage — which pages src/proxy.ts sends to /login", () => {
+  it("gates the curation tools", () => {
+    expect(isOwnerPage("/import")).toBe(true);
+    expect(isOwnerPage("/import/abc123")).toBe(true);
+    expect(isOwnerPage("/series/new")).toBe(true);
+    expect(isOwnerPage("/series/final-fantasy/edit")).toBe(true);
+    // The slug is attacker-shaped text, not a known value — anything that is
+    // one path segment ending in /edit is the editor.
+    expect(isOwnerPage("/series/e2e-desktop-series/edit")).toBe(true);
+    expect(isOwnerPage("/series/x/edit")).toBe(true);
+  });
+
+  it("leaves every reading page public — a series included", () => {
+    // The regression this guards: `/series/:slug` behind a login would put the
+    // one page a link is *for* behind a password. The Edit control on it is
+    // drawn from `canEdit`, which is a different mechanism entirely.
+    for (const p of ["/", "/shelf", "/flip", "/playing", "/series", "/series/final-fantasy", "/game/abc123", "/login"]) {
+      expect(isOwnerPage(p), p).toBe(false);
+    }
+  });
+
+  it("does not over-reach past the one segment and the /edit at the end", () => {
+    for (const p of ["/series/a/b/edit", "/series/edit", "/series/final-fantasy/editor", "/series/final-fantasy/edit/extra", "/seriesx/final-fantasy/edit", "/x/series/final-fantasy/edit"]) {
+      expect(isOwnerPage(p), p).toBe(false);
+    }
   });
 });
 

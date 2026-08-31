@@ -28,10 +28,29 @@ import { isOwnerRequest } from "@/lib/auth";
  * Pages only the owner may open. They are the curation tools: everything they
  * do is a write, so a read-only visitor has nothing to look at.
  *
+ * `/series/:slug/edit` (GAMEEXPLOR-0020) has to be a **pattern** rather than a
+ * literal, because the slug is part of the path and every series has its own.
+ * `[^/]+` and the anchored `/edit$` are what keep it from over-reaching: the
+ * series page itself, `/series/:slug`, stays public — reading a series is the
+ * whole point of the page, and the "Edit" control on it is drawn from the
+ * server-derived `canEdit`, never from this list. `/series/new` keeps its own
+ * literal above; `[^/]+` would match "new" only for `/series/new/edit`, which
+ * is not a route.
+ *
  * `/playing` is deliberately **not** here — it is a view of the collection, and
  * it renders its lists read-only for a visitor (`Viewer.canEdit`).
  */
-const OWNER_PAGES = [/^\/import(\/|$)/, /^\/series\/new$/];
+const OWNER_PAGES = [/^\/import(\/|$)/, /^\/series\/new$/, /^\/series\/[^/]+\/edit$/];
+
+/**
+ * Whether this path is one of them. Exported for `src/lib/auth.test.ts`, which
+ * is where the rule is pinned down: the difference between a public page and a
+ * curation tool is one regex, and getting it wrong in either direction — a
+ * public page behind a login, a write surface in front of one — is silent.
+ */
+export function isOwnerPage(pathname: string): boolean {
+  return OWNER_PAGES.some((r) => r.test(pathname));
+}
 
 /**
  * The API allowlist — the *only* exemptions from auth, and both halves of it
@@ -66,8 +85,8 @@ function isPublicApi(pathname: string, method: string): boolean {
 
 async function gate(request: NextRequest, pathname: string): Promise<NextResponse> {
   const isApi = pathname.startsWith("/api/");
-  const isOwnerPage = OWNER_PAGES.some((r) => r.test(pathname));
-  if (!isApi && !isOwnerPage) return NextResponse.next();
+  const ownerPage = isOwnerPage(pathname);
+  if (!isApi && !ownerPage) return NextResponse.next();
   if (isApi && isPublicApi(pathname, request.method)) return NextResponse.next();
   if (await isOwnerRequest(request)) return NextResponse.next();
 

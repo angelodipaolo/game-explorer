@@ -38,7 +38,7 @@ export default async function NewSeriesPage() {
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pb-24">
         <h1 className="mt-5 font-display text-2xl font-bold tracking-tight sm:text-3xl">New series</h1>
-        <p className="mt-1 max-w-prose text-sm text-muted">IGDB proposes the members; you prune them. What you keep is what the page shows — the collection is only ever a seed.</p>
+        <p className="mt-1 max-w-prose text-sm text-muted">IGDB proposes the members; you prune them. What you keep is what the page shows — the collection is only ever a seed. For a series IGDB has no collection for, start an empty one and add the entries by hand.</p>
         <SeriesBuilder games={games} />
       </main>
     </>

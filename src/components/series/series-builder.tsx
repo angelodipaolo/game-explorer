@@ -44,6 +44,8 @@ export function SeriesBuilder({ games }: { games: OwnedGame[] }) {
   const [showSections, setShowSections] = useState(false);
   const [name, setName] = useState("");
   const [blurb, setBlurb] = useState("");
+  /** The by-hand path's own name field — separate from `name`, which the prune step owns. */
+  const [emptyName, setEmptyName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +82,18 @@ export function SeriesBuilder({ games }: { games: OwnedGame[] }) {
     setSeed(result);
     setPicked(new Set(result.candidates.map((c) => c.igdbId)));
     setName(suggestedName ?? result.collection.name);
+  }
+
+  /**
+   * A series with a name and nothing else, straight to its edit page — there
+   * is nothing to look at on a series page with no entries, and adding them is
+   * the next thing you were going to do anyway.
+   */
+  async function createEmpty() {
+    const trimmed = emptyName.trim();
+    if (!trimmed) return;
+    const created = await call<{ slug: string }>("/api/series", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: trimmed }) });
+    if (created) router.push(`/series/${created.slug}/edit`);
   }
 
   async function save() {
@@ -172,6 +186,40 @@ export function SeriesBuilder({ games }: { games: OwnedGame[] }) {
             <input id="series-collection-id" inputMode="numeric" value={collectionId} onChange={(e) => setCollectionId(e.target.value)} placeholder="453" className="min-h-11 w-32 rounded-xl border border-border bg-surface px-3 text-sm" data-testid="series-collection-id" />
             <Button type="button" disabled={busy || !Number(collectionId)} onClick={() => seedFrom(Number(collectionId))} data-testid="series-seed">
               {busy ? "Asking IGDB…" : "Propose members"}
+            </Button>
+          </div>
+        </section>
+
+        {/*
+          The escape hatch (GAMEEXPLOR-0020). Seeding is the workflow this page
+          is built around and stays the primary path above — but IGDB has no
+          collection for plenty of real series ("the four Konami beat-em-ups I
+          keep together"), and without this such a series could not be created
+          at all. `POST /api/series` already takes a bare `{ name }`; the
+          entries are then typed in on the edit page, which is where every
+          other by-hand change to a series is made, so there is no second
+          editing surface here.
+        */}
+        <section>
+          <label htmlFor="series-empty-name" className="font-display text-sm font-bold">
+            or · start an empty series
+          </label>
+          <p className="mb-2 text-xs text-muted">For a series IGDB has no collection for. You add the entries by hand.</p>
+          <div className="flex gap-2">
+            <input
+              id="series-empty-name"
+              value={emptyName}
+              onChange={(e) => setEmptyName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && emptyName.trim()) void createEmpty();
+              }}
+              maxLength={120}
+              placeholder="Konami beat-em-ups"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface px-3 text-sm"
+              data-testid="series-empty-name"
+            />
+            <Button type="button" disabled={busy || !emptyName.trim()} onClick={createEmpty} data-testid="series-create-empty">
+              {busy ? "Creating…" : "Create"}
             </Button>
           </div>
         </section>

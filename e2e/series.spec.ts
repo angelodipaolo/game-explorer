@@ -115,3 +115,79 @@ test("index → series → the game page, with the missing toggle in the URL", a
   await page.goto("/series");
   await expect(page.getByTestId("series-card").filter({ hasText: nameFor(project) })).toHaveCount(0);
 });
+
+/**
+ * The editing page (GAMEEXPLOR-0020): rename, reorder, edit an entry, remove
+ * one, then delete the series.
+ *
+ * Same self-cleaning shape as the test above — the series is created through
+ * the API, namespaced by project, and the `finally` deletes it whichever
+ * assertion went red. The rename means the URL moves mid-test, which is
+ * exactly the behaviour being checked, so the cleanup goes by id.
+ *
+ * The seed check is deliberately not driven here: it calls IGDB live, and a
+ * spec that fails when a rate limit or the network does is worse than no spec.
+ * `checkSeed` has unit coverage in src/lib/series/service.test.ts.
+ */
+test("editing a series: rename, reorder, edit an entry, remove one, delete", async ({ page }, testInfo) => {
+  const project = testInfo.project.name;
+  const game = await anOwnedGame(page);
+  const renamedSlug = `${slugFor(project)}-renamed`;
+  await deleteBySlug(page, slugFor(project));
+  await deleteBySlug(page, renamedSlug);
+  const created = await createSeries(page, project, game.igdbId);
+
+  try {
+    // In from the series page, which is where the control lives for the owner.
+    await page.goto(`/series/${slugFor(project)}`);
+    await page.getByTestId("edit-series").click();
+    await expect(page).toHaveURL(new RegExp(`/series/${slugFor(project)}/edit$`));
+
+    // Two entries, in the order they were created: the owned one, then the
+    // free-text one nobody owns.
+    const rows = page.getByTestId("entry-row");
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(1).getByTestId("entry-name")).toHaveText(MISSING);
+
+    // Details: a blurb and a new slug, which moves the page.
+    await page.getByTestId("details-blurb").fill("Edited by the e2e suite");
+    await page.getByTestId("details-slug").fill(renamedSlug);
+    await page.getByTestId("save-details").click();
+    await expect(page).toHaveURL(new RegExp(`/series/${renamedSlug}/edit$`));
+    await expect(page.getByTestId("details-blurb")).toHaveValue("Edited by the e2e suite");
+
+    // Reorder: one ▲ sends the whole permutation and the two swap.
+    await rows.nth(1).getByTestId("entry-up").click();
+    await expect(page.getByTestId("entry-row").first().getByTestId("entry-name")).toHaveText(MISSING);
+
+    // The inline editor, on the free-text row: a section and a note.
+    await page.getByTestId("entry-row").first().getByTestId("entry-edit").click();
+    await expect(page.getByTestId("entry-form")).toBeVisible();
+    await page.getByTestId("entry-section").fill("Spin-offs");
+    await page.getByTestId("entry-note").fill("Nobody owns this one");
+    await page.getByTestId("entry-save").click();
+    await expect(page.getByTestId("entry-form")).toHaveCount(0);
+    await expect(page.getByTestId("entry-row").first()).toContainText("Spin-offs");
+    await expect(page.getByTestId("entry-row").first()).toContainText("Nobody owns this one");
+
+    // An entry typed in by hand lands at the end.
+    await page.getByTestId("new-entry-title").fill("E2E typed by hand");
+    await page.getByTestId("add-entry").click();
+    await expect(page.getByTestId("entry-row")).toHaveCount(3);
+    await expect(page.getByTestId("entry-row").nth(2).getByTestId("entry-name")).toHaveText("E2E typed by hand");
+
+    // Remove it again — the confirm() is accepted, and positions close up.
+    page.once("dialog", (d) => d.accept());
+    await page.getByTestId("entry-row").nth(2).getByTestId("entry-remove").click();
+    await expect(page.getByTestId("entry-row")).toHaveCount(2);
+
+    // Delete the series, and land back on the index without it.
+    page.once("dialog", (d) => d.accept());
+    await page.getByTestId("delete-series").click();
+    await expect(page).toHaveURL(/\/series$/);
+    await expect(page.getByTestId("series-card").filter({ hasText: nameFor(project) })).toHaveCount(0);
+  } finally {
+    // A no-op once the delete above worked; the safety net when it did not.
+    await cleanUp(page, created.id);
+  }
+});
