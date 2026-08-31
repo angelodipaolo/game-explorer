@@ -21,16 +21,38 @@ section useful is your judgement.
 
 A server must be reachable, and every call is authenticated:
 
-- `GAME_EXPLORER_URL` — where the app is. Defaults to `http://localhost:3000`
-  (`npm run dev`); set it to `https://games.angelodipaolo.com` to work against
-  the hosted one.
+- `GAME_EXPLORER_URL` — **which collection you are writing to.** There is no
+  default. The real collection lives on the Mac mini
+  (`http://cids-Mac-mini.local:3000` on the wifi,
+  `https://games.angelodipaolo.com` through the tunnel) and that is what "add
+  this to my collection" always means. `http://localhost:3000` is a throwaway
+  dev database: a write there looks like it succeeded and changes nothing the
+  owner will ever see. **If `GAME_EXPLORER_URL` is unset, stop and ask which
+  server** — never guess, and never fall back to localhost just because a dev
+  server happens to answer on it.
 - `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
   (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
   `401`.
 
+Both are exported from the owner's `~/.zshrc`, which a **non-interactive shell
+does not source** — and an agent's shell is non-interactive, so they are
+usually absent unless you load them. Start every session with:
+
+```bash
+set -a; . ~/.zshrc >/dev/null 2>&1; set +a   # the exports live here, not in .env
+: "${GAME_EXPLORER_URL:?stop and ask the owner which server}"
+: "${GAME_EXPLORER_TOKEN:?stop and ask the owner for an API token}"
+```
+
+Then use `"$GAME_EXPLORER_URL/api/..."` verbatim in every call. Do not write a
+`:-http://localhost:3000` fallback: an unset variable must break the command
+loudly, not quietly retarget it at the wrong database.
+
 If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
 not fall back to writing to the database directly — say the token is missing or
-wrong and let the owner fix it.
+wrong and let the owner fix it. A local dev server runs with `AUTH_OPEN=1` and
+never returns `401`, so a clean `200` from localhost is **not** evidence that
+you are talking to the right server.
 
 ## Sources
 
@@ -118,21 +140,21 @@ Names and kinds are the filter chips on a phone; stay in this vocabulary.
 
 ```bash
 # Copies with no maps yet
-curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/maps/gaps?limit=50"
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/maps/gaps?limit=50"
 # → { total, gaps: [{ ownedGameId, title, name, platform, year, igdbId }] }
 
 # 1. Create the map row (or refresh it — same slug updates in place)
-curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/games/<ownedGameId>/maps" \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/games/<ownedGameId>/maps" \
   -H 'content-type: application/json' \
   -d '{ "title": "Overworld", "subtitle": "Blue Planet", "sourceUrl": "https://…", "position": 0 }'
 # → { id: "<mapId>", slug: "overworld", width: 0, height: 0, … }
 
 # 2. Upload the image bytes (PNG or JPEG, ≤ 16 MB). Records width/height.
-curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PUT "${GAME_EXPLORER_URL:-http://localhost:3000}/api/maps/<mapId>/image" --data-binary @scripts/scratch/overworld.png
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PUT "$GAME_EXPLORER_URL/api/maps/<mapId>/image" --data-binary @scripts/scratch/overworld.png
 # → { …, width: 4096, height: 4096 }
 
 # 3. Write the markers — upsert by name; replace:true drops the ones not listed
-curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/maps/<mapId>/markers" \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/maps/<mapId>/markers" \
   -H 'content-type: application/json' \
   -d '{ "replace": true, "markers": [
     { "name": "Baron", "kind": "castle", "x": 1630, "y": 2510, "note": "Kingdom of Baron; where the game opens." },
