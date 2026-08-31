@@ -24,6 +24,7 @@ export const PLATFORMS: PlatformInfo[] = [
   { slug: "gb", name: "Game Boy", short: "GB", igdbId: 33, year: 1989, aliases: ["game boy", "gameboy", "gb"] },
   { slug: "gbc", name: "Game Boy Color", short: "GBC", igdbId: 22, year: 1998, aliases: ["game boy color", "gameboy color", "gbc"] },
   { slug: "gba", name: "Game Boy Advance", short: "GBA", igdbId: 24, year: 2001, aliases: ["game boy advance", "gameboy advance", "gba"] },
+  { slug: "virtualboy", name: "Virtual Boy", short: "Virtual Boy", igdbId: 87, year: 1995, aliases: ["virtual boy", "virtualboy", "vb"] },
   { slug: "ds", name: "Nintendo DS", short: "DS", igdbId: 20, year: 2004, aliases: ["nintendo ds", "nds", "ds"] },
   { slug: "3ds", name: "Nintendo 3DS", short: "3DS", igdbId: 37, year: 2011, aliases: ["nintendo 3ds", "3ds"] },
   { slug: "sms", name: "Sega Master System", short: "Master System", igdbId: 64, year: 1986, aliases: ["master system", "sega master system", "sms"] },
