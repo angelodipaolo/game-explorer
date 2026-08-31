@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { Shelf } from "@/components/shelf/shelf";
+import { ShelfFilterScope } from "@/components/shelf/filter-context";
 import { loadShelf } from "@/lib/collection";
 import { readViewer } from "@/lib/viewer";
 
@@ -16,13 +17,16 @@ export const metadata = { title: "Shelf" };
 export default async function ShelfPage() {
   const [games, viewer] = await Promise.all([loadShelf(), readViewer()]);
   return (
-    <>
+    // The scope wraps the header as well as the shelf: the platform menu lives
+    // in the header now, and this is what lets it filter in place instead of
+    // navigating (see components/shelf/filter-context.tsx).
+    <ShelfFilterScope>
       <SiteHeader />
       <main>
         <Suspense>
           <Shelf games={games} viewer={viewer} />
         </Suspense>
       </main>
-    </>
+    </ShelfFilterScope>
   );
 }

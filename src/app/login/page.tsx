@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SiteHeader } from "@/components/site-header";
 import { loginErrorMessage, safeNext } from "@/lib/auth";
 import { readViewer } from "@/lib/viewer";
 
@@ -26,62 +27,70 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { canEdit, enforced } = await readViewer();
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 pb-safe">
-      <div className="nes-stripe mb-6 h-1" aria-hidden />
-      <h1 className="font-display text-2xl font-bold tracking-tight">
-        Game <span className="text-nes-grey">Explorer</span>
-      </h1>
-      <p className="mt-1 text-sm text-muted">Sign in to add tags, codes, runs and journal entries. Browsing needs no account.</p>
+    <>
+      {/* Even the login page gets the menu (GAMEEXPLOR-0018) — a visitor who
+          followed a redirect here and does not have the password should be one
+          tap from the shelf, not stranded. `min-h-dvh` minus the header keeps
+          the form vertically centred rather than pushing the page into a
+          scroll. */}
+      <SiteHeader />
+      <main className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-sm flex-col justify-center px-5 pb-safe">
+        {/* The header already draws the NES stripe; one is a signature, two is a mistake. */}
+        <h1 className="mt-6 font-display text-2xl font-bold tracking-tight">
+          Game <span className="text-nes-grey">Explorer</span>
+        </h1>
+        <p className="mt-1 text-sm text-muted">Sign in to add tags, codes, runs and journal entries. Browsing needs no account.</p>
 
-      {canEdit ? (
-        <div className="mt-6 rounded-xl border border-border bg-surface p-4" data-testid="already-signed-in">
-          <p className="text-sm">You are signed in{enforced ? "" : " — this server has no auth configured, so everything is editable"}.</p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Link href={next} className="inline-flex min-h-11 items-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink">
-              Continue
-            </Link>
-            {enforced ? (
-              <form method="post" action="/api/auth/logout">
-                <input type="hidden" name="next" value="/" />
-                <button type="submit" className="min-h-11 rounded-xl border border-border px-4 text-sm text-muted hover:border-muted hover:text-text" data-testid="sign-out">
-                  Sign out
-                </button>
-              </form>
-            ) : null}
+        {canEdit ? (
+          <div className="mt-6 rounded-xl border border-border bg-surface p-4" data-testid="already-signed-in">
+            <p className="text-sm">You are signed in{enforced ? "" : " — this server has no auth configured, so everything is editable"}.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Link href={next} className="inline-flex min-h-11 items-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink">
+                Continue
+              </Link>
+              {enforced ? (
+                <form method="post" action="/api/auth/logout">
+                  <input type="hidden" name="next" value="/" />
+                  <button type="submit" className="min-h-11 rounded-xl border border-border px-4 text-sm text-muted hover:border-muted hover:text-text" data-testid="sign-out">
+                    Sign out
+                  </button>
+                </form>
+              ) : null}
+            </div>
           </div>
-        </div>
-      ) : (
-        <form method="post" action="/api/auth/login" className="mt-6" data-testid="login-form">
-          <input type="hidden" name="next" value={next} />
-          <label className="block text-sm text-muted" htmlFor="password">
-            Password
-          </label>
-          {/* `autoComplete="current-password"` with no username field is what
-              tells iOS Safari to offer the saved password. */}
-          <input
-            id="password"
-            name="password"
-            type="password"
-            required
-            autoFocus
-            autoComplete="current-password"
-            className="mt-1 min-h-12 w-full rounded-xl border border-border bg-surface px-4 text-base outline-none focus:border-accent"
-            data-testid="password"
-          />
-          {error ? (
-            <p className="mt-2 text-sm text-bad" role="alert" data-testid="login-error">
-              {error}
-            </p>
-          ) : null}
-          <button type="submit" className="mt-4 min-h-12 w-full rounded-xl bg-accent px-4 text-base font-semibold text-accent-ink" data-testid="sign-in">
-            Sign in
-          </button>
-        </form>
-      )}
+        ) : (
+          <form method="post" action="/api/auth/login" className="mt-6" data-testid="login-form">
+            <input type="hidden" name="next" value={next} />
+            <label className="block text-sm text-muted" htmlFor="password">
+              Password
+            </label>
+            {/* `autoComplete="current-password"` with no username field is what
+                tells iOS Safari to offer the saved password. */}
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoFocus
+              autoComplete="current-password"
+              className="mt-1 min-h-12 w-full rounded-xl border border-border bg-surface px-4 text-base outline-none focus:border-accent"
+              data-testid="password"
+            />
+            {error ? (
+              <p className="mt-2 text-sm text-bad" role="alert" data-testid="login-error">
+                {error}
+              </p>
+            ) : null}
+            <button type="submit" className="mt-4 min-h-12 w-full rounded-xl bg-accent px-4 text-base font-semibold text-accent-ink" data-testid="sign-in">
+              Sign in
+            </button>
+          </form>
+        )}
 
-      <Link href="/" className="mt-8 inline-flex min-h-11 items-center text-sm text-muted hover:text-text">
-        ← Back to the shelf
-      </Link>
-    </main>
+        <Link href="/" className="mt-8 inline-flex min-h-11 items-center text-sm text-muted hover:text-text">
+          ← Back to the shelf
+        </Link>
+      </main>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { SiteHeader } from "@/components/site-header";
 import { BackLink } from "@/components/game/back-link";
 import { Screenshots } from "@/components/game/screenshots";
 import { CodeList } from "@/components/game/code-list";
@@ -48,148 +49,153 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
     ...game.related.map((r) => ({ id: r.id, name: r.name, cover: r.cover, platformLabel: r.copies.map((c) => c.platformLabel).join(" · "), why: "tags" as const })),
   ].slice(0, 12);
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-safe">
-      <div className="flex items-center justify-between py-2">
-        <BackLink />
-        <Link href="/" className="font-display text-sm font-bold text-muted hover:text-text">
-          <span className="text-accent">▮</span> Game Explorer
-        </Link>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-[minmax(0,260px)_1fr] sm:gap-10 lg:grid-cols-[minmax(0,320px)_1fr]">
-        <div className="mx-auto w-[60%] max-w-xs sm:mx-0 sm:w-full">
-          <Cover imageId={game.cover} title={game.name} size="huge" priority className="shadow-2xl shadow-black/60 ring-1 ring-white/10" />
+    <>
+      {/* The main menu belongs here too (GAMEEXPLOR-0018): a game page is where
+          you land from a shared link, and it used to be a dead end with one way
+          back. The wordmark in the header is home, so the standalone "Game
+          Explorer" link that sat opposite the back-link is gone; the back-link
+          stays, because "back to the shelf you were looking at" is not "home". */}
+      <SiteHeader />
+      <div className="mx-auto max-w-6xl px-4 pb-safe">
+        <div className="flex items-center py-2">
+          <BackLink />
         </div>
 
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            {game.copies.map((c) => (
-              <Badge key={c.platform}>
-                {c.platformLabel}
-                {c.quantity > 1 ? ` ×${c.quantity}` : ""}
-              </Badge>
-            ))}
-            {game.year ? <span>{game.year}</span> : null}
-            {game.developers[0] ? <span>· {game.developers[0]}</span> : null}
+        <div className="grid gap-6 sm:grid-cols-[minmax(0,260px)_1fr] sm:gap-10 lg:grid-cols-[minmax(0,320px)_1fr]">
+          <div className="mx-auto w-[60%] max-w-xs sm:mx-0 sm:w-full">
+            <Cover imageId={game.cover} title={game.name} size="huge" priority className="shadow-2xl shadow-black/60 ring-1 ring-white/10" />
           </div>
-          <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl" data-testid="game-title">
-            {game.name}
-          </h1>
-          {game.title !== game.name ? <p className="mt-1 text-sm text-faint">on the shelf as &ldquo;{game.title}&rdquo;</p> : null}
 
-          {/* Cheap, and it is how the feature gets discovered: from a game you
-              are already looking at, into the list of what else is in its
-              series and what of it you are missing. */}
-          {game.series.length ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="game-series">
-              {game.series.map((s) => (
-                <Link key={s.id} href={`/series/${s.slug}`} className="inline-flex min-h-9 items-center rounded-lg border border-border bg-surface px-3 text-muted transition hover:border-muted hover:text-text" prefetch={false}>
-                  Part of {s.name} <span aria-hidden className="ml-1 text-accent-2">→</span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+              {game.copies.map((c) => (
+                <Badge key={c.platform}>
+                  {c.platformLabel}
+                  {c.quantity > 1 ? ` ×${c.quantity}` : ""}
+                </Badge>
+              ))}
+              {game.year ? <span>{game.year}</span> : null}
+              {game.developers[0] ? <span>· {game.developers[0]}</span> : null}
+            </div>
+            <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl" data-testid="game-title">
+              {game.name}
+            </h1>
+            {game.title !== game.name ? <p className="mt-1 text-sm text-faint">on the shelf as &ldquo;{game.title}&rdquo;</p> : null}
+
+            {/* Cheap, and it is how the feature gets discovered: from a game you
+                are already looking at, into the list of what else is in its
+                series and what of it you are missing. */}
+            {game.series.length ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="game-series">
+                {game.series.map((s) => (
+                  <Link key={s.id} href={`/series/${s.slug}`} className="inline-flex min-h-9 items-center rounded-lg border border-border bg-surface px-3 text-muted transition hover:border-muted hover:text-text" prefetch={false}>
+                    Part of {s.name} <span aria-hidden className="ml-1 text-accent-2">→</span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Should we play this? */}
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="facts">
+              <FactTile label="Players" fact={game.profile.maxPlayers} render={(v) => (v <= 1 ? "1" : `1–${v}`)} fallback={game.players.tier === "mode" ? game.players.label : null} />
+              <FactTile label="Co-op" fact={game.profile.coop} render={(v) => (v ? "Yes" : "No")} />
+              <FactTile label="At the same time" fact={game.profile.simultaneousPlay} render={(v) => (v ? "Yes" : "Turns")} />
+              <FactTile label="How long" fact={game.profile.playtimeMinutes} render={(v) => minutesLabel(v) ?? "?"} sub={game.playtimeRange.completely ? `${minutesLabel(game.playtimeRange.completely)} to finish everything` : null} />
+              <FactTile label="Rating" fact={game.rating != null ? { value: game.rating, source: "igdb:game_modes" } : { value: null, source: null }} render={(v) => `${v}`} sub={game.ratingCount ? `${game.ratingCount} votes on IGDB` : null} hideSource />
+              <div className="rounded-xl border border-border bg-surface p-3">
+                <div className="text-xs text-muted">Plays like</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {game.tags
+                    .filter((t) => t.source !== "igdb" || game.genres.includes(t.tag) || game.perspectives.includes(t.tag))
+                    .slice(0, 4)
+                    .map((t) => (
+                      <Badge key={t.key} tone={t.source === "manual" ? "good" : t.source === "agent" ? "info" : "muted"}>
+                        {t.tag}
+                      </Badge>
+                    ))}
+                  {!game.tags.length ? <span className="text-faint">?</span> : null}
+                </div>
+              </div>
+            </div>
+
+            {game.summary ? <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-text/90">{game.summary}</p> : <p className="mt-5 text-sm text-faint">No description in the catalog{game.igdbId ? "" : " — this cartridge is not linked to IGDB yet"}.</p>}
+            <TagEditor gameId={id} tags={game.tags} hidden={game.hiddenTags} canEdit={canEdit} />
+          </div>
+        </div>
+
+        {/* Directly after the tags: this is the part of the page that is about
+            you, and the thing you came here to tap. */}
+        <PlayHistory gameId={id} sessions={game.sessions} queued={game.queued} canEdit={canEdit} />
+
+        <MapCards gameId={id} maps={game.maps} />
+
+        <CodeList gameId={id} codes={game.codes} canEdit={canEdit} />
+
+        <ManualCards gameId={id} manuals={game.manuals} />
+
+        {/* Reference material sits with the codes and maps: it is the same kind
+            of thing — impersonal, the same for every owner, and agent-fillable. */}
+        <Bookmarks gameId={id} bookmarks={game.bookmarks} canEdit={canEdit} />
+
+        {game.screenshots.length ? (
+          <section className="mt-8">
+            <h2 className="mb-3 font-display text-base font-bold">What it looks like</h2>
+            <Screenshots shots={game.screenshots} title={game.name} />
+          </section>
+        ) : null}
+
+        <section className="mt-8">
+          <h2 className="mb-3 font-display text-base font-bold">
+            Similar, and on the shelf {onShelf.length ? <span className="text-muted">· {onShelf.length}</span> : null}
+          </h2>
+          {onShelf.length ? (
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]" data-testid="similar-owned">
+              {onShelf.map((s) => (
+                <Link key={s.id} href={`/game/${s.id}`} className="group" prefetch={false}>
+                  <Cover imageId={s.cover} title={s.name} className={cx("transition group-hover:-translate-y-1", s.why === "igdb" && "ring-2 ring-accent/70")} />
+                  <div className="mt-1.5 line-clamp-2 text-xs font-medium">{s.name}</div>
+                  <div className="text-[11px] text-muted">{s.platformLabel}</div>
                 </Link>
               ))}
             </div>
-          ) : null}
-
-          {/* Should we play this? */}
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="facts">
-            <FactTile label="Players" fact={game.profile.maxPlayers} render={(v) => (v <= 1 ? "1" : `1–${v}`)} fallback={game.players.tier === "mode" ? game.players.label : null} />
-            <FactTile label="Co-op" fact={game.profile.coop} render={(v) => (v ? "Yes" : "No")} />
-            <FactTile label="At the same time" fact={game.profile.simultaneousPlay} render={(v) => (v ? "Yes" : "Turns")} />
-            <FactTile label="How long" fact={game.profile.playtimeMinutes} render={(v) => minutesLabel(v) ?? "?"} sub={game.playtimeRange.completely ? `${minutesLabel(game.playtimeRange.completely)} to finish everything` : null} />
-            <FactTile label="Rating" fact={game.rating != null ? { value: game.rating, source: "igdb:game_modes" } : { value: null, source: null }} render={(v) => `${v}`} sub={game.ratingCount ? `${game.ratingCount} votes on IGDB` : null} hideSource />
-            <div className="rounded-xl border border-border bg-surface p-3">
-              <div className="text-xs text-muted">Plays like</div>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {game.tags
-                  .filter((t) => t.source !== "igdb" || game.genres.includes(t.tag) || game.perspectives.includes(t.tag))
-                  .slice(0, 4)
-                  .map((t) => (
-                    <Badge key={t.key} tone={t.source === "manual" ? "good" : t.source === "agent" ? "info" : "muted"}>
-                      {t.tag}
-                    </Badge>
-                  ))}
-                {!game.tags.length ? <span className="text-faint">?</span> : null}
+          ) : (
+            <p className="text-sm text-faint">Nothing on the shelf looks similar yet — tags would help here.</p>
+          )}
+          {notOwned.length ? (
+            <details className="mt-4 group">
+              <summary className="cursor-pointer text-sm text-muted hover:text-text">Similar, not owned · {notOwned.length}</summary>
+              <div className="mt-3 grid grid-cols-4 gap-2 opacity-60 sm:grid-cols-[repeat(auto-fill,minmax(90px,1fr))]" data-testid="similar-not-owned">
+                {notOwned.map((s) => (
+                  <div key={s.igdbId}>
+                    <Cover imageId={s.cover} title={s.name} size="small" />
+                    <div className="mt-1 line-clamp-2 text-[11px]">{s.name}</div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
-
-          {game.summary ? <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-text/90">{game.summary}</p> : <p className="mt-5 text-sm text-faint">No description in the catalog{game.igdbId ? "" : " — this cartridge is not linked to IGDB yet"}.</p>}
-          <TagEditor gameId={id} tags={game.tags} hidden={game.hiddenTags} canEdit={canEdit} />
-        </div>
-      </div>
-
-      {/* Directly after the tags: this is the part of the page that is about
-          you, and the thing you came here to tap. */}
-      <PlayHistory gameId={id} sessions={game.sessions} queued={game.queued} canEdit={canEdit} />
-
-      <MapCards gameId={id} maps={game.maps} />
-
-      <CodeList gameId={id} codes={game.codes} canEdit={canEdit} />
-
-      <ManualCards gameId={id} manuals={game.manuals} />
-
-      {/* Reference material sits with the codes and maps: it is the same kind
-          of thing — impersonal, the same for every owner, and agent-fillable. */}
-      <Bookmarks gameId={id} bookmarks={game.bookmarks} canEdit={canEdit} />
-
-      {game.screenshots.length ? (
-        <section className="mt-8">
-          <h2 className="mb-3 font-display text-base font-bold">What it looks like</h2>
-          <Screenshots shots={game.screenshots} title={game.name} />
+            </details>
+          ) : null}
         </section>
-      ) : null}
 
-      <section className="mt-8">
-        <h2 className="mb-3 font-display text-base font-bold">
-          Similar, and on the shelf {onShelf.length ? <span className="text-muted">· {onShelf.length}</span> : null}
-        </h2>
-        {onShelf.length ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]" data-testid="similar-owned">
-            {onShelf.map((s) => (
-              <Link key={s.id} href={`/game/${s.id}`} className="group" prefetch={false}>
-                <Cover imageId={s.cover} title={s.name} className={cx("transition group-hover:-translate-y-1", s.why === "igdb" && "ring-2 ring-accent/70")} />
-                <div className="mt-1.5 line-clamp-2 text-xs font-medium">{s.name}</div>
-                <div className="text-[11px] text-muted">{s.platformLabel}</div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-faint">Nothing on the shelf looks similar yet — tags would help here.</p>
-        )}
-        {notOwned.length ? (
-          <details className="mt-4 group">
-            <summary className="cursor-pointer text-sm text-muted hover:text-text">Similar, not owned · {notOwned.length}</summary>
-            <div className="mt-3 grid grid-cols-4 gap-2 opacity-60 sm:grid-cols-[repeat(auto-fill,minmax(90px,1fr))]" data-testid="similar-not-owned">
-              {notOwned.map((s) => (
-                <div key={s.igdbId}>
-                  <Cover imageId={s.cover} title={s.name} size="small" />
-                  <div className="mt-1 line-clamp-2 text-[11px]">{s.name}</div>
-                </div>
-              ))}
-            </div>
-          </details>
-        ) : null}
-      </section>
+        <LookupLinks name={game.name} copies={game.copies} />
 
-      <LookupLinks name={game.name} copies={game.copies} />
+        {/* Last on the page: the journal is the one section that grows without bound. */}
+        <Journal gameId={id} entries={game.journal} sessions={game.sessions} canEdit={canEdit} />
 
-      {/* Last on the page: the journal is the one section that grows without bound. */}
-      <Journal gameId={id} entries={game.journal} sessions={game.sessions} canEdit={canEdit} />
-
-      <footer className="mt-10 border-t border-border/60 py-4 text-xs text-faint">
-        {game.igdbId ? (
-          <>
-            IGDB #{game.igdbId} · matched {game.matchSource ?? "?"}
-            {game.matchConfidence != null ? ` at ${Math.round(game.matchConfidence * 100)}%` : ""}
-          </>
-        ) : (
-          "Not linked to a catalog entry."
-        )}
-        {game.completeness ? ` · ${game.completeness}` : ""}
-        {game.condition ? ` · condition ${game.condition}` : ""}
-        {game.notes ? ` · ${game.notes}` : ""}
-      </footer>
-    </div>
+        <footer className="mt-10 border-t border-border/60 py-4 text-xs text-faint">
+          {game.igdbId ? (
+            <>
+              IGDB #{game.igdbId} · matched {game.matchSource ?? "?"}
+              {game.matchConfidence != null ? ` at ${Math.round(game.matchConfidence * 100)}%` : ""}
+            </>
+          ) : (
+            "Not linked to a catalog entry."
+          )}
+          {game.completeness ? ` · ${game.completeness}` : ""}
+          {game.condition ? ` · condition ${game.condition}` : ""}
+          {game.notes ? ` · ${game.notes}` : ""}
+        </footer>
+      </div>
+    </>
   );
 }
 

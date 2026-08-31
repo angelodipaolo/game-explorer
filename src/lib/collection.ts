@@ -195,6 +195,47 @@ export async function loadOwnedRows(): Promise<ShelfGame[]> {
   });
 }
 
+/** One row of the main menu's platform list. */
+export type PlatformCount = { slug: string; label: string; count: number };
+
+/**
+ * The platform list the global menu draws, counted in the database rather than
+ * from a loaded shelf: since GAMEEXPLOR-0018 the drawer is on every page, and
+ * most of them have no reason to pull the whole collection into memory.
+ *
+ * The numbers have to agree with the shelf's own or the menu lies, so they are
+ * computed the way `facets()` and `groupShelf` compute them. A platform's
+ * count is its *copies* — one per platform per grouped game, so two rows of
+ * the same cartridge on the same system count once, exactly as `groupShelf`
+ * merges them. `total` is the number of grouped entries, which is the
+ * "All N games" the shelf prints; grouping by `catalogGameId` partitions the
+ * rows identically to `groupShelf`'s `igdbId`, since the two are the same key.
+ */
+export async function platformCounts(): Promise<{ platforms: PlatformCount[]; total: number }> {
+  // No `catalogGame` join: the only place a catalog name could be read is the
+  // branch where `catalogGameId` is null, and there the relation is null too —
+  // so `name` there is always the shelf title, which is exactly what
+  // `groupShelf` falls back to.
+  const rows = await prisma.ownedGame.findMany({ select: { platform: true, catalogGameId: true, title: true } });
+  const groups = new Set<string>();
+  const copies = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.catalogGameId != null ? `c:${r.catalogGameId}` : `t:${r.title.toLowerCase()}`;
+    groups.add(key);
+    const copy = `${key}|${r.platform}`;
+    if (copies.has(copy)) continue;
+    copies.add(copy);
+    counts.set(r.platform, (counts.get(r.platform) ?? 0) + 1);
+  }
+  return {
+    // Biggest shelf first, then alphabetical: `findMany` has no order here, and
+    // a menu whose rows swap places between page loads is unusable.
+    platforms: [...counts].map(([slug, count]) => ({ slug, label: platformLabel(slug), count })).sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug)),
+    total: groups.size,
+  };
+}
+
 export type GameDetail = ShelfGame & {
   storyline: string | null;
   developers: string[];

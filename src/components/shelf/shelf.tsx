@@ -8,31 +8,29 @@ import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilter
 import { Button, cx } from "@/components/ui";
 import { FilterSheet, PresetRow } from "./filter-sheet";
 import { GameCard, GameRow } from "./game-card";
-import { PlatformSidebar } from "./platform-sidebar";
+import { useRegisterShelfFilters } from "./filter-context";
 import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
 
 export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) {
   const [filters, set, reset] = useFilters({ scrollTopOnChange: true });
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [platformsOpen, setPlatformsOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
-  const closePlatforms = useCallback(() => setPlatformsOpen(false), []);
   const facets = useMemo(() => buildFacets(games), [games]);
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
   const active = activeFilterCount(filters);
   const qs = serializeFilters(filters);
   useScrollMemory(qs);
-
+  // The platform menu is in the header now (GAMEEXPLOR-0018), outside this
+  // tree. Publishing `set` is what keeps picking a console on the shelf a
+  // client-side filter change rather than a navigation back to the server.
+  useRegisterShelfFilters(filters.platforms, set);
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-28 sm:pb-10">
       {/* Toolbar */}
       <div className="sticky top-12 z-20 -mx-4 bg-bg/85 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setPlatformsOpen(true)} className={cx("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition", filters.platforms.length ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-text hover:border-muted")} aria-label="Open platform menu" aria-expanded={platformsOpen} aria-controls="platform-menu" data-testid="open-platforms">
-            <span className="grid w-5 gap-1" aria-hidden="true"><span className="h-0.5 bg-current" /><span className="h-0.5 bg-current" /><span className="h-0.5 bg-current" /></span>
-          </button>
           <label className="relative flex-1">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">⌕</span>
             <input
@@ -143,7 +141,6 @@ export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer })
       </Link>
 
       <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} viewer={viewer} />
-      <PlatformSidebar open={platformsOpen} onClose={closePlatforms} platforms={facets.platforms} totalGames={games.length} filters={filters} set={set} viewer={viewer} />
     </div>
   );
 }

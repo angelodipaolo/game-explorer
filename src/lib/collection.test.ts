@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { groupShelf, type ShelfGame } from "./collection";
+import { beforeEach, describe, expect, it } from "vitest";
+import { prisma } from "@/lib/db";
+import { groupShelf, platformCounts, type ShelfGame } from "./collection";
+import { platformLabel } from "./platforms";
 
 function row(title: string, platform: string, igdbId: number | null, ownedId = `${title}-${platform}`): ShelfGame {
   return {
@@ -47,5 +49,52 @@ describe("groupShelf", () => {
   it("adds up copies on the same platform", () => {
     const out = groupShelf([row("Halo 3", "x360", 5, "a"), row("Halo 3", "x360", 5, "b")]);
     expect(out[0].copies).toEqual([{ ownedId: "a", platform: "x360", platformLabel: "X360", quantity: 2 }]);
+  });
+});
+
+/**
+ * The main menu is on every page and the shelf is on one, so the drawer's
+ * counts come from the database while the shelf's come from a loaded
+ * collection — two paths that have to agree or the menu lies about the shelf
+ * it links to. This pins the two rules that make them agree.
+ */
+describe("platformCounts", () => {
+  beforeEach(async () => {
+    await prisma.ownedGame.deleteMany();
+    await prisma.catalogGame.deleteMany();
+  });
+
+  it("counts copies per platform and grouped entries in total, the way groupShelf does", async () => {
+    await prisma.catalogGame.createMany({
+      data: [
+        { igdbId: 100, name: "Stray", slug: "stray" },
+        { igdbId: 200, name: "Contra", slug: "contra" },
+      ],
+    });
+    const own = (title: string, platform: string, catalogGameId: number | null) =>
+      prisma.ownedGame.create({ data: { title, normalizedTitle: title.toLowerCase(), platform, catalogGameId } });
+    await own("Stray", "ps4", 100);
+    await own("Stray", "ps5", 100);
+    await own("Contra", "nes", 200);
+    // Two shelf rows for the same catalog game on the same system — the shape
+    // a re-titled cartridge takes, since (normalizedTitle, platform) is unique.
+    // groupShelf merges them into one copy, so the menu must not count two.
+    await own("Contra (USA)", "nes", 200);
+    // Unlinked pair — grouped by title, exactly as the shelf groups them.
+    await own("Roller Games", "nes", null);
+    await own("Roller Games", "snes", null);
+
+    const { platforms, total } = await platformCounts();
+    expect(total).toBe(3);
+    expect(platforms).toEqual([
+      { slug: "nes", label: platformLabel("nes"), count: 2 },
+      { slug: "ps4", label: platformLabel("ps4"), count: 1 },
+      { slug: "ps5", label: platformLabel("ps5"), count: 1 },
+      { slug: "snes", label: platformLabel("snes"), count: 1 },
+    ]);
+  });
+
+  it("has nothing to list on an empty shelf", async () => {
+    await expect(platformCounts()).resolves.toEqual({ platforms: [], total: 0 });
   });
 });
