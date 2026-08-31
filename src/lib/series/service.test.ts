@@ -7,7 +7,7 @@ import { groupBySection, missingHref, newSinceLastPrune, parseMissing, seenIdsOf
 /** Nothing here talks to IGDB: entries are hydrated by hand into the test catalog. */
 const noHydrate: Hydrate = async () => {};
 
-const catalog = (igdbId: number, name: string, over: { parentIgdbId?: number; cover?: string; year?: number } = {}) =>
+const catalog = (igdbId: number, name: string, over: { parentIgdbId?: number; cover?: string; year?: number; genres?: string[]; platforms?: string[]; gameModes?: number[] } = {}) =>
   prisma.catalogGame.create({
     data: {
       igdbId,
@@ -17,6 +17,10 @@ const catalog = (igdbId: number, name: string, over: { parentIgdbId?: number; co
       parentIgdbId: over.parentIgdbId ?? null,
       coverImageId: over.cover ?? null,
       firstReleaseDate: over.year ? new Date(Date.UTC(over.year, 0, 1)) : null,
+      genres: JSON.stringify(over.genres ?? []),
+      // IGDB's own spellings, which is what the synthesised copies are made of.
+      platformNames: JSON.stringify(over.platforms ?? []),
+      gameModes: JSON.stringify(over.gameModes ?? []),
     },
   });
 
@@ -201,6 +205,78 @@ describe("ownership", () => {
   });
 });
 
+/**
+ * GAMEEXPLOR-0016: every entry carries a `ShelfGame`, so the page filters with
+ * the shelf's own `verdictFor`/`facets` instead of a second vocabulary. What
+ * is worth pinning here is where each one comes from — the real shelf row for
+ * a copy you own, a synthesis for everything else — and that the curated order
+ * survives the extra work.
+ */
+describe("the shelf game behind an entry", () => {
+  it("gives an owned entry its real shelf row, with its tags and its play state", async () => {
+    await catalog(100, "Contra", { cover: "cov100", year: 1987, genres: ["Shooter"], platforms: ["Nintendo Entertainment System"] });
+    const nes = await own("Contra", "nes", 100);
+    // An open run: the "▶ Playing" badge on the card is only true if the page
+    // merges play state the way loadShelf does.
+    await prisma.playSession.create({ data: { ownedGameId: nes.id, startedAt: new Date() } });
+
+    const s = await createSeries({ name: "Contra", entries: [{ igdbId: 100 }] }, noHydrate);
+    const [e] = (await seriesBySlug(s.slug))!.entries;
+    expect(e.ownedId).toBe(nes.id);
+    // The real owned row, not a synthesis: its id is the copy the card links to.
+    expect(e.game.id).toBe(nes.id);
+    expect(e.game.copies).toEqual([{ ownedId: nes.id, platform: "nes", platformLabel: "NES", quantity: 1 }]);
+    expect(e.game.tags.map((t) => t.tag)).toEqual(["Shooter"]);
+    expect(e.game.play.status).toBe("playing");
+  });
+
+  it("synthesises one for an entry nobody owns, with copies from the catalog's platforms", async () => {
+    await catalog(200, "Super C", { year: 1990, genres: ["Shooter"], platforms: ["Nintendo Entertainment System", "Super Nintendo Entertainment System", "Sharp X68000"] });
+    const s = await createSeries({ name: "Contra", entries: [{ igdbId: 200 }] }, noHydrate);
+    const [e] = (await seriesBySlug(s.slug))!.entries;
+    expect(e.ownedId).toBeNull();
+    // Released on, not owned on: the platform filter means both on this page.
+    // Unknown platforms drop out, and the rest are era-ordered like groupShelf's.
+    expect(e.game.copies).toEqual([
+      { ownedId: "", platform: "nes", platformLabel: "NES", quantity: 0 },
+      { ownedId: "", platform: "snes", platformLabel: "SNES", quantity: 0 },
+    ]);
+    // Nothing is owned, so nothing was played and there is no copy to link to.
+    expect(e.game.quantity).toBe(0);
+    expect(e.game.play).toEqual({ status: "never", runs: 0, lastPlayedAt: null });
+    expect(e.game.tags.map((t) => t.tag)).toEqual(["Shooter"]);
+    expect(e.game.year).toBe(1990);
+  });
+
+  it("still renders an entry whose IGDB id has no catalog row, with nothing to filter on", async () => {
+    const s = await createSeries({ name: "Odds", entries: [{ igdbId: 777 }, { title: "Roller Games" }] }, noHydrate);
+    const view = await seriesBySlug(s.slug);
+    expect(view!.entries.map((e) => e.name)).toEqual(["IGDB #777", "Roller Games"]);
+    for (const e of view!.entries) {
+      expect(e.game.name).toBe(e.name);
+      expect(e.game.copies).toEqual([]);
+      expect(e.game.tags).toEqual([]);
+      expect(e.game.players.tier).toBe("unknown");
+    }
+  });
+
+  it("keeps the curated order, entries and sections alike", async () => {
+    await catalog(1, "Third", { platforms: ["Nintendo Entertainment System"] });
+    await catalog(2, "First");
+    const nes = await own("First", "nes", 2);
+    const s = await createSeries({ name: "Order", entries: [{ igdbId: 1, section: "Mainline" }, { igdbId: 2, section: "Mainline" }, { title: "Alpha", section: "Spin-offs" }] }, noHydrate);
+    const view = await seriesBySlug(s.slug);
+    // Position order, not alphabetical and not owned-first.
+    expect(view!.entries.map((e) => e.game.name)).toEqual(["Third", "First", "Alpha"]);
+    expect(view!.sections.map((g) => [g.section, g.entries.map((e) => e.game.name)])).toEqual([
+      ["Mainline", ["Third", "First"]],
+      ["Spin-offs", ["Alpha"]],
+    ]);
+    // The one owned entry in there is still the real row.
+    expect(view!.sections[0].entries[1].game.id).toBe(nes.id);
+  });
+});
+
 describe("seriesForGame", () => {
   it("finds the series that lists the game, its parent, or a port of it", async () => {
     await catalog(100, "Contra");
@@ -333,6 +409,43 @@ describe("the ?missing toggle", () => {
   it("links both ways, and the default view carries no parameter", () => {
     expect(missingHref("final-fantasy", true)).toBe("/series/final-fantasy?missing=1");
     expect(missingHref("final-fantasy", false)).toBe("/series/final-fantasy");
+  });
+
+  it("carries the filters across the toggle, with missing first", () => {
+    // "What am I missing, on the NES" is one view and has to stay one link, so
+    // asking for the missing entries must not drop the platform you had picked.
+    expect(missingHref("final-fantasy", true, "?platform=nes&tags=RPG")).toBe("/series/final-fantasy?missing=1&platform=nes&tags=RPG");
+    expect(missingHref("final-fantasy", false, "?platform=nes")).toBe("/series/final-fantasy?platform=nes");
+    // `missing` comes first so the plain toggle is still exactly `?missing=1`,
+    // which e2e/series.spec.ts asserts with an anchored regex.
+    expect(missingHref("final-fantasy", true, "")).toBe("/series/final-fantasy?missing=1");
+  });
+});
+
+describe("a card carries every copy of the game", () => {
+  it("merges the sibling copies and rolls play state up across them", async () => {
+    // `resolveEntries` hands an entry exactly one owned copy, which is what
+    // "you own 7 of 16" is counted from. But the card is about the *game*: a
+    // game owned on PS4 and PS5 is one game, and the shelf says so. Showing
+    // only the backing copy would hide the entry under the other platform's
+    // filter and lose the "▶ Playing" badge whenever the open run happened to
+    // be on the other cartridge.
+    await catalog(900, "Crash 4", { platforms: ["PlayStation 4", "PlayStation 5"] });
+    const ps4 = await own("Crash 4", "ps4", 900);
+    const ps5 = await own("Crash 4", "ps5", 900);
+    // The run is on whichever copy did NOT back the entry, which is the case
+    // that used to come back unbadged.
+    await prisma.playSession.create({ data: { ownedGameId: ps5.id, startedAt: new Date("2026-08-01") } });
+
+    const s = await createSeries({ name: "Crash", entries: [{ igdbId: 900 }] }, noHydrate);
+    const [entry] = (await seriesBySlug(s.slug))!.entries;
+
+    expect(entry.game.copies.map((c) => c.platform).sort()).toEqual(["ps4", "ps5"]);
+    expect(entry.game.play.status).toBe("playing");
+    // The link still goes to the copy this entry resolved to, not to whichever
+    // copy `groupShelf` happens to sort first.
+    expect(entry.game.id).toBe(entry.ownedId);
+    expect([ps4.id, ps5.id]).toContain(entry.ownedId);
   });
 });
 

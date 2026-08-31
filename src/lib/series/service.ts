@@ -4,8 +4,12 @@ import type { SeriesCandidate, SeriesSeed } from "@/lib/catalog/collections";
 import { normalizeTitle } from "@/lib/catalog/normalize";
 import { prisma } from "@/lib/db";
 import { EnrichmentError } from "@/lib/enrichment/service";
+import { groupShelf, loadOwnedRows, profileToShelfPlayers, type ShelfGame } from "@/lib/collection";
+import { resolvePlayerProfile } from "@/lib/facts";
 import { matchSimilarToOwned } from "@/lib/owned-match";
-import { platformLabel } from "@/lib/platforms";
+import { platformBySlug, platformLabel, resolvePlatform } from "@/lib/platforms";
+import { playStateFor } from "@/lib/play/service";
+import { resolveTags } from "@/lib/tags";
 import { MAX_BLURB, MAX_ENTRIES_PER_SERIES, groupBySection, newSinceLastPrune, uniqueSlug } from "./shape";
 
 /**
@@ -100,7 +104,12 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /* --------------------------------------------------------------- view models */
 
-export type SeriesEntryView = {
+/**
+ * An entry as the index and the card counts need it: who it is, and whether
+ * the shelf has it. No `ShelfGame`, because building one costs two more
+ * queries and `/series` draws hundreds of these at once — see `SeriesEntryView`.
+ */
+export type SeriesEntryBase = {
   id: string;
   igdbId: number | null;
   /** The catalog name, or the free-text title when there is no catalog row. */
@@ -115,6 +124,19 @@ export type SeriesEntryView = {
   ownedId: string | null;
   platformLabel: string | null;
 };
+
+/**
+ * One entry of one series page, carrying the `ShelfGame` the shelf's own
+ * filters read (GAMEEXPLOR-0016).
+ *
+ * The series page is the shelf's grid in a curated order, so it filters with
+ * `verdictFor`/`facets`/`Filters` verbatim rather than growing a second filter
+ * vocabulary — the same move `/playing` made in GAMEEXPLOR-0015. Giving every
+ * entry a `ShelfGame` is what makes that reuse possible, including for the
+ * entries nobody owns: see `catalogShelfGame` for what a synthesised one means
+ * and what it deliberately does not.
+ */
+export type SeriesEntryView = SeriesEntryBase & { game: ShelfGame };
 
 export type SeriesCard = {
   id: string;
@@ -174,9 +196,9 @@ async function ownedLinks(): Promise<OwnedLink[]> {
  */
 export function resolveEntries(
   entries: Pick<SeriesEntry, "id" | "igdbId" | "title" | "section" | "note" | "sourceUrl" | "position">[],
-  catalog: Map<number, { name: string; coverImageId: string | null; firstReleaseDate: Date | null; parentIgdbId: number | null }>,
+  catalog: Map<number, CatalogCard>,
   owned: OwnedLink[],
-): SeriesEntryView[] {
+): SeriesEntryBase[] {
   const igdbIds = entries.map((e) => e.igdbId).filter((x): x is number => x != null);
   const matches = matchSimilarToOwned(
     igdbIds,
@@ -232,12 +254,159 @@ export function resolveEntries(
     });
 }
 
+/** What resolving an entry needs: its name, its art, and the parent the ownership match walks through. */
+const CARD_COLUMNS = { igdbId: true, name: true, coverImageId: true, firstReleaseDate: true, parentIgdbId: true } as const;
+export type CatalogCard = { name: string; coverImageId: string | null; firstReleaseDate: Date | null; parentIgdbId: number | null };
+
+/**
+ * The same row plus everything a `ShelfGame` reads, for the one series page.
+ * Deliberately not what the index fetches: `/series` and the home page pull
+ * every entry of every series through `catalogFor`, and none of them filters.
+ */
+const GAME_COLUMNS = {
+  ...CARD_COLUMNS,
+  genres: true,
+  themes: true,
+  playerPerspectives: true,
+  platformNames: true,
+  rating: true,
+  gameModes: true,
+  mpOfflineMax: true,
+  mpOfflineCoopMax: true,
+  mpOfflineCoop: true,
+  mpSplitscreen: true,
+  mpCampaignCoop: true,
+  ttbNormally: true,
+} as const;
+type CatalogGameRow = Awaited<ReturnType<typeof catalogGamesFor>> extends Map<number, infer V> ? V : never;
+
 async function catalogFor(igdbIds: number[]) {
-  const rows = igdbIds.length ? await prisma.catalogGame.findMany({ where: { igdbId: { in: [...new Set(igdbIds)] } }, select: { igdbId: true, name: true, coverImageId: true, firstReleaseDate: true, parentIgdbId: true } }) : [];
+  const rows = igdbIds.length ? await prisma.catalogGame.findMany({ where: { igdbId: { in: [...new Set(igdbIds)] } }, select: CARD_COLUMNS }) : [];
   return new Map(rows.map((r) => [r.igdbId, r]));
 }
 
-function card(s: Series, views: SeriesEntryView[]): SeriesCard {
+async function catalogGamesFor(igdbIds: number[]) {
+  const rows = igdbIds.length ? await prisma.catalogGame.findMany({ where: { igdbId: { in: [...new Set(igdbIds)] } }, select: GAME_COLUMNS }) : [];
+  return new Map(rows.map((r) => [r.igdbId, r]));
+}
+
+function arr(json: string): string[] {
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * A `ShelfGame` for an entry nobody owns, so the page can hand every card to
+ * the shelf's own `verdictFor` and `facets` (GAMEEXPLOR-0016).
+ *
+ * **These exist only to be filtered.** They never go through `groupShelf` —
+ * there is no owned row to group — and nothing links one to `/game/`, which is
+ * why the empty `ownedId` on each copy is inert rather than a broken link: the
+ * missing card is a `<div>`, not an anchor. `id` is the series entry's id
+ * purely so React has a stable key.
+ *
+ * `copies` is synthesised from the catalog's `platformNames`, which is what
+ * makes the platform filter on this page read "released on, **or** owned on".
+ * That is the honest meaning for a page that deliberately lists games you do
+ * not have: filtering a Zelda series to "SNES" should still show you that A
+ * Link to the Past is the gap, and a copy count of 0 says you own none of it.
+ *
+ * IGDB is thin for games you do not own, so most of these land on "unknown"
+ * for the player and length filters and are shown as "could work" rather than
+ * ruled out. That is the three-valued rule working, not a gap to special-case.
+ */
+function catalogShelfGame(entry: SeriesEntryBase, c: CatalogGameRow | undefined): ShelfGame {
+  const genres = c ? arr(c.genres) : [];
+  const themes = c ? arr(c.themes) : [];
+  const perspectives = c ? arr(c.playerPerspectives) : [];
+  const profile = resolvePlayerProfile(
+    c ? { gameModes: JSON.parse(c.gameModes) as number[], mpOfflineMax: c.mpOfflineMax, mpOfflineCoopMax: c.mpOfflineCoopMax, mpOfflineCoop: c.mpOfflineCoop, mpSplitscreen: c.mpSplitscreen, mpCampaignCoop: c.mpCampaignCoop, ttbNormally: c.ttbNormally } : null,
+    [],
+  );
+  // `resolvePlatform`, not `platformBySlug`: platformNames holds IGDB's own
+  // spellings ("PC (Microsoft Windows)", "Nintendo Entertainment System"), and
+  // only the alias table turns those into the slugs `Filters.platforms` uses.
+  // A platform this app has never heard of simply drops out.
+  const copies = [...new Set(c ? arr(c.platformNames).map((n) => resolvePlatform(n)?.slug).filter((x): x is string => !!x) : [])]
+    .sort((a, b) => (platformBySlug(a)?.year ?? 9999) - (platformBySlug(b)?.year ?? 9999))
+    .map((slug) => ({ ownedId: "", platform: slug, platformLabel: platformLabel(slug), quantity: 0 }));
+  return {
+    id: entry.id,
+    title: entry.name,
+    name: entry.name,
+    platform: copies[0]?.platform ?? "",
+    platformLabel: copies[0]?.platformLabel ?? "",
+    copies,
+    quantity: 0,
+    igdbId: entry.igdbId,
+    cover: entry.cover,
+    year: entry.year,
+    genres,
+    themes,
+    perspectives,
+    rating: c?.rating != null ? Math.round(c.rating) : null,
+    playtime: profile.playtimeMinutes.value,
+    players: profileToShelfPlayers(profile),
+    hasScreenshots: false,
+    tags: resolveTags({ genres, perspectives, themes }, []),
+    similar: [],
+    summary: null,
+    // A game you do not own cannot have been played: play state is derived from
+    // sessions on an owned copy, and there is no copy.
+    play: { status: "never", runs: 0, lastPlayedAt: null },
+  };
+}
+
+/**
+ * Give every entry the `ShelfGame` the page filters on: the real one for a
+ * copy on the shelf, a synthesised one for everything else.
+ *
+ * Two queries whatever the series looks like, both narrowed to the copies this
+ * series touches — `loadOwnedRows(ids)` rather than the whole collection, and
+ * the one `playStateFor` pass `loadShelf` makes, merged the same way.
+ *
+ * **The sibling copies come too.** `resolveEntries` hands each entry exactly
+ * one owned copy, which is right for "you own 7 of 16" — but it is the wrong
+ * card. A game owned on PS4 *and* PS5 is one game: the shelf says so, because
+ * `groupShelf` merges the copies and rolls play state up across them, and a
+ * series page that showed only the backing copy would hide it under the other
+ * platform's filter and drop the "▶ Playing" badge whenever the open run
+ * happened to be on the other cartridge. So the copies are grouped by the one
+ * rule that already exists, and only the `id` is put back to the backing copy —
+ * that is what the card links to, and what the "7 of 16" was counted from.
+ *
+ * `owned` is the shelf listing `resolveEntries` was already given, so finding
+ * the siblings costs nothing.
+ */
+async function withShelfGames(base: SeriesEntryBase[], catalog: Map<number, CatalogGameRow>, owned: OwnedLink[]): Promise<SeriesEntryView[]> {
+  const ownedIds = base.map((e) => e.ownedId).filter((x): x is string => x != null);
+  const byCopy = new Map<string, ShelfGame>();
+  if (ownedIds.length) {
+    // Every copy of every game this series resolved to, backing copies included.
+    const backing = new Set(ownedIds);
+    const wanted = new Set(owned.filter((o) => backing.has(o.id)).map((o) => o.catalogGameId).filter((x): x is number => x != null));
+    const ids = [...new Set([...ownedIds, ...owned.filter((o) => o.catalogGameId != null && wanted.has(o.catalogGameId)).map((o) => o.id)])];
+    const [rows, play] = await Promise.all([loadOwnedRows(ids), playStateFor(ids)]);
+    for (const r of rows) {
+      const s = play.get(r.id);
+      if (s) r.play = { status: s.status, runs: s.runs, lastPlayedAt: s.lastPlayedAt };
+    }
+    for (const g of groupShelf(rows)) for (const c of g.copies) byCopy.set(c.ownedId, g);
+  }
+  return base.map((e) => {
+    const grouped = e.ownedId ? byCopy.get(e.ownedId) : undefined;
+    // `groupShelf` points `id` at the earliest-era copy; this entry is about
+    // the copy it resolved to, so the link goes back to that one.
+    const game = grouped ? { ...grouped, id: e.ownedId! } : catalogShelfGame(e, e.igdbId != null ? catalog.get(e.igdbId) : undefined);
+    return { ...e, game };
+  });
+}
+
+function card(s: Series, views: SeriesEntryBase[]): SeriesCard {
   return {
     id: s.id,
     name: s.name,
@@ -288,9 +457,17 @@ export async function seriesById(id: string): Promise<SeriesView | null> {
   return s ? viewOf(s) : null;
 }
 
+/**
+ * One series page. Five queries at most however long the series is: the series
+ * with its entries, the catalog rows behind them, the shelf links the
+ * ownership match runs over, and — only when something here is owned — the
+ * owned rows and their play state.
+ */
 async function viewOf(s: Series & { entries: SeriesEntry[] }): Promise<SeriesView> {
-  const catalog = await catalogFor(s.entries.map((e) => e.igdbId).filter((x): x is number => x != null));
-  const entries = resolveEntries(s.entries, catalog, await ownedLinks());
+  const catalog = await catalogGamesFor(s.entries.map((e) => e.igdbId).filter((x): x is number => x != null));
+  const owned = await ownedLinks();
+  const base = resolveEntries(s.entries, catalog, owned);
+  const entries = await withShelfGames(base, catalog, owned);
   return { ...card(s, entries), seedCollectionId: s.seedCollectionId, seedCheckedAt: s.seedCheckedAt, entries, sections: groupBySection(entries) };
 }
 

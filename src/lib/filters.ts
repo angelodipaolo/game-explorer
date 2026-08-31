@@ -166,7 +166,15 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
     const q = f.q.toLowerCase();
     vs.push(g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q) || g.genres.some((x) => x.toLowerCase().includes(q)) ? "yes" : "no");
   }
-  if (f.platforms.length) vs.push(g.copies.some((c) => f.platforms.includes(c.platform)) ? "yes" : "no");
+  // Three-valued, like everything else here, and for the same reason. On the
+  // shelf every game has at least one copy, so this reads as the plain
+  // two-valued test it always was. A series page also carries games nobody
+  // owns, whose platforms come from IGDB's spellings — and the ones this app
+  // has no slug for (Arcade, Sharp X68000) leave `copies` empty. Answering
+  // "no" there would hide the arcade Donkey Kong from
+  // `/series/donkey-kong?missing=1&platform=nes` as though it were ruled out,
+  // when the truth is that we do not know what it ran on.
+  if (f.platforms.length) vs.push(!g.copies.length ? "unknown" : g.copies.some((c) => f.platforms.includes(c.platform)) ? "yes" : "no");
   if (f.hideHandhelds) vs.push(g.copies.length > 0 && g.copies.every((c) => HANDHELD_ONLY_PLATFORMS.has(c.platform)) ? "no" : "yes");
   if (f.tags.length) {
     const have = gameTags(g);

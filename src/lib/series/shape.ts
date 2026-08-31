@@ -48,11 +48,15 @@ export function uniqueSlug(name: string, taken: Iterable<string>): string {
 /**
  * The series page defaults to what you own; `?missing=1` reveals the rest.
  *
- * A page-level searchParam on purpose, NOT part of `Filters` in
- * src/lib/filters.ts — the shelf's filter state has nothing to do with this
- * view, and the page is server-rendered per URL rather than filtered in the
- * browser. It is still in the URL, per the linkability invariant: "what am I
- * missing" is a view you can send to someone.
+ * A page-level searchParam on purpose, NOT a field of `Filters` in
+ * src/lib/filters.ts, even though since GAMEEXPLOR-0016 the rest of that page
+ * *is* the shelf's filters. The two are different kinds of thing: a `Filters`
+ * field narrows a set of games the browser already holds, and every one of
+ * them is three-valued against sparse IGDB data. This decides which games the
+ * **server** sends at all — a game nobody owns is not an unknown, it is a
+ * different question — so it is resolved per URL when the page renders and the
+ * grid never sees it. Both live in the URL, per the linkability invariant:
+ * "what am I missing, on the NES" is one view you can send to someone.
  */
 export function parseMissing(params: URLSearchParams | Record<string, string | string[] | undefined> | undefined): boolean {
   if (!params) return false;
@@ -60,9 +64,20 @@ export function parseMissing(params: URLSearchParams | Record<string, string | s
   return raw === "1" || raw === "true";
 }
 
-/** The href that flips the toggle. Dropping the param entirely is the default view. */
-export function missingHref(slug: string, show: boolean): string {
-  return show ? `/series/${slug}?missing=1` : `/series/${slug}`;
+/**
+ * The href that flips the toggle. Dropping the param entirely is the default
+ * view.
+ *
+ * `query` is the rest of the URL the page is wearing — the shelf's filters,
+ * which the series page keeps in the URL client-side (GAMEEXPLOR-0016). They
+ * ride along so that asking what you are missing keeps the platform you had
+ * picked, and `?missing=1&platform=nes` stays one linkable view. `missing`
+ * comes first so the plain toggle is still exactly `?missing=1`.
+ */
+export function missingHref(slug: string, show: boolean, query = ""): string {
+  const rest = query.replace(/^[?&]/, "");
+  const params = [show ? "missing=1" : "", rest].filter(Boolean).join("&");
+  return params ? `/series/${slug}?${params}` : `/series/${slug}`;
 }
 
 /**
