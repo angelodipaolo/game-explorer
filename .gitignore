@@ -44,6 +44,8 @@ npm-debug.log*
 /.playwright-mcp/
 *.png
 !public/**/*.png
+!/src/app/icon.png
+!/src/app/apple-icon.png
 
 # cached IGDB cover art and screenshots (npm run images:warm rebuilds it)
 /.cache/
