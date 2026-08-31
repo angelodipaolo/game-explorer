@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEbaySearchUrl, buildEbaySoldSearchUrl, buildPriceChartingSearchUrl, platformSearchTerms, searchTerm } from "./links";
+import { buildEbaySearchUrl, buildEbaySoldSearchUrl, buildPriceChartingSearchUrl, searchTerm } from "./links";
 
 describe("searchTerm", () => {
   it("appends the platform when it is known", () => {
@@ -17,12 +17,12 @@ describe("searchTerm", () => {
 
 describe("buildPriceChartingSearchUrl", () => {
   it("searches the prices tab", () => {
-    expect(buildPriceChartingSearchUrl("EarthBound", "Super Nintendo Entertainment System")).toBe("https://www.pricecharting.com/search-products?q=EarthBound+Super+Nintendo+Entertainment+System&type=prices");
+    expect(buildPriceChartingSearchUrl("EarthBound", "SNES")).toBe("https://www.pricecharting.com/search-products?q=EarthBound+SNES&type=prices");
   });
   it("percent-encodes characters that would break the query", () => {
-    const url = buildPriceChartingSearchUrl("Mega Man X & Y", "Sega Genesis");
-    expect(url).toBe("https://www.pricecharting.com/search-products?q=Mega+Man+X+%26+Y+Sega+Genesis&type=prices");
-    expect(new URL(url).searchParams.get("q")).toBe("Mega Man X & Y Sega Genesis");
+    const url = buildPriceChartingSearchUrl("Mega Man X & Y", "Genesis");
+    expect(url).toBe("https://www.pricecharting.com/search-products?q=Mega+Man+X+%26+Y+Genesis&type=prices");
+    expect(new URL(url).searchParams.get("q")).toBe("Mega Man X & Y Genesis");
   });
   it("keeps accents and colons intact through a round trip", () => {
     const url = buildPriceChartingSearchUrl("Pokémon Red: Version", "Game Boy");
@@ -51,15 +51,3 @@ describe("buildEbaySoldSearchUrl", () => {
   });
 });
 
-describe("platformSearchTerms", () => {
-  it("gives PriceCharting the full name and eBay the short one", () => {
-    // eBay keyword search is conjunctive: no listing title says "Super
-    // Nintendo Entertainment System", they all say "SNES".
-    expect(platformSearchTerms("snes", "SNES")).toEqual({ priceChartingTerm: "Super Nintendo Entertainment System", ebayTerm: "SNES" });
-    expect(platformSearchTerms("ps1", "PS1")).toEqual({ priceChartingTerm: "PlayStation", ebayTerm: "PS1" });
-  });
-  it("falls back to the caller's label for a slug we do not know", () => {
-    expect(platformSearchTerms("jaguar", "Jaguar")).toEqual({ priceChartingTerm: "Jaguar", ebayTerm: "Jaguar" });
-    expect(platformSearchTerms("", "")).toEqual({ priceChartingTerm: "", ebayTerm: "" });
-  });
-});

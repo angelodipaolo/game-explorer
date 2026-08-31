@@ -11,7 +11,7 @@ import { minutesLabel } from "@/components/shelf/players-line";
 import { Badge, cx } from "@/components/ui";
 import { loadGame, type ShelfCopy } from "@/lib/collection";
 import type { Fact, PlayerProfile } from "@/lib/facts";
-import { buildEbaySearchUrl, buildEbaySoldSearchUrl, buildPriceChartingSearchUrl, platformSearchTerms } from "@/lib/links";
+import { buildEbaySearchUrl, buildEbaySoldSearchUrl, buildPriceChartingSearchUrl } from "@/lib/links";
 
 export const dynamic = "force-dynamic";
 
@@ -155,8 +155,8 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
  * this worth", not "should we play it". Pure link-outs — no price is fetched,
  * shown or stored here (that stays game-manage's job). The platform rides
  * along in the query, because "EarthBound" alone buries the cartridge under
- * the Wii U re-release; `platformSearchTerms` picks the spelling each site
- * wants (full name for PriceCharting, "SNES" for eBay).
+ * the Wii U re-release — and both sites want the short spelling, which is
+ * exactly the shelf's `platformLabel` ("SNES", not the full console name).
  *
  * One row per platform the game is owned on, since a grouped game can be more
  * than one copy and each is worth a different amount. The three link texts
@@ -168,23 +168,20 @@ function LookupLinks({ name, copies }: { name: string; copies: ShelfCopy[] }) {
     <section className="mt-8" data-testid="lookup-links">
       <h2 className="mb-3 font-display text-base font-bold">What is it worth?</h2>
       <div className="flex flex-col gap-3">
-        {copies.map((c) => {
-          const { priceChartingTerm, ebayTerm } = platformSearchTerms(c.platform, c.platformLabel);
-          return (
-            <div key={c.ownedId} className="flex flex-wrap items-center gap-2">
-              {copies.length > 1 ? <span className="w-full text-xs text-muted sm:w-24 sm:shrink-0">{c.platformLabel}</span> : null}
-              <OutboundLink href={buildPriceChartingSearchUrl(name, priceChartingTerm)} label={`PriceCharting — ${c.platformLabel}`}>
-                PriceCharting
-              </OutboundLink>
-              <OutboundLink href={buildEbaySearchUrl(name, ebayTerm)} label={`eBay — ${c.platformLabel}`}>
-                eBay
-              </OutboundLink>
-              <OutboundLink href={buildEbaySoldSearchUrl(name, ebayTerm)} label={`eBay sold — ${c.platformLabel}`}>
-                eBay sold
-              </OutboundLink>
-            </div>
-          );
-        })}
+        {copies.map((c) => (
+          <div key={c.ownedId} className="flex flex-wrap items-center gap-2">
+            {copies.length > 1 ? <span className="w-full text-xs text-muted sm:w-24 sm:shrink-0">{c.platformLabel}</span> : null}
+            <OutboundLink href={buildPriceChartingSearchUrl(name, c.platformLabel)} label={`PriceCharting — ${c.platformLabel}`}>
+              PriceCharting
+            </OutboundLink>
+            <OutboundLink href={buildEbaySearchUrl(name, c.platformLabel)} label={`eBay — ${c.platformLabel}`}>
+              eBay
+            </OutboundLink>
+            <OutboundLink href={buildEbaySoldSearchUrl(name, c.platformLabel)} label={`eBay sold — ${c.platformLabel}`}>
+              eBay sold
+            </OutboundLink>
+          </div>
+        ))}
       </div>
       <p className="mt-2 text-xs text-faint">Searches their site in a new tab. Nothing is fetched or saved here.</p>
     </section>

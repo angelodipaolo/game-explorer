@@ -6,17 +6,13 @@
  * builders; the game page renders them as anchors.
  *
  * The platform belongs in the query — "EarthBound" alone drags in the Wii U
- * re-release — but the two sites want different spellings of it, which is what
- * `platformSearchTerms` resolves:
- *
- * - PriceCharting matches fuzzily, so the full name ("Super Nintendo
- *   Entertainment System") disambiguates without costing results.
- * - eBay keyword search is conjunctive: every word must appear in the listing
- *   title. "Super Nintendo Entertainment System" can return nothing at all,
- *   because sellers write "SNES". So eBay gets the short name.
+ * re-release — and both sites want the short spelling of it (the shelf's
+ * `platformLabel`, e.g. "SNES"). eBay keyword search is conjunctive: every
+ * word must appear in the listing title, and sellers write "SNES", never
+ * "Super Nintendo Entertainment System". PriceCharting behaves the same way in
+ * practice — the full name returns "not found" for titles the short name finds
+ * outright ("Legacy of the Wizard NES" lands on the game's own page).
  */
-
-import { platformBySlug } from "./platforms";
 
 const PRICECHARTING_SEARCH = "https://www.pricecharting.com/search-products";
 const EBAY_SEARCH = "https://www.ebay.com/sch/i.html";
@@ -28,17 +24,6 @@ export function searchTerm(name: string, platform?: string | null): string {
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ");
-}
-
-/**
- * The platform words each site should get, from an `OwnedGame.platform` slug.
- * An unrecognised slug has no long/short split to make, so both fall back to
- * the label the caller already displays.
- */
-export function platformSearchTerms(slug: string, fallbackLabel: string): { priceChartingTerm: string; ebayTerm: string } {
-  const platform = platformBySlug(slug);
-  if (!platform) return { priceChartingTerm: fallbackLabel, ebayTerm: fallbackLabel };
-  return { priceChartingTerm: platform.name, ebayTerm: platform.short };
 }
 
 /** PriceCharting's product search, on the prices tab (loose / CIB / new columns). */
