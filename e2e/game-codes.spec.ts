@@ -21,6 +21,17 @@ async function openContra(page: Page) {
   await expect(page.getByTestId("game-title")).toHaveText("Contra");
 }
 
+/**
+ * Codes are collapsed by default (GAMEEXPLOR-0023) — open the section the way
+ * a person would before touching anything inside it. Idempotent: the section
+ * forces itself open while a run is in progress on this copy, and toggling an
+ * already-open section would close it.
+ */
+async function openCodes(page: Page) {
+  const toggle = page.getByTestId("section-toggle-codes");
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+}
+
 /** Remove any E2E row left behind, through the same API the page uses. */
 async function cleanUp(page: Page, effect: string) {
   const id = new URL(page.url()).pathname.match(/^\/game\/(.+)$/)?.[1];
@@ -44,6 +55,7 @@ test("a code can be added, read, edited and deleted from the game page", async (
   await openContra(page);
   await cleanUp(page, EFFECT);
   await page.reload();
+  await openCodes(page);
 
   await page.getByTestId("add-code").click();
   await page.getByTestId("code-effect").fill(EFFECT);
@@ -78,6 +90,7 @@ test("the copy button is a real tap target and copies the code", async ({ page, 
   await openContra(page);
   await cleanUp(page, EFFECT);
   await page.reload();
+  await openCodes(page);
   await page.getByTestId("add-code").click();
   await page.getByTestId("code-effect").fill(EFFECT);
   await page.getByTestId("code-value").fill(CODE);
@@ -105,6 +118,7 @@ test("a game with no codes shows only the affordance", async ({ page, request })
   const { gaps } = await (await request.get("/api/codes/gaps?limit=1")).json();
   expect(gaps.length, "every owned copy already has codes").toBe(1);
   await page.goto(`/game/${gaps[0].ownedGameId}`);
+  await openCodes(page);
   await expect(page.getByTestId("add-code")).toBeVisible();
   await expect(page.getByTestId("edit-codes")).toHaveCount(0);
   await expect(page.getByTestId("code-row")).toHaveCount(0);
@@ -130,6 +144,7 @@ test("a code written through the batch API is an ordinary row on the page", asyn
   expect(result.written).toHaveLength(1);
 
   await page.reload();
+  await openCodes(page);
   const row = page.getByTestId("code-row").filter({ hasText: `${EFFECT} from a batch` });
   await expect(row).toBeVisible();
   // No provenance badge: it is editable and deletable exactly like a typed-in one.

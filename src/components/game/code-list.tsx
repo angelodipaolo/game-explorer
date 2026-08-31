@@ -5,17 +5,22 @@ import { useState } from "react";
 import type { GameCode } from "@prisma/client";
 import { CODE_KINDS, KIND_LABELS, KIND_OPTIONS, MAX_CODES_PER_GAME, kindRank, type CodeKind } from "@/lib/codes/kinds";
 import { cx } from "@/components/ui";
+import { Section } from "@/components/game/section";
 
 /**
- * Codes on a game page: passwords, cheats, Game Genie. Read-only until you
+ * Codes on a game page: passwords, cheats, Game Genie. Collapsed by default
+ * (it is a look-up section, not a read-this-now one) and read-only until you
  * press "+ code".
+ *
+ * `forceOpen` is set by the page while a run is open on this copy — you are
+ * playing right now, and codes are why you picked the phone up.
  *
  * Every row looks the same whoever wrote it — there are no provenance badges
  * here, because a code typed in by hand and a code written by a research skill
  * are the same kind of record. The one-handed path is the copy button: read a
  * Game Genie code off the phone while typing it into the console.
  */
-export function CodeList({ gameId, codes, canEdit }: { gameId: string; codes: GameCode[]; canEdit: boolean }) {
+export function CodeList({ gameId, codes, canEdit, forceOpen }: { gameId: string; codes: GameCode[]; canEdit: boolean; forceOpen?: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -50,21 +55,17 @@ export function CodeList({ gameId, codes, canEdit }: { gameId: string; codes: Ga
   }
   const full = codes.length >= MAX_CODES_PER_GAME;
 
+  const editButton =
+    codes.length && canEdit ? (
+      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-codes">
+        {editing ? "Done" : "Edit"}
+      </button>
+    ) : null;
+
   return (
     // Capped width: a code and its copy button should stay in one glance rather
     // than sit at opposite ends of a wide screen.
-    <section className="mt-8 max-w-3xl" data-testid="code-list">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-display text-base font-bold">
-          Codes &amp; passwords {codes.length ? <span className="text-muted">· {codes.length}</span> : null}
-        </h2>
-        {codes.length && canEdit ? (
-          <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-codes">
-            {editing ? "Done" : "Edit"}
-          </button>
-        ) : null}
-      </div>
-
+    <Section id="codes" title="Codes & passwords" count={codes.length} testId="code-list" collapsible defaultOpen={false} storageKey="codes" forceOpen={forceOpen} action={editButton} className="max-w-3xl">
       {groups.map((g) => (
         <KindGroup
           key={g.kind}
@@ -95,7 +96,7 @@ export function CodeList({ gameId, codes, canEdit }: { gameId: string; codes: Ga
         </button>
       ) : null}
       {!codes.length && !adding ? <p className="mt-2 text-xs text-faint">Passwords, cheats and Game Genie codes for this copy.</p> : null}
-    </section>
+    </Section>
   );
 }
 

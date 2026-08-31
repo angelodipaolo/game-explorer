@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ManualWithPages } from "@/lib/manuals/service";
+import { Section } from "@/components/game/section";
 
 /**
  * The Manual section on a game page: one compact card per manual, opening the
@@ -10,10 +11,7 @@ import type { ManualWithPages } from "@/lib/manuals/service";
 export function ManualCards({ gameId, manuals }: { gameId: string; manuals: ManualWithPages[] }) {
   if (!manuals.length) return null;
   return (
-    <section className="mt-8 max-w-3xl" data-testid="manual-cards">
-      <h2 className="mb-3 font-display text-base font-bold">
-        Manual{manuals.length > 1 ? "s" : ""} <span className="text-muted">· {manuals.length}</span>
-      </h2>
+    <Section id="manual" title={`Manual${manuals.length > 1 ? "s" : ""}`} count={manuals.length} testId="manual-cards" className="max-w-3xl">
       <div className="flex flex-col gap-2">
         {manuals.map((m) => {
           const cover = m.pages.find((p) => p.width > 0);
@@ -43,6 +41,6 @@ export function ManualCards({ gameId, manuals }: { gameId: string; manuals: Manu
           );
         })}
       </div>
-    </section>
+    </Section>
   );
 }

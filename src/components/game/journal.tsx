@@ -3,10 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { JournalEntry, PlaySession } from "@prisma/client";
-import { apiError, day, dateInput } from "@/components/ui";
+import { apiError, cx, day, dateInput } from "@/components/ui";
+import { Section } from "@/components/game/section";
 
 /**
  * The game journal: dated notes and photos about this copy, newest first.
+ * The heaviest section on the page, so it gets the most restructuring:
+ *
+ *   1. The composer sits behind a "＋ Add a note" button, matching the
+ *      "+ code" / "+ link" affordance elsewhere — it used to be permanently
+ *      expanded, ~250px even with zero entries.
+ *   2. Only the 3 most recent entries render; "Show all N" reveals the rest.
+ *   3. An entry's body clamps to 3 lines; tapping it expands in place.
+ *   4. Photo thumbnails are a fixed 96px square — they used to render at
+ *      their natural size and dominate the feed.
  *
  * The one thing that must not be hidden magic is the run link. While a run is
  * open, everything you write defaults to it — that default is the whole reason
@@ -21,6 +31,9 @@ import { apiError, day, dateInput } from "@/components/ui";
 /** Long-edge ceiling for an uploaded photo, in pixels. */
 export const MAX_EDGE = 2400;
 const QUALITY = 0.85;
+
+/** Entries shown before the "Show all N" expander. */
+const FOLD = 3;
 
 /**
  * `imageOrientation: "from-image"` bakes the EXIF rotation into the pixels. A
@@ -70,6 +83,8 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
   const openRun = sessions.find((s) => !s.endedAt) ?? null;
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [when, setWhen] = useState(dateInput());
@@ -109,6 +124,7 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
       setFile(null);
       setWhen(dateInput());
       if (fileRef.current) fileRef.current.value = "";
+      setComposerOpen(false);
       router.refresh();
     } catch (e) {
       alert((e as Error).message);
@@ -151,74 +167,92 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
     };
   }, [viewing]);
 
+  const visible = showAll ? entries : entries.slice(0, FOLD);
   // Entries sit under the run they were written during once there is more than
   // one run to tell apart; a single run (or none) is a flat feed.
-  const groups = sessions.length > 1 ? groupByRun(entries, sessions) : [{ key: "all", heading: null, rows: entries }];
+  const groups = sessions.length > 1 ? groupByRun(visible, sessions) : [{ key: "all", heading: null, rows: visible }];
   const field = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-base outline-none focus:border-accent";
 
-  return (
-    <section className="mt-8 max-w-3xl" data-testid="journal">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-display text-base font-bold">
-          Journal {entries.length ? <span className="text-muted">· {entries.length}</span> : null}
-        </h2>
-        {entries.length && canEdit ? (
-          <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-journal">
-            {editing ? "Done" : "Edit"}
-          </button>
-        ) : null}
-      </div>
+  const editButton =
+    entries.length && canEdit ? (
+      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-journal">
+        {editing ? "Done" : "Edit"}
+      </button>
+    ) : null;
 
+  return (
+    <Section id="journal" title="Journal" count={entries.length} testId="journal" collapsible defaultOpen storageKey="journal" action={editButton} className="max-w-3xl">
       {canEdit ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void add();
-          }}
-          className="rounded-xl border border-border bg-bg-elev p-3"
-          data-testid="journal-composer"
-        >
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={3}
-            placeholder="Where you got to, what happened, what to remember next time"
-            aria-label="Journal entry"
-            className="w-full rounded-lg border border-border bg-bg p-3 text-base outline-none focus:border-accent"
-            data-testid="journal-body"
-          />
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" aria-label="Title" className={field} data-testid="journal-title" />
-            <input type="date" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When it happened" className={field} data-testid="journal-date" />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {/* No `capture`: the screenshot is already in the camera roll. */}
-            <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Add photo" className="min-h-11 max-w-full text-xs text-muted file:mr-2 file:min-h-9 file:rounded-lg file:border file:border-border file:bg-surface file:px-3 file:text-sm file:text-text" data-testid="journal-photo" />
-            {file ? <span className="text-xs text-accent-2">{file.name}</span> : null}
-          </div>
-          {openRun ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {onRun ? (
-                <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent/15 px-3 text-xs text-accent" data-testid="journal-run-chip">
-                  on this run · since {day(openRun.startedAt)}
-                  <button type="button" onClick={() => setOnRun(false)} className="ml-1 rounded-full px-1 leading-none hover:bg-bg/40" aria-label="Not part of this run" data-testid="journal-clear-run">
-                    ×
-                  </button>
-                </span>
-              ) : (
-                <button type="button" onClick={() => setOnRun(true)} className="min-h-8 rounded-full border border-dashed border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="journal-set-run">
-                  + file under this run
-                </button>
-              )}
+        composerOpen ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void add();
+            }}
+            className="rounded-xl border border-border bg-bg-elev p-3"
+            data-testid="journal-composer"
+          >
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={3}
+              placeholder="Where you got to, what happened, what to remember next time"
+              aria-label="Journal entry"
+              className="w-full rounded-lg border border-border bg-bg p-3 text-base outline-none focus:border-accent"
+              data-testid="journal-body"
+              autoFocus
+            />
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" aria-label="Title" className={field} data-testid="journal-title" />
+              <input type="date" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When it happened" className={field} data-testid="journal-date" />
             </div>
-          ) : null}
-          <div className="mt-2 flex items-center gap-2">
-            <button type="submit" disabled={busy || (!body.trim() && !file)} className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid="journal-save">
-              {busy ? "Saving…" : file ? "Add photo" : "Add note"}
-            </button>
-            <span className="text-xs text-faint">A photo needs no words; a note does.</span>
-          </div>
-        </form>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {/* No `capture`: the screenshot is already in the camera roll. */}
+              <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Add photo" className="min-h-11 max-w-full text-xs text-muted file:mr-2 file:min-h-9 file:rounded-lg file:border file:border-border file:bg-surface file:px-3 file:text-sm file:text-text" data-testid="journal-photo" />
+              {file ? <span className="text-xs text-accent-2">{file.name}</span> : null}
+            </div>
+            {openRun ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {onRun ? (
+                  <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent/15 px-3 text-xs text-accent" data-testid="journal-run-chip">
+                    on this run · since {day(openRun.startedAt)}
+                    <button type="button" onClick={() => setOnRun(false)} className="ml-1 rounded-full px-1 leading-none hover:bg-bg/40" aria-label="Not part of this run" data-testid="journal-clear-run">
+                      ×
+                    </button>
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => setOnRun(true)} className="min-h-8 rounded-full border border-dashed border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="journal-set-run">
+                    + file under this run
+                  </button>
+                )}
+              </div>
+            ) : null}
+            <div className="mt-2 flex items-center gap-2">
+              <button type="submit" disabled={busy || (!body.trim() && !file)} className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid="journal-save">
+                {busy ? "Saving…" : file ? "Add photo" : "Add note"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setComposerOpen(false);
+                  setTitle("");
+                  setBody("");
+                  setFile(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+                disabled={busy}
+                className="min-h-11 rounded-lg border border-border px-4 text-sm text-muted hover:border-muted hover:text-text"
+              >
+                Cancel
+              </button>
+              <span className="text-xs text-faint">A photo needs no words; a note does.</span>
+            </div>
+          </form>
+        ) : (
+          <button onClick={() => setComposerOpen(true)} className="min-h-11 rounded-xl border border-dashed border-border px-4 text-sm text-muted hover:border-muted hover:text-text" data-testid="journal-add-note">
+            ＋ Add a note
+          </button>
+        )
       ) : null}
 
       {groups.map((g) => (
@@ -226,30 +260,17 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
           {g.heading ? <h3 className="mb-2 font-display text-sm font-bold text-muted">{g.heading}</h3> : null}
           <ul className="flex flex-col gap-3">
             {g.rows.map((e) => (
-              <li key={e.id} className="rounded-xl border border-border bg-surface p-3" data-testid="journal-entry">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs text-faint">{day(e.occurredAt)}</div>
-                    {e.title ? <div className="mt-0.5 text-sm font-semibold">{e.title}</div> : null}
-                    {e.body ? <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{e.body}</p> : null}
-                    {e.kind === "photo" && e.width ? (
-                      <button type="button" onClick={() => setViewing(e)} className="mt-2 block overflow-hidden rounded-lg border border-border" aria-label={`Open ${e.title ?? "photo"} full screen`} data-testid="journal-photo-thumb">
-                        <img src={`/api/journal/${e.id}/image`} alt={e.title ?? ""} loading="lazy" className="max-h-48 w-auto max-w-full object-cover" />
-                      </button>
-                    ) : null}
-                    {e.kind === "photo" && !e.width ? <div className="mt-1 text-xs text-faint">photo not uploaded</div> : null}
-                  </div>
-                  {editing && canEdit ? (
-                    <button onClick={() => remove(e)} disabled={busy} className="min-h-11 shrink-0 rounded-lg border border-bad/30 bg-bad/10 px-3 text-xs text-bad hover:bg-bad/20" aria-label={`Delete the entry from ${day(e.occurredAt)}`} data-testid="delete-entry">
-                      Delete
-                    </button>
-                  ) : null}
-                </div>
-              </li>
+              <JournalEntryCard key={e.id} entry={e} editing={editing} canEdit={canEdit} busy={busy} onDelete={() => remove(e)} onOpenPhoto={() => setViewing(e)} />
             ))}
           </ul>
         </div>
       ))}
+
+      {entries.length > FOLD ? (
+        <button onClick={() => setShowAll((s) => !s)} className="mt-3 min-h-11 text-xs text-muted underline hover:text-text" data-testid="journal-show-all">
+          {showAll ? "Show fewer" : `Show all ${entries.length}`}
+        </button>
+      ) : null}
 
       {!entries.length ? <p className="mt-3 text-xs text-faint">Nothing written yet. Notes and photos stay with the run they were written during.</p> : null}
 
@@ -269,7 +290,71 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
           </div>
         </div>
       ) : null}
-    </section>
+    </Section>
+  );
+}
+
+function JournalEntryCard({
+  entry: e,
+  editing,
+  canEdit,
+  busy,
+  onDelete,
+  onOpenPhoto,
+}: {
+  entry: JournalEntry;
+  editing: boolean;
+  canEdit: boolean;
+  busy: boolean;
+  onDelete: () => void;
+  onOpenPhoto: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const clampable = !!e.body;
+  return (
+    <li className="rounded-xl border border-border bg-surface p-3" data-testid="journal-entry">
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className="min-w-0 flex-1"
+          role={clampable ? "button" : undefined}
+          tabIndex={clampable ? 0 : undefined}
+          onClick={clampable ? () => setExpanded((x) => !x) : undefined}
+          onKeyDown={
+            clampable
+              ? (ev) => {
+                  if (ev.key !== "Enter" && ev.key !== " ") return;
+                  ev.preventDefault();
+                  setExpanded((x) => !x);
+                }
+              : undefined
+          }
+        >
+          <div className="text-xs text-faint">{day(e.occurredAt)}</div>
+          {e.title ? <div className="mt-0.5 text-sm font-semibold">{e.title}</div> : null}
+          {e.body ? <p className={cx("mt-1 whitespace-pre-wrap text-sm leading-relaxed", !expanded && "line-clamp-3")}>{e.body}</p> : null}
+          {e.kind === "photo" && e.width ? (
+            <button
+              type="button"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onOpenPhoto();
+              }}
+              className="mt-2 block h-24 w-24 overflow-hidden rounded-lg border border-border"
+              aria-label={`Open ${e.title ?? "photo"} full screen`}
+              data-testid="journal-photo-thumb"
+            >
+              <img src={`/api/journal/${e.id}/image`} alt={e.title ?? ""} loading="lazy" className="h-full w-full object-cover" />
+            </button>
+          ) : null}
+          {e.kind === "photo" && !e.width ? <div className="mt-1 text-xs text-faint">photo not uploaded</div> : null}
+        </div>
+        {editing && canEdit ? (
+          <button onClick={onDelete} disabled={busy} className="min-h-11 shrink-0 rounded-lg border border-bad/30 bg-bad/10 px-3 text-xs text-bad hover:bg-bad/20" aria-label={`Delete the entry from ${day(e.occurredAt)}`} data-testid="delete-entry">
+            Delete
+          </button>
+        ) : null}
+      </div>
+    </li>
   );
 }
 

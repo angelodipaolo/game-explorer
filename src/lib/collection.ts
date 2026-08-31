@@ -277,6 +277,26 @@ export type GameDetail = ShelfGame & {
   queued: boolean;
   /** The series this game is part of — "Part of Final Fantasy →". Empty for an unlinked cartridge. */
   series: SeriesLink[];
+  /**
+   * Per-platform ownership detail for the "This copy" section (GAMEEXPLOR-0023):
+   * `completeness`/`condition`/`notes`/match info live on `OwnedGame`, one row
+   * per platform, while `copies` above (shared with the shelf) carries only
+   * what grouping needs. A two-platform game gets two blocks, each with its
+   * own condition and its own price links.
+   */
+  copyDetails: CopyDetail[];
+};
+
+export type CopyDetail = {
+  ownedId: string;
+  platform: string;
+  platformLabel: string;
+  completeness: string | null;
+  condition: string | null;
+  notes: string | null;
+  igdbId: number | null;
+  matchConfidence: number | null;
+  matchSource: string | null;
 };
 
 export type SimilarGame = { igdbId: number; name: string; cover: string | null; year: number | null; ownedId: string | null; platformLabel: string | null };
@@ -311,7 +331,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   const allShelf = await loadShelf();
   const shelf = allShelf.find((s) => s.copies.some((c) => c.ownedId === id))!;
   const similarIds = c ? (JSON.parse(c.similarGameIds) as number[]) : [];
-  const [similarCatalog, ownedLinks, codes, maps, bookmarks, manuals, sessions, journal, queueEntry, series] = await Promise.all([
+  const [similarCatalog, ownedLinks, codes, maps, bookmarks, manuals, sessions, journal, queueEntry, series, copyRows] = await Promise.all([
     similarIds.length ? prisma.catalogGame.findMany({ where: { igdbId: { in: similarIds } } }) : Promise.resolve([]),
     prisma.ownedGame.findMany({ where: { catalogGameId: { not: null } }, select: { id: true, catalogGameId: true, platform: true, catalogGame: { select: { parentIgdbId: true } } } }),
     codesFor(id),
@@ -324,7 +344,25 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     // Constant queries, not one per series: `seriesForGame` looks the id up
     // directly and rides along in this same round of parallel work.
     seriesForGame({ igdbId: c?.igdbId ?? null, parentIgdbId: c?.parentIgdbId ?? null }),
+    // One row per platform this grouped game is on — "This copy" (step 6)
+    // shows a block per copy, each with its own completeness/condition/notes.
+    prisma.ownedGame.findMany({ where: { id: { in: shelf.copies.map((cp) => cp.ownedId) } }, select: { id: true, completeness: true, condition: true, notes: true, catalogGameId: true, matchConfidence: true, matchSource: true } }),
   ]);
+  const copyDetailById = new Map(copyRows.map((r) => [r.id, r]));
+  const copyDetails: CopyDetail[] = shelf.copies.map((cp) => {
+    const r = copyDetailById.get(cp.ownedId);
+    return {
+      ownedId: cp.ownedId,
+      platform: cp.platform,
+      platformLabel: cp.platformLabel,
+      completeness: r?.completeness ?? null,
+      condition: r?.condition ?? null,
+      notes: r?.notes ?? null,
+      igdbId: r?.catalogGameId ?? null,
+      matchConfidence: r?.matchConfidence ?? null,
+      matchSource: r?.matchSource ?? null,
+    };
+  });
   const ownedMatches = matchSimilarToOwned(
     similarIds,
     new Map(similarCatalog.map((x) => [x.igdbId, x.parentIgdbId])),
@@ -383,6 +421,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     journal,
     queued: queueEntry != null,
     series,
+    copyDetails,
   };
 }
 

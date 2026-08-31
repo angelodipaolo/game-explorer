@@ -23,7 +23,10 @@ async function anOwnedGame(page: Page): Promise<{ ownedId: string; igdbId: numbe
     await cards.nth(i).click();
     await expect(page.getByTestId("game-title")).toBeVisible();
     const ownedId = new URL(page.url()).pathname.match(/^\/game\/(.+)$/)![1];
-    const igdb = (await page.locator("footer").innerText()).match(/IGDB #(\d+)/);
+    // The IGDB match line moved into "This copy" (GAMEEXPLOR-0023), collapsed
+    // by default — open it before reading its text.
+    await page.getByTestId("section-toggle-copy").click();
+    const igdb = (await page.getByTestId("lookup-links").innerText()).match(/IGDB #(\d+)/);
     const name = (await page.getByTestId("game-title").innerText()).trim();
     if (igdb) return { ownedId, igdbId: Number(igdb[1]), name };
     await page.goBack();

@@ -92,6 +92,9 @@ test("start a run, write a note on it, finish the run", async ({ page }, testInf
   await expect(page.getByTestId("open-run")).toBeVisible();
   await expect(page.getByTestId("open-run")).toContainText("Playing since");
 
+  // The composer sits behind a "＋ Add a note" button now (GAMEEXPLOR-0023).
+  await page.getByTestId("journal-add-note").click();
+
   // While a run is open, what you write defaults to it — visibly, as a chip.
   await expect(page.getByTestId("journal-run-chip")).toBeVisible();
   await page.getByTestId("journal-body").fill(NOTE);

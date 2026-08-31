@@ -43,6 +43,9 @@ test("load, filter, flip, open", async ({ page, isMobile }) => {
     await page.getByRole("link", { name: /Details, screenshots/ }).click();
     await expect(page).toHaveURL(/\/game\//);
     await expect(page.getByTestId("game-title")).toBeVisible();
+    // The play line's detail panel is a disclosure (GAMEEXPLOR-0023),
+    // collapsed by default — tap it open the way a person would.
+    await page.getByTestId("play-line").click();
     await expect(page.getByTestId("facts")).toBeVisible();
 
     // Back returns to the filtered flip, not the bare shelf.

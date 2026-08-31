@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { GameBookmark } from "@prisma/client";
 import { BOOKMARK_KINDS, KIND_LABELS, KIND_OPTIONS, MAX_BOOKMARKS_PER_GAME, hostOf, kindRank, type BookmarkKind } from "@/lib/bookmarks/kinds";
 import { cx } from "@/components/ui";
+import { Section } from "@/components/game/section";
 
 /**
  * Reference links on a game page, grouped by kind. Read-only until you press
@@ -55,21 +56,17 @@ export function Bookmarks({ gameId, bookmarks, canEdit }: { gameId: string; book
   }
   const full = bookmarks.length >= MAX_BOOKMARKS_PER_GAME;
 
+  const editButton =
+    bookmarks.length && canEdit ? (
+      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-bookmarks">
+        {editing ? "Done" : "Edit"}
+      </button>
+    ) : null;
+
   return (
     // Capped width: a title and its why-line should read as one paragraph
     // rather than stretch across a desktop monitor.
-    <section className="mt-8 max-w-3xl" data-testid="bookmarks">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-display text-base font-bold">
-          Guides &amp; links {bookmarks.length ? <span className="text-muted">· {bookmarks.length}</span> : null}
-        </h2>
-        {bookmarks.length && canEdit ? (
-          <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-bookmarks">
-            {editing ? "Done" : "Edit"}
-          </button>
-        ) : null}
-      </div>
-
+    <Section id="guides" title="Guides & links" count={bookmarks.length} testId="bookmarks" collapsible defaultOpen={bookmarks.length <= 3} storageKey="guides" action={editButton} className="max-w-3xl">
       {groups.map((g) => (
         <div key={g.kind} className="mb-4">
           <h3 className="mb-2 font-display text-sm font-bold text-muted">{KIND_LABELS[g.kind as BookmarkKind] ?? g.kind}</h3>
@@ -109,7 +106,7 @@ export function Bookmarks({ gameId, bookmarks, canEdit }: { gameId: string; book
         </button>
       ) : null}
       {!bookmarks.length && !adding ? <p className="mt-2 text-xs text-faint">The guide, the wiki, the longplay — with a line saying why that one.</p> : null}
-    </section>
+    </Section>
   );
 }
 

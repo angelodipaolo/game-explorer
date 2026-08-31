@@ -77,6 +77,10 @@ test("a signed-out visitor reads a game page and finds nothing to press", async 
   // Everything the page is *about* is still there.
   await expect(page.getByTestId("tag-editor")).toBeVisible();
   await expect(page.getByTestId("play-history")).toBeVisible();
+  // The play line's detail panel is a disclosure now (GAMEEXPLOR-0023),
+  // collapsed by default — expanding it is a read, not a write, so a visitor
+  // can still reach it.
+  await page.getByTestId("play-line").click();
   await expect(page.getByTestId("facts")).toBeVisible();
 
   // None of the ways to change it are.
@@ -135,7 +139,11 @@ test("signing in brings the edit controls back, on this phone and this desktop",
 
   await openContra(page);
   await expect(page.getByTestId("edit-tags")).toBeVisible();
+  // Codes and the journal composer are behind a collapsed section / a "＋ Add
+  // a note" button now (GAMEEXPLOR-0023) — open them the way a person would.
+  await page.getByTestId("section-toggle-codes").click();
   await expect(page.getByTestId("add-code")).toBeVisible();
+  await page.getByTestId("journal-add-note").click();
   await expect(page.getByTestId("journal-composer")).toBeVisible();
   await expect(page.getByTestId("add-bookmark")).toBeVisible();
   await expect(page.locator('[data-testid="start-run"], [data-testid="play-again"]')).toHaveCount(1);

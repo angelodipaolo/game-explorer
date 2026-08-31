@@ -25,7 +25,7 @@ export function LinkButton({ variant = "secondary", className, ...props }: Compo
   return <Link className={cx(base, variantClass[variant], className)} {...props} />;
 }
 
-export function Badge({ tone = "muted", children, className }: { tone?: "muted" | "good" | "warn" | "bad" | "accent" | "info"; children: ReactNode; className?: string }) {
+export function Badge({ tone = "muted", children, className, title }: { tone?: "muted" | "good" | "warn" | "bad" | "accent" | "info"; children: ReactNode; className?: string; title?: string }) {
   const tones = {
     muted: "bg-surface-2 text-muted",
     good: "bg-good/15 text-good",
@@ -34,7 +34,11 @@ export function Badge({ tone = "muted", children, className }: { tone?: "muted" 
     accent: "bg-accent text-accent-ink",
     info: "bg-accent-2/15 text-accent-2",
   };
-  return <span className={cx("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap", tones[tone], className)}>{children}</span>;
+  return (
+    <span title={title} className={cx("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap", tones[tone], className)}>
+      {children}
+    </span>
+  );
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
