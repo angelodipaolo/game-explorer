@@ -52,6 +52,11 @@ describe("parse/serialize", () => {
     expect(verdictFor(tecmo, f)).toBe("yes");
     expect(verdictFor(contra, parseFilters(new URLSearchParams("platform=snes")))).toBe("no");
   });
+  it("round-trips the handheld exclusion", () => {
+    const f = parseFilters(new URLSearchParams("handhelds=hide"));
+    expect(f.hideHandhelds).toBe(true);
+    expect(serializeFilters(f)).toBe("?handhelds=hide");
+  });
   it("a game on several platforms matches any of them", () => {
     const stray = game({ title: "Stray", platform: "ps4", platformLabel: "PS4", copies: [{ ownedId: "a", platform: "ps4", platformLabel: "PS4", quantity: 1 }, { ownedId: "b", platform: "ps5", platformLabel: "PS5", quantity: 1 }] });
     expect(verdictFor(stray, parseFilters(new URLSearchParams("platform=ps5")))).toBe("yes");
@@ -105,6 +110,20 @@ describe("verdicts", () => {
   it("search matches title and genre", () => {
     expect(verdictFor(contra, f("q=shoot"))).toBe("yes");
     expect(verdictFor(zelda, f("q=shoot"))).toBe("no");
+  });
+  it("hides handheld-only games but keeps hybrids and games with a console copy", () => {
+    const gameBoy = game({ title: "Tetris", platform: "gb", platformLabel: "GB" });
+    const switchGame = game({ title: "Mario Kart 8", platform: "switch", platformLabel: "Switch" });
+    const crossPlatform = game({
+      title: "Rayman",
+      copies: [
+        { ownedId: "rayman-gba", platform: "gba", platformLabel: "GBA", quantity: 1 },
+        { ownedId: "rayman-ps1", platform: "ps1", platformLabel: "PS1", quantity: 1 },
+      ],
+    });
+    expect(verdictFor(gameBoy, f("handhelds=hide"))).toBe("no");
+    expect(verdictFor(switchGame, f("handhelds=hide"))).toBe("yes");
+    expect(verdictFor(crossPlatform, f("handhelds=hide"))).toBe("yes");
   });
 });
 

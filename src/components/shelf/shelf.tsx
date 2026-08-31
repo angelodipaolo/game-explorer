@@ -190,6 +190,7 @@ function EmptyState({ filters, set, reset, excluded }: { filters: Filters; set: 
   if (filters.length) loosen.push({ label: "Any length", patch: { length: null } });
   if (filters.era) loosen.push({ label: "Any era", patch: { era: null } });
   if (filters.platforms.length) loosen.push({ label: "Any platform", patch: { platforms: [] } });
+  if (filters.hideHandhelds) loosen.push({ label: "Show handheld games", patch: { hideHandhelds: false } });
   if (filters.q) loosen.push({ label: "Clear search", patch: { q: "" } });
   return (
     <div className="rounded-2xl border border-border bg-surface px-6 py-10 text-center" data-testid="empty">

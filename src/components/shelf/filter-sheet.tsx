@@ -14,7 +14,7 @@ export const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[]
   { label: "Something quick", hint: "under an hour", patch: { length: "quick" } },
 ];
 
-const CLEARED: Partial<Filters> = { q: "", platforms: [], players: null, mode: null, tags: [], length: null, era: null };
+const CLEARED: Partial<Filters> = { q: "", platforms: [], hideHandhelds: false, players: null, mode: null, tags: [], length: null, era: null };
 
 export function isPreset(p: (typeof PRESETS)[number], filters: Filters, active: number): boolean {
   return Object.entries(p.patch).every(([k, v]) => (Array.isArray(v) ? JSON.stringify(v) === JSON.stringify(filters[k as keyof Filters]) : filters[k as keyof Filters] === v)) && active === Object.keys(p.patch).length;

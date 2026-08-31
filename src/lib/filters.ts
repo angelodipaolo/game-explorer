@@ -11,6 +11,8 @@ export type Filters = {
   q: string;
   /** Platform slugs; empty = any. Several at once is normal ("NES or SNES"). */
   platforms: string[];
+  /** Hide games whose owned copies are exclusively on handheld-only systems. */
+  hideHandhelds: boolean;
   /** How many of us are playing. */
   players: number | null;
   /** coop | versus | together (simultaneous) */
@@ -27,7 +29,10 @@ export type Filters = {
   seed: number | null;
 };
 
-export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], players: null, mode: null, tags: [], length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
+export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], hideHandhelds: false, players: null, mode: null, tags: [], length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
+
+/** Hybrid systems such as Switch are intentionally not in this set. */
+export const HANDHELD_ONLY_PLATFORMS = new Set(["gb", "gbc", "gba", "ds", "3ds", "psp", "vita"]);
 
 export function parseFilters(params: URLSearchParams | Record<string, string | string[] | undefined>): Filters {
   const get = (k: string): string | null => {
@@ -45,6 +50,7 @@ export function parseFilters(params: URLSearchParams | Record<string, string | s
   return {
     q: (get("q") ?? "").trim(),
     platforms: [...new Set((get("platform") ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean))],
+    hideHandhelds: get("handhelds") === "hide",
     players: players >= 1 && players <= 8 ? players : null,
     mode: mode === "coop" || mode === "versus" || mode === "together" ? mode : null,
     tags: [...new Set(`${get("tags") ?? ""},${get("genre") ?? ""}`.split(",").map((s) => s.trim()).filter(Boolean))],
@@ -61,6 +67,7 @@ export function serializeFilters(f: Partial<Filters>): string {
   const p = new URLSearchParams();
   if (f.q) p.set("q", f.q);
   if (f.platforms?.length) p.set("platform", f.platforms.join(","));
+  if (f.hideHandhelds) p.set("handhelds", "hide");
   if (f.players) p.set("players", String(f.players));
   if (f.mode) p.set("mode", f.mode);
   if (f.tags?.length) p.set("tags", f.tags.join(","));
@@ -75,7 +82,7 @@ export function serializeFilters(f: Partial<Filters>): string {
 }
 
 export function activeFilterCount(f: Filters): number {
-  return [f.q, f.platforms.length ? f.platforms : null, f.players, f.mode, f.tags.length ? f.tags : null, f.length, f.era].filter(Boolean).length;
+  return [f.q, f.platforms.length ? f.platforms : null, f.hideHandhelds, f.players, f.mode, f.tags.length ? f.tags : null, f.length, f.era].filter(Boolean).length;
 }
 
 export function gameTags(g: ShelfGame): Set<string> {
@@ -131,6 +138,7 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
     vs.push(g.title.toLowerCase().includes(q) || g.name.toLowerCase().includes(q) || g.genres.some((x) => x.toLowerCase().includes(q)) ? "yes" : "no");
   }
   if (f.platforms.length) vs.push(g.copies.some((c) => f.platforms.includes(c.platform)) ? "yes" : "no");
+  if (f.hideHandhelds) vs.push(g.copies.length > 0 && g.copies.every((c) => HANDHELD_ONLY_PLATFORMS.has(c.platform)) ? "no" : "yes");
   if (f.tags.length) {
     const have = gameTags(g);
     vs.push(f.tags.every((t) => have.has(tagKey(t))) ? "yes" : "no");

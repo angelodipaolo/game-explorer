@@ -93,6 +93,15 @@ test("filters open as a sheet and apply instantly", async ({ page }) => {
   await expect(page.getByTestId("result-count")).toContainText("games");
 });
 
+test("handheld-only games can be hidden", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("open-filters").click();
+  await page.getByRole("checkbox", { name: /Hide handheld-only games/ }).check();
+  await expect(page).toHaveURL(/handhelds=hide/);
+  await page.getByTestId("close-filters").click();
+  await expect(page.getByTestId("result-count")).toContainText("games");
+});
+
 test("platform sidebar lists the collection and filters the shelf", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("open-platforms").click();

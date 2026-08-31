@@ -21,6 +21,13 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
           ]}
         />
       </Group>
+      <label className="flex items-center gap-3 rounded-xl border border-border bg-bg-elev px-3 py-2.5 text-sm">
+        <input type="checkbox" checked={filters.hideHandhelds} onChange={(e) => set({ hideHandhelds: e.target.checked })} className="h-5 w-5 accent-[var(--accent)]" />
+        <span>
+          Hide handheld-only games
+          <span className="block text-xs text-muted">Game Boy, DS, PSP, and Vita families. Switch stays visible.</span>
+        </span>
+      </label>
       <Group label="Platform (pick any number)">
         <MultiChips value={filters.platforms} onChange={(v) => set({ platforms: v })} options={facets.platforms.map((p) => [p.slug, `${p.label} · ${p.count}`])} />
       </Group>
