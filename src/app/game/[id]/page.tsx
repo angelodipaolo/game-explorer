@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { BackLink } from "@/components/game/back-link";
 import { Screenshots } from "@/components/game/screenshots";
 import { CodeList } from "@/components/game/code-list";
@@ -8,8 +9,9 @@ import { TagEditor } from "@/components/game/tag-editor";
 import { Cover } from "@/components/shelf/cover";
 import { minutesLabel } from "@/components/shelf/players-line";
 import { Badge, cx } from "@/components/ui";
-import { loadGame } from "@/lib/collection";
+import { loadGame, type ShelfCopy } from "@/lib/collection";
 import type { Fact, PlayerProfile } from "@/lib/facts";
+import { buildEbaySearchUrl, buildEbaySoldSearchUrl, buildPriceChartingSearchUrl, platformSearchTerms } from "@/lib/links";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +131,8 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
         ) : null}
       </section>
 
+      <LookupLinks name={game.name} copies={game.copies} />
+
       <footer className="mt-10 border-t border-border/60 py-4 text-xs text-faint">
         {game.igdbId ? (
           <>
@@ -143,6 +147,56 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
         {game.notes ? ` · ${game.notes}` : ""}
       </footer>
     </div>
+  );
+}
+
+/**
+ * Price lookups, at the bottom of the page on purpose: this answers "what is
+ * this worth", not "should we play it". Pure link-outs — no price is fetched,
+ * shown or stored here (that stays game-manage's job). The platform rides
+ * along in the query, because "EarthBound" alone buries the cartridge under
+ * the Wii U re-release; `platformSearchTerms` picks the spelling each site
+ * wants (full name for PriceCharting, "SNES" for eBay).
+ *
+ * One row per platform the game is owned on, since a grouped game can be more
+ * than one copy and each is worth a different amount. The three link texts
+ * repeat down those rows, so each anchor names its platform in an aria-label —
+ * "PriceCharting" on its own tells a screen reader nothing about which copy.
+ */
+function LookupLinks({ name, copies }: { name: string; copies: ShelfCopy[] }) {
+  return (
+    <section className="mt-8" data-testid="lookup-links">
+      <h2 className="mb-3 font-display text-base font-bold">What is it worth?</h2>
+      <div className="flex flex-col gap-3">
+        {copies.map((c) => {
+          const { priceChartingTerm, ebayTerm } = platformSearchTerms(c.platform, c.platformLabel);
+          return (
+            <div key={c.ownedId} className="flex flex-wrap items-center gap-2">
+              {copies.length > 1 ? <span className="w-full text-xs text-muted sm:w-24 sm:shrink-0">{c.platformLabel}</span> : null}
+              <OutboundLink href={buildPriceChartingSearchUrl(name, priceChartingTerm)} label={`PriceCharting — ${c.platformLabel}`}>
+                PriceCharting
+              </OutboundLink>
+              <OutboundLink href={buildEbaySearchUrl(name, ebayTerm)} label={`eBay — ${c.platformLabel}`}>
+                eBay
+              </OutboundLink>
+              <OutboundLink href={buildEbaySoldSearchUrl(name, ebayTerm)} label={`eBay sold — ${c.platformLabel}`}>
+                eBay sold
+              </OutboundLink>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-xs text-faint">Searches their site in a new tab. Nothing is fetched or saved here.</p>
+    </section>
+  );
+}
+
+function OutboundLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" aria-label={label} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border bg-surface px-4 text-sm transition hover:border-muted hover:bg-surface-2" data-testid="lookup-link">
+      {children}
+      <span aria-hidden className="text-faint">↗</span>
+    </a>
   );
 }
 

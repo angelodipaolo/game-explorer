@@ -139,3 +139,21 @@ test("a code written through the batch API is an ordinary row on the page", asyn
   await page.getByTestId("delete-code").click();
   await expect(page.getByTestId("code-row").filter({ hasText: EFFECT })).toHaveCount(0);
 });
+
+/**
+ * Price link-outs live on the same page, so they ride along here rather than
+ * in a spec of their own. Count-agnostic on purpose: there is one row per
+ * owned copy, and Contra may gain a second platform.
+ */
+test("the game page links out to price lookups", async ({ page }) => {
+  await openContra(page);
+  await expect(page.getByTestId("lookup-links")).toBeVisible();
+
+  const hrefs = await page.getByTestId("lookup-link").evaluateAll((els) => els.map((e) => (e as HTMLAnchorElement).href));
+  expect(hrefs.length).toBeGreaterThanOrEqual(3);
+  const hosts = hrefs.map((h) => new URL(h).hostname);
+  expect(hosts.filter((h) => h.endsWith("pricecharting.com")).length).toBeGreaterThanOrEqual(1);
+  // Active listings and completed sales.
+  expect(hosts.filter((h) => h.endsWith("ebay.com")).length).toBeGreaterThanOrEqual(2);
+  expect(hosts.every((h) => h.endsWith("pricecharting.com") || h.endsWith("ebay.com")), hosts.join(" ")).toBe(true);
+});
