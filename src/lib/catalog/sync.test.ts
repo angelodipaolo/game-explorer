@@ -46,6 +46,14 @@ function fakeApi(): IgdbApi & { calls: string[] } {
       calls.push(`stubs:${ids.join(",")}`);
       return stubs.filter((s) => ids.includes(s.id));
     },
+    async collections(ids) {
+      calls.push(`collections:${ids.join(",")}`);
+      return [{ id: 39, name: "Contra", slug: "contra", games: [100, 200, 300] }].filter((c) => ids.includes(c.id));
+    },
+    async collectionsByGame(igdbId) {
+      calls.push(`collectionsByGame:${igdbId}`);
+      return [{ id: 39, name: "Contra", slug: "contra", games: [100, 200, 300] }];
+    },
     async timeToBeat(ids) {
       calls.push(`ttb:${ids.join(",")}`);
       return ids.includes(200) ? [{ game_id: 200, normally: 3600, hastily: 1800 }] : [];

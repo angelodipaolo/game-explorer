@@ -48,6 +48,8 @@ reuses the one on port 3000.
 | `src/lib/maps/` | Interactive maps: `GameMap` (image on disk under `data/maps/`, served by `/api/maps/:id/image`) + `MapMarker` in image pixels. Same no-`source`, no-precedence stance as codes. Viewer is `src/components/maps/map-viewer.tsx`. |
 | `src/lib/bookmarks/` | Reference links per owned copy — guide / wiki / video / longplay / article, each with a required `why` line. Same no-`source`, no-precedence stance as codes; the bookmark **is** its own citation, so there is no `sourceUrl`. Section is `src/components/game/bookmarks.tsx`. |
 | `src/lib/manuals/` | Scanned manuals: `GameManual` + `ManualPage` (dense `position` 0..n-1), page images on disk under `data/manuals/`, served by `/api/manual-pages/:pageId/image`. Viewer is `src/components/manuals/manual-viewer.tsx`. |
+| `src/lib/series/` | Series: ordered lists of **catalog** games (`Series`/`SeriesEntry`, membership by IGDB id, ownership resolved at render). `shape.ts` is the pure half (slug, `?missing`, sections, the seed diff); `service.ts` the DB half. Seeded from an IGDB collection via `src/lib/catalog/collections.ts`, then pruned by hand — nothing auto-publishes. |
+| `src/lib/owned-match.ts` | `matchSimilarToOwned` — the one rule for checking IGDB ids against the shelf (through parents both ways). Re-exported by `collection.ts`. |
 | `src/lib/tags.ts`, `src/lib/tags/` | Tags: IGDB genres/perspectives/themes ∪ manual ∪ agent − hidden. Manual beats agent; IGDB tags hide, never delete. |
 | `src/lib/play/` | Play history and the one ordered "up next" queue. `PlaySession` rows are the log play state is derived from; `startSession` dequeues in the same transaction. No agent write path. |
 | `src/lib/journal/` | Dated notes and photos per owned copy (`kind: note \| photo`), optionally tied to the run they were written during. Photos live in `data/journal/`, served by `/api/journal/:entryId/image`. No agent write path. |
@@ -55,7 +57,7 @@ reuses the one on port 3000.
 | `src/lib/collection.ts` | Shelf/game view models. `groupShelf` collapses one game on several platforms into one entry (and rolls play state up across copies). `loadPlaying` is the `/playing` view model. |
 | `src/lib/filters.ts` | URL ⇄ filter state; three-valued verdicts (yes / no / unknown). `play` is the one two-valued filter — it reads your own log, not IGDB, so "never played" is a fact and not a gap. |
 | `src/lib/platforms.ts` | Platform slugs, aliases, IGDB ids. Add new consoles here. |
-| `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`, `/api/games/[id]/bookmarks`, `/api/bookmarks/*`, `/game/[id]/manual`, `/api/games/[id]/manuals`, `/api/manuals/*`, `/api/manual-pages/*`. |
+| `src/app/` | `/` shelf, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`, `/api/games/[id]/bookmarks`, `/api/bookmarks/*`, `/game/[id]/manual`, `/api/games/[id]/manuals`, `/api/manuals/*`, `/api/manual-pages/*`, `/series`, `/series/[slug]` (owned by default, `?missing=1` reveals the rest), `/series/new`, `/api/series/*`, `/api/series-entries/*`. |
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
 | `src/components/game/play-history.tsx`, `journal.tsx` | The two write surfaces on the game page: runs (start / finish / past runs / queue) and the journal feed with its client-side photo downscale. |
 | `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection`, `find-codes`, `find-maps`, `find-references` — the agent playbooks for the write paths. |
@@ -86,7 +88,11 @@ reuses the one on port 3000.
   Codes, maps, bookmarks and manuals are the deliberate exception: they are
   lists, not contested values, so `GameCode`, `GameMap`, `MapMarker`,
   `GameBookmark`, `GameManual` and `ManualPage` have no `source` and no
-  precedence at all.
+  precedence at all — and so do `Series` and `SeriesEntry`.
+- **A series is IGDB-seeded, human-pruned.** `collection.games[]` proposes; what
+  is stored is what someone kept. `Series.seenIgdbIds` records every id a prune
+  was *shown*, which is what makes "new since the last check" honest and why a
+  rejected port never comes back. Nothing auto-publishes a collection.
 - **`.env` holds a live Twitch secret.** Never print or commit it.
 - **Play state is derived from the `PlaySession` log, never stored.** There is
   no `OwnedGame.status` and there must never be one — a status column cannot

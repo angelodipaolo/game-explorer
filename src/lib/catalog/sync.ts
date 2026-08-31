@@ -12,7 +12,14 @@ import { igdbApi, type IgdbApi, type IgdbGame, type IgdbSearchHit } from "@/lib/
  * the original's richness.
  */
 
-export type SyncReport = { full: number; stubs: number; requests: number };
+/**
+ * `fetched` is the ids IGDB actually returned full detail for. It matters for
+ * anything that hands in ids it did not choose — a seed from an IGDB
+ * collection, say: every /games query carries the `game_type` filter, so an id
+ * that is a DLC, an episode or a romhack simply does not come back, and the
+ * caller has to be able to tell "skipped by the rule" from "fetched".
+ */
+export type SyncReport = { full: number; stubs: number; requests: number; fetched: number[] };
 
 function json<T>(value: T): string {
   return JSON.stringify(value ?? null);
@@ -73,6 +80,10 @@ export function toCatalogRow(game: IgdbGame, parent: IgdbGame | null, ttb: { has
       ),
     ),
     similarGameIds: json(fill(game.similar_games ?? [], p?.similar_games ?? [])),
+    // A port's own entry is often not listed in the series collection its
+    // parent is in, so these fill from the parent like everything else.
+    collections: json(fill(game.collections ?? [], p?.collections ?? [])),
+    franchises: json(fill(game.franchises ?? [], p?.franchises ?? [])),
     parentIgdbId: game.parent_game ?? game.version_parent ?? null,
     mpOfflineMax: count(mp?.offlinemax),
     mpOfflineCoopMax: count(mp?.offlinecoopmax),
@@ -111,7 +122,7 @@ export function toStubRow(hit: IgdbSearchHit) {
 export async function syncCatalog(ids: number[], api: IgdbApi = igdbApi(), opts: { withStubs?: boolean } = {}): Promise<SyncReport> {
   const withStubs = opts.withStubs ?? true;
   const wanted = [...new Set(ids)];
-  if (!wanted.length) return { full: 0, stubs: 0, requests: 0 };
+  if (!wanted.length) return { full: 0, stubs: 0, requests: 0, fetched: [] };
   let requests = 0;
 
   const games = await api.games(wanted);
@@ -151,5 +162,5 @@ export async function syncCatalog(ids: number[], api: IgdbApi = igdbApi(), opts:
       }
     }
   }
-  return { full: games.length, stubs, requests };
+  return { full: games.length, stubs, requests, fetched: games.map((g) => g.id) };
 }

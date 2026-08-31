@@ -47,10 +47,17 @@ export function PlatformSidebar({ open, onClose, platforms, totalGames, filters,
         {/* The drawer is the phone's main navigation, so "Now playing" lives at
             the top of it as well as in the header — one thumb, one tap, from
             the shelf. */}
-        <div className="border-b border-border p-3">
+        <div className="grid gap-2 border-b border-border p-3">
           <Link href="/playing" onClick={onClose} className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-3 text-left text-text transition hover:border-accent" data-testid="sidebar-playing">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-black/25 text-accent" aria-hidden="true">▶</span>
             <span className="min-w-0 flex-1 font-display font-semibold">Now playing</span>
+            <span className="text-xs text-faint" aria-hidden="true">›</span>
+          </Link>
+          {/* The drawer, not a fourth header link: Shelf / Playing / Import
+              already fill the header row beside the wordmark at 390px. */}
+          <Link href="/series" onClick={onClose} className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-surface px-3 text-left text-text transition hover:border-muted" data-testid="sidebar-series">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-black/25 text-accent-2" aria-hidden="true">▤</span>
+            <span className="min-w-0 flex-1 font-display font-semibold">Series</span>
             <span className="text-xs text-faint" aria-hidden="true">›</span>
           </Link>
         </div>

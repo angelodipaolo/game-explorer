@@ -73,6 +73,19 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           </h1>
           {game.title !== game.name ? <p className="mt-1 text-sm text-faint">on the shelf as &ldquo;{game.title}&rdquo;</p> : null}
 
+          {/* Cheap, and it is how the feature gets discovered: from a game you
+              are already looking at, into the list of what else is in its
+              series and what of it you are missing. */}
+          {game.series.length ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="game-series">
+              {game.series.map((s) => (
+                <Link key={s.id} href={`/series/${s.slug}`} className="inline-flex min-h-9 items-center rounded-lg border border-border bg-surface px-3 text-muted transition hover:border-muted hover:text-text" prefetch={false}>
+                  Part of {s.name} <span aria-hidden className="ml-1 text-accent-2">→</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
+
           {/* Should we play this? */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3" data-testid="facts">
             <FactTile label="Players" fact={game.profile.maxPlayers} render={(v) => (v <= 1 ? "1" : `1–${v}`)} fallback={game.players.tier === "mode" ? game.players.label : null} />

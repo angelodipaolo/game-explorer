@@ -179,6 +179,12 @@ model CatalogGame {
   screenshots        String    @default("[]")
   /// JSON number[] of IGDB ids (each present in this table at least as a stub)
   similarGameIds     String    @default("[]")
+  /// JSON number[] — IGDB *collection* ids ("Final Fantasy", "Mario Party").
+  /// Plural because a game is in several: Final Fantasy VII is in three. This
+  /// is the seed source for a Series, never its membership — see src/lib/series.
+  collections        String    @default("[]")
+  /// JSON number[] — IGDB franchise ids. Coarser than a collection.
+  franchises         String    @default("[]")
   /// IGDB parent_game / version_parent: a port's original, a remake's base. Similar-game
   /// links usually point at the parent, so ownership is matched through it too.
   parentIgdbId       Int?
@@ -496,4 +502,78 @@ model QueueEntry {
   addedAt     DateTime  @default(now())
 
   @@index([position])
+}
+
+/// A named, ordered list of *catalog* games — every Final Fantasy, every Mario
+/// Party. Membership is by IGDB id, not by owned copy: ownership is resolved at
+/// render time (the same way matchSimilarToOwned does for the similar strip),
+/// so a series page answers "what am I missing" rather than being a saved
+/// shelf filter.
+///
+/// Same stance as GameCode, GameMap and GameBookmark: no `source` column and no
+/// precedence. A series is a public fact about games, so the owner and a
+/// research skill write through one API and neither outranks the other.
+model Series {
+  id     String  @id @default(cuid())
+  name   String
+  /// URL handle — /series/<slug>.
+  slug   String  @unique
+  /// One line. Agents source and cite; they do not author prose.
+  blurb  String?
+  /// Cover override: an IGDB image id. Normally null — the card derives its
+  /// cover from the first entry that has art. There is no upload path.
+  coverImageId String?
+  /// Order on /series; ties break on name.
+  position Int @default(0)
+
+  /// The IGDB collection this was seeded from, so "check for new entries" can
+  /// diff it later. Null when the series was typed by hand.
+  seedCollectionId Int?
+  /// JSON number[] — every IGDB id a seed or a check has already SHOWN the
+  /// owner, whether it was kept or unticked. "New since the last prune" is
+  /// `collection.games[] − (seenIgdbIds ∪ current entry ids)`, so a game that
+  /// was deliberately dropped never comes back as new, while one added by hand
+  /// (and therefore never "seen") is still not reported as new.
+  seenIgdbIds      String    @default("[]")
+  /// When the seed collection was last diffed, for the "checked …" line.
+  seedCheckedAt    DateTime?
+
+  entries   SeriesEntry[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([position])
+}
+
+/// One place in a series. Either an `igdbId` — the normal case, where the
+/// CatalogGame row (full or stub) supplies the cover and the name whether the
+/// game is owned or not — or a free-text `title` when IGDB has no entry at all,
+/// the same tolerance OwnedGame.catalogGameId being null gives a game like
+/// Roller Games.
+///
+/// Many-to-many on purpose: a game belongs to several series (Super Mario Party
+/// is in Mario Party and arguably Mario), so there is NO unique constraint on
+/// igdbId across series — only one per series.
+model SeriesEntry {
+  id       String @id @default(cuid())
+  seriesId String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  /// The catalog game. Null only when `title` carries the name instead.
+  igdbId   Int?
+  /// Free text when igdbId is null; an override label when it is set.
+  title    String?
+  /// Dense 0..n-1 within the series, renumbered on every insert, reorder and
+  /// remove, so the order the owner curated is exactly what renders.
+  position Int
+  /// "Mainline", "Spin-offs", "Remakes". Null groups under no heading.
+  section  String?
+  note     String?
+  sourceUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One entry per game per series. SQLite treats NULLs as distinct, so any
+  /// number of free-text entries can sit alongside them.
+  @@unique([seriesId, igdbId])
+  @@index([seriesId, position])
 }

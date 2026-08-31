@@ -49,6 +49,14 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   with a source per step. Bookmarks (GAMEEXPLOR-0010) are the sanctioned shape:
   link the real GameFAQs guide with one line saying why — the bookmark *is* its
   own citation, which is why `GameBookmark` has no `sourceUrl`.
+- **Series are IGDB-seeded and human-pruned** (GAMEEXPLOR-0011). A series is an
+  ordered list of *catalog* games — membership is by IGDB id, ownership is
+  resolved at render time — so the page can show the gap where the one you do
+  not own should be. An IGDB collection only ever *proposes*: nothing publishes
+  one automatically, there is no auto-membership, and `Series.seenIgdbIds`
+  records every id a prune was shown so a rejected port never comes back as
+  "new". Codes-and-maps stance: no `source` column and no precedence on
+  `Series` or `SeriesEntry` — one API for the owner and for a research skill.
 - **Agents never author play history or journal entries.** Codes and maps share
   one API between the owner and a research skill because they are public facts
   about a game. A playthrough is not; nobody but the owner can produce it.

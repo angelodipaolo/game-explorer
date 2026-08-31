@@ -5,12 +5,15 @@
 import { IgdbClient, getIgdbClient } from "./client";
 import { buildGameQuery, buildQuery } from "./query";
 import {
+  COLLECTION_FIELDS,
   GAME_FIELDS,
   SEARCH_FIELDS,
   STUB_FIELDS,
+  igdbCollectionSchema,
   igdbGameSchema,
   igdbSearchHitSchema,
   igdbTimeToBeatSchema,
+  type IgdbCollection,
   type IgdbGame,
   type IgdbSearchHit,
   type IgdbTimeToBeat,
@@ -18,8 +21,8 @@ import {
 
 export { IgdbClient, IgdbError, getIgdbClient } from "./client";
 export { buildGameQuery, buildQuery, MAIN_GAME_TYPE, PORT_GAME_TYPE, CARTRIDGE_GAME_TYPES } from "./query";
-export type { IgdbGame, IgdbSearchHit, IgdbTimeToBeat } from "./schemas";
-export { GAME_FIELDS, SEARCH_FIELDS, STUB_FIELDS };
+export type { IgdbCollection, IgdbGame, IgdbSearchHit, IgdbTimeToBeat } from "./schemas";
+export { COLLECTION_FIELDS, GAME_FIELDS, SEARCH_FIELDS, STUB_FIELDS };
 
 export type IgdbApi = {
   /** Search main games, optionally restricted to platforms. */
@@ -29,6 +32,16 @@ export type IgdbApi = {
   /** Stub detail (name, cover, platforms) for a set of ids (chunked). */
   stubs(ids: number[]): Promise<IgdbSearchHit[]>;
   timeToBeat(ids: number[]): Promise<IgdbTimeToBeat[]>;
+  /**
+   * IGDB collections (series) by id, each with its complete `games` member
+   * list. Built with `buildQuery`, not `buildGameQuery`: /collections is not a
+   * /games endpoint and `game_type` is not a column on it. The rule still
+   * applies to what comes back — the member ids are hydrated through
+   * `syncCatalog`, whose /games query carries the filter.
+   */
+  collections(ids: number[]): Promise<IgdbCollection[]>;
+  /** The reverse lookup: every collection containing this game. */
+  collectionsByGame(igdbId: number): Promise<IgdbCollection[]>;
 };
 
 const CHUNK = 100;
@@ -57,6 +70,16 @@ export function igdbApi(client: IgdbClient = getIgdbClient()): IgdbApi {
         out.push(...(await client.query("games", buildGameQuery({ fields: STUB_FIELDS, ids: part, limit: CHUNK }), igdbSearchHitSchema)));
       }
       return out;
+    },
+    async collections(ids) {
+      const out: IgdbCollection[] = [];
+      for (const part of chunk([...new Set(ids)], CHUNK)) {
+        out.push(...(await client.query("collections", buildQuery({ fields: COLLECTION_FIELDS, where: [`id = (${part.join(",")})`], limit: CHUNK }), igdbCollectionSchema)));
+      }
+      return out;
+    },
+    async collectionsByGame(igdbId) {
+      return client.query("collections", buildQuery({ fields: COLLECTION_FIELDS, where: [`games = (${igdbId})`], limit: 50 }), igdbCollectionSchema);
     },
     async timeToBeat(ids) {
       const out: IgdbTimeToBeat[] = [];

@@ -22,12 +22,21 @@ function fakeCatalog(): CatalogPort & { synced: number[][] } {
     async candidates(title) {
       return table[title.toLowerCase()] ?? [];
     },
+    async collection() {
+      return null;
+    },
+    async collectionsForGame() {
+      return [];
+    },
+    async proposeMembers(): Promise<never> {
+      throw new Error("not used by the import path");
+    },
     async sync(ids) {
       synced.push(ids);
       for (const id of ids) {
         await prisma.catalogGame.upsert({ where: { igdbId: id }, create: { igdbId: id, name: `Game ${id}`, slug: `game-${id}`, detail: "full" }, update: {} });
       }
-      return { full: ids.length, stubs: 0, requests: 1 };
+      return { full: ids.length, stubs: 0, requests: 1, fetched: ids };
     },
   };
 }

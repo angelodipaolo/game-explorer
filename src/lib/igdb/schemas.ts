@@ -60,9 +60,32 @@ export const igdbGameSchema = igdbSearchHitSchema
     screenshots: z.array(image).optional(),
     similar_games: z.array(z.number()).optional(),
     multiplayer_modes: z.array(igdbMultiplayerModeSchema).optional(),
+    /** IGDB collection (series) ids. Plural: a game is in several. */
+    collections: z.array(z.number()).optional(),
+    /** IGDB franchise ids. Coarser than a collection. */
+    franchises: z.array(z.number()).optional(),
   })
   .loose();
 export type IgdbGame = z.infer<typeof igdbGameSchema>;
+
+/**
+ * An IGDB *collection* — what IGDB calls a series ("Final Fantasy", "Mario
+ * Party"). `games` is the complete member list as ids, owned or not, which is
+ * what makes seeding a Series one request instead of web research.
+ *
+ * Note the ids in `games` have NOT been through the game_type rule: /collections
+ * is not a /games query. Anything hydrated from this list goes through
+ * syncCatalog, which applies it (see src/lib/catalog/collections.ts).
+ */
+export const igdbCollectionSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    slug: z.string().optional(),
+    games: z.array(z.number()).optional(),
+  })
+  .loose();
+export type IgdbCollection = z.infer<typeof igdbCollectionSchema>;
 
 export const igdbTimeToBeatSchema = z
   .object({
@@ -109,6 +132,15 @@ export const GAME_FIELDS = [
   "screenshots.height",
   "similar_games",
   "multiplayer_modes.*",
+  // Plural arrays, both of them: a game sits in several collections (Final
+  // Fantasy VII is in three) and sometimes several franchises. Cached on
+  // CatalogGame so "propose members" can start from a game you own without a
+  // round trip. The singular `collection`/`franchise` fields return nothing.
+  "collections",
+  "franchises",
 ];
+
+/** /v4/collections. `games` is the whole member list. */
+export const COLLECTION_FIELDS = ["name", "slug", "games"];
 
 export const STUB_FIELDS = SEARCH_FIELDS;

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { matchSimilarToOwned } from "@/lib/owned-match";
 import { playerSummary, resolvePlayerProfile, type PlayerProfile } from "@/lib/facts";
 import { platformBySlug, platformLabel } from "@/lib/platforms";
 import { resolveTags, type EffectiveTag } from "@/lib/tags";
@@ -7,7 +8,11 @@ import { mapsFor, type MapWithMarkers } from "@/lib/maps/service";
 import { bookmarksFor, type GameBookmark } from "@/lib/bookmarks/service";
 import { manualsFor, type ManualWithPages } from "@/lib/manuals/service";
 import { entriesFor, type JournalEntry } from "@/lib/journal/service";
+import { seriesForGame, type SeriesLink } from "@/lib/series/service";
 import { NEVER_PLAYED, listOpenSessions, loadQueue, playStateFor, sessionsFor, type PlaySession, type PlayState, type PlayingCopy } from "@/lib/play/service";
+
+/** The shelf-matching rule now lives in its own module; re-exported so every existing caller (and collection.test.ts) still finds it here. */
+export { matchSimilarToOwned };
 
 /**
  * View models the UI reads. Built server-side from local tables only, then
@@ -224,29 +229,11 @@ export type GameDetail = ShelfGame & {
   journal: JournalEntry[];
   /** Whether this copy is in the one "up next" queue. A copy with an open run never is. */
   queued: boolean;
+  /** The series this game is part of — "Part of Final Fantasy →". Empty for an unlinked cartridge. */
+  series: SeriesLink[];
 };
 
 export type SimilarGame = { igdbId: number; name: string; cover: string | null; year: number | null; ownedId: string | null; platformLabel: string | null };
-
-/**
- * Owned games that IGDB calls similar. IGDB's similar_games usually point at
- * a game's main entry, while an owned cartridge links to its NES port — so a
- * similar id matches an owned game if it equals the owned catalog id, the
- * owned row's parent, or if the similar entry's own parent matches either.
- */
-export function matchSimilarToOwned(similarIds: number[], similarParents: Map<number, number | null>, owned: { id: string; catalogGameId: number | null; parentIgdbId: number | null }[]): Map<number, string> {
-  const byCatalog = new Map<number, string>();
-  for (const o of owned) {
-    if (o.catalogGameId != null) byCatalog.set(o.catalogGameId, o.id);
-    if (o.parentIgdbId != null && !byCatalog.has(o.parentIgdbId)) byCatalog.set(o.parentIgdbId, o.id);
-  }
-  const out = new Map<number, string>();
-  for (const sid of similarIds) {
-    const hit = byCatalog.get(sid) ?? (similarParents.get(sid) != null ? byCatalog.get(similarParents.get(sid)!) : undefined);
-    if (hit) out.set(sid, hit);
-  }
-  return out;
-}
 
 /**
  * "More like this" by tag overlap, using the effective tags (IGDB's plus yours
@@ -278,7 +265,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   const allShelf = await loadShelf();
   const shelf = allShelf.find((s) => s.copies.some((c) => c.ownedId === id))!;
   const similarIds = c ? (JSON.parse(c.similarGameIds) as number[]) : [];
-  const [similarCatalog, ownedLinks, codes, maps, bookmarks, manuals, sessions, journal, queueEntry] = await Promise.all([
+  const [similarCatalog, ownedLinks, codes, maps, bookmarks, manuals, sessions, journal, queueEntry, series] = await Promise.all([
     similarIds.length ? prisma.catalogGame.findMany({ where: { igdbId: { in: similarIds } } }) : Promise.resolve([]),
     prisma.ownedGame.findMany({ where: { catalogGameId: { not: null } }, select: { id: true, catalogGameId: true, platform: true, catalogGame: { select: { parentIgdbId: true } } } }),
     codesFor(id),
@@ -288,6 +275,9 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     sessionsFor(id),
     entriesFor(id),
     prisma.queueEntry.findUnique({ where: { ownedGameId: id }, select: { id: true } }),
+    // Constant queries, not one per series: `seriesForGame` looks the id up
+    // directly and rides along in this same round of parallel work.
+    seriesForGame({ igdbId: c?.igdbId ?? null, parentIgdbId: c?.parentIgdbId ?? null }),
   ]);
   const ownedMatches = matchSimilarToOwned(
     similarIds,
@@ -346,6 +336,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     sessions,
     journal,
     queued: queueEntry != null,
+    series,
   };
 }
 
