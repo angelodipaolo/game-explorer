@@ -282,7 +282,10 @@ function groupByRun(entries: JournalEntry[], sessions: PlaySession[]) {
   };
   for (const e of entries) {
     const s = e.sessionId ? sessions.find((x) => x.id === e.sessionId) : null;
-    if (s) push(s.id, `${day(s.startedAt)} — ${s.endedAt ? day(s.endedAt) : "playing now"}`, e);
+    // An undated run's timestamps are the moment it was recorded, not dates —
+    // heading its entries with them would contradict the play history two
+    // sections up, which says "date unknown" for the same run.
+    if (s) push(s.id, s.undated ? "Date unknown" : `${day(s.startedAt)} — ${s.endedAt ? day(s.endedAt) : "playing now"}`, e);
     else push("loose", "Not part of a run", e);
   }
   return groups;

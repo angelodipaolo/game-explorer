@@ -11,11 +11,14 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 /**
- * POST /api/games/:id/sessions { startedAt?, endedAt?, outcome?, note? }
+ * POST /api/games/:id/sessions { startedAt?, endedAt?, undated?, outcome?, note? }
  *
- * One route for both shapes: with `endedAt` it logs a run that already
- * happened, without it it starts one now (409 if this copy already has an open
- * run, and it drops the copy out of the play queue in the same transaction).
+ * One route for three shapes: with `endedAt` it logs a run that already
+ * happened, with `undated` it logs one that happened at a time nobody
+ * remembers, and with neither it starts one now (409 if this copy already has
+ * an open run, and it drops the copy out of the play queue in the same
+ * transaction). `undated` is a past run despite having no end date — the
+ * absence of dates there means "forgotten", not "still going".
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
@@ -25,10 +28,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // only an absent body is defaulted, never a broken one.
     const raw = (await req.text()).trim();
     const body = createSessionSchema.parse(raw ? JSON.parse(raw) : {});
-    if (body.endedAt) {
-      // Consistent with PATCH: a run with an end date is not "playing".
+    if (body.endedAt || body.undated) {
+      // Consistent with PATCH: a run that already happened is not "playing",
+      // and an undated one is a past run by definition.
       if (body.outcome === "playing") throw new EnrichmentError('a finished run cannot have the outcome "playing" — leave endedAt out to start one', 400);
-      return ok(await logPastSession(id, { startedAt: body.startedAt ?? body.endedAt, endedAt: body.endedAt, outcome: body.outcome, note: body.note }), 201);
+      // Dates and "the dates are lost" are contradictory. Say so rather than
+      // quietly picking one — the same refusal pastSessionSchema makes.
+      if (body.undated && (body.startedAt || body.endedAt)) throw new EnrichmentError("an undated run has no dates — send undated on its own", 400);
+      const past = body.endedAt
+        ? { startedAt: body.startedAt ?? body.endedAt, endedAt: body.endedAt, outcome: body.outcome, note: body.note }
+        : { undated: true as const, outcome: body.outcome, note: body.note };
+      return ok(await logPastSession(id, past), 201);
     }
     return ok(await startSession(id, { startedAt: body.startedAt, note: body.note }), 201);
   });

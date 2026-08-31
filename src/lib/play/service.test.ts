@@ -11,6 +11,7 @@ import {
   listOpenSessions,
   loadQueue,
   logPastSession,
+  pastSessionSchema,
   playStateFor,
   reopenSession,
   reorderQueue,
@@ -144,6 +145,85 @@ describe("play sessions", () => {
     expect(await status(() => deleteSession(run.id))).toBe(404);
   });
 
+  it("logs a run whose dates nobody remembers, closed and out of the way", async () => {
+    // The whole point: this is a finished run, so it must never leave an open
+    // one behind — `endedAt is null` still means "playing now" and nothing
+    // else. The timestamps it carries are the moment it was recorded.
+    const before = new Date();
+    const run = await logPastSession(nes, { undated: true, note: "some time in the nineties" });
+    expect(run.undated).toBe(true);
+    expect(run.outcome).toBe("completed");
+    expect(run.endedAt).not.toBeNull();
+    expect(run.startedAt).toEqual(run.endedAt);
+    expect(run.startedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(await prisma.playSession.count({ where: { ownedGameId: nes, endedAt: null } })).toBe(0);
+    // And the copy can still be started now, because nothing is open.
+    expect((await startSession(nes)).endedAt).toBeNull();
+  });
+
+  it("refuses a run that is both undated and dated", async () => {
+    expect(pastSessionSchema.safeParse({ undated: true, startedAt: at("2019-01-01"), endedAt: at("2019-02-01") }).success).toBe(false);
+    // Half a date range is not a run either.
+    expect(pastSessionSchema.safeParse({ startedAt: at("2019-01-01") }).success).toBe(false);
+    expect(pastSessionSchema.safeParse({ undated: true, outcome: "abandoned" }).success).toBe(true);
+  });
+
+  it("sorts undated runs after every dated one", async () => {
+    await logPastSession(nes, { startedAt: at("2019-01-01"), endedAt: at("2019-02-01") });
+    const forgotten = await logPastSession(nes, { undated: true });
+    await logPastSession(nes, { startedAt: at("2022-01-01"), endedAt: at("2022-03-01") });
+    const runs = await sessionsFor(nes);
+    // Recorded most recently of the three, but its dates are placeholders, so
+    // it belongs at the bottom rather than at the top.
+    expect(runs.map((r) => r.id).indexOf(forgotten.id)).toBe(2);
+    expect(runs.slice(0, 2).map((r) => r.startedAt.getUTCFullYear())).toEqual([2022, 2019]);
+  });
+
+  it("fills the dates in later, and refuses to clear the flag without them", async () => {
+    const run = await logPastSession(nes, { undated: true });
+    // "I remembered when that was" — the dates have to come with it, because
+    // the stored ones are the day it was typed in.
+    expect(await status(() => updateSession(run.id, { undated: false }))).toBe(400);
+    expect(await status(() => updateSession(run.id, { undated: false, startedAt: at("1994-06-01") }))).toBe(400);
+
+    const dated = await updateSession(run.id, { undated: false, startedAt: at("1994-06-01"), endedAt: at("1994-08-01"), outcome: "abandoned" });
+    expect(dated.undated).toBe(false);
+    expect(dated.startedAt).toEqual(at("1994-06-01"));
+    expect(dated.endedAt).toEqual(at("1994-08-01"));
+    expect(dated.outcome).toBe("abandoned");
+    // And now it sorts with the dated runs and counts towards lastPlayedAt.
+    expect((await playStateFor([nes])).get(nes)!.lastPlayedAt).toEqual(at("1994-08-01"));
+  });
+
+  it("forgets the dates of a run that had them, and never leaves it open", async () => {
+    const open = await startSession(nes, { startedAt: at("2026-08-01") });
+    const forgotten = await updateSession(open.id, { undated: true });
+    expect(forgotten.undated).toBe(true);
+    expect(forgotten.endedAt).not.toBeNull();
+    expect(forgotten.outcome).toBe("completed");
+    expect(await prisma.playSession.count({ where: { ownedGameId: nes, endedAt: null } })).toBe(0);
+  });
+
+  it("never lets an undated run be open", async () => {
+    const run = await logPastSession(nes, { undated: true });
+    expect(await status(() => updateSession(run.id, { endedAt: null }))).toBe(400);
+    expect(await status(() => updateSession(run.id, { undated: true, endedAt: null }))).toBe(400);
+    expect(await status(() => reopenSession(run.id))).toBe(400);
+    // Dates on an undated run without clearing the flag is the same mistake.
+    expect(await status(() => updateSession(run.id, { startedAt: at("1994-06-01") }))).toBe(400);
+    expect(await prisma.playSession.count({ where: { ownedGameId: nes, endedAt: null } })).toBe(0);
+  });
+
+  it("deletes an undated run and leaves its journal entries behind", async () => {
+    const run = await logPastSession(nes, { undated: true });
+    const entry = await addEntry(nes, { kind: "note", body: "borrowed it from my cousin", sessionId: run.id });
+    await deleteSession(run.id);
+    const after = await prisma.journalEntry.findUniqueOrThrow({ where: { id: entry.id } });
+    expect(after.sessionId).toBeNull();
+    expect(after.body).toBe("borrowed it from my cousin");
+    expect(await prisma.playSession.count({ where: { ownedGameId: nes } })).toBe(0);
+  });
+
   it("cascades sessions away when the owned game goes", async () => {
     await startSession(nes);
     await prisma.ownedGame.delete({ where: { id: nes } });
@@ -171,6 +251,19 @@ describe("playStateFor", () => {
     // Unknown ids are simply absent, and a game with no rows is "never".
     expect(states.get("no-such-id")).toEqual({ status: "never", runs: 0, lastPlayedAt: null, openSessionId: null });
     expect(await playStateFor([])).toEqual(new Map());
+  });
+
+  it("counts an undated run as played, with nothing to say about when", async () => {
+    // An undated run's timestamps are the day it was typed in, so letting them
+    // reach lastPlayedAt would report a game you last touched in 1994 as
+    // played this afternoon. Played is true; when is genuinely not known.
+    await logPastSession(nes, { undated: true });
+    expect((await playStateFor([nes])).get(nes)).toEqual({ status: "played", runs: 1, lastPlayedAt: null, openSessionId: null });
+
+    // Mixed: only the dated run can say when.
+    await logPastSession(snes, { undated: true });
+    await logPastSession(snes, { startedAt: at("2019-01-01"), endedAt: at("2019-02-01") });
+    expect((await playStateFor([snes])).get(snes)).toEqual({ status: "played", runs: 2, lastPlayedAt: at("2019-02-01"), openSessionId: null });
   });
 
   it("says playing even when the copy also has finished runs", async () => {

@@ -445,6 +445,12 @@ model PlaySession {
   /// playing | completed | abandoned. Constrained against endedAt in the
   /// service: open runs are always "playing", ended runs never are.
   outcome     String         @default("playing")
+  /// True when the owner does not know when this run happened. `startedAt`
+  /// and `endedAt` then hold the moment it was recorded, purely as
+  /// placeholders so that `endedAt is null` stays the one definition of
+  /// "playing now" — the UI never shows them, and they never count towards
+  /// `lastPlayedAt`. Only a finished run can be undated.
+  undated     Boolean        @default(false)
   /// One line: "stuck on world 5", "second playthrough, hard mode".
   note        String?
   entries     JournalEntry[]

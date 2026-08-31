@@ -39,23 +39,65 @@ export type StartSessionInput = z.infer<typeof startSessionSchema>;
 export const finishSessionSchema = z.object({ outcome: z.enum(["completed", "abandoned"]), endedAt: when.optional(), note });
 export type FinishSessionInput = z.infer<typeof finishSessionSchema>;
 
-export const pastSessionSchema = z.object({ startedAt: when, endedAt: when, outcome: z.enum(["completed", "abandoned"]).optional(), note });
+const doneOutcome = z.enum(["completed", "abandoned"]).optional();
+
+/**
+ * A run that already happened, in one of exactly two shapes: dated, or
+ * undated. A union rather than an object with three optional fields, because
+ * "I played this, I do not remember when" and "I played this from March to
+ * May" are different claims and half of one is not a run — `{ startedAt }`
+ * with no end, or `{ undated: true, endedAt }`, must not parse.
+ *
+ * The undated branch spells the dates out as `z.undefined()` rather than
+ * omitting them: objects strip unknown keys, so leaving them out would quietly
+ * *accept* dates alongside `undated: true` and then throw them away.
+ *
+ * Note where this does and does not run. It is the contract for callers that
+ * reach `logPastSession` directly, and it is what makes half a run — `{
+ * startedAt }` with no end, `{ undated: true, endedAt }` — fail to typecheck.
+ * The HTTP path does NOT parse it: `POST /api/games/:id/sessions` parses
+ * `createSessionSchema` (one flat object, because the same route also starts a
+ * run) and then rejects the contradictory combinations itself, so that the
+ * body carries a sentence a person can act on rather than zod's `invalid_union`
+ * nested two levels deep. Two statements of one rule: change them together.
+ */
+export const pastSessionSchema = z.union([
+  z.object({ startedAt: when, endedAt: when, undated: z.literal(false).optional(), outcome: doneOutcome, note }),
+  z.object({
+    undated: z.literal(true),
+    startedAt: z.undefined({ error: "an undated run has no dates — leave startedAt out" }).optional(),
+    endedAt: z.undefined({ error: "an undated run has no dates — leave endedAt out" }).optional(),
+    outcome: doneOutcome,
+    note,
+  }),
+]);
 export type PastSessionInput = z.infer<typeof pastSessionSchema>;
 
 /**
- * The POST body for `/api/games/:id/sessions`: start a run, or log one that
- * already happened when `endedAt` is given. One route, because "I played this
- * last year" and "I am playing this now" are the same record.
+ * The POST body for `/api/games/:id/sessions`: start a run, log one that
+ * already happened when `endedAt` is given, or log one whose dates are lost
+ * when `undated` is set. One route, because "I played this last year", "I
+ * played this at some point" and "I am playing this now" are the same record.
  */
-export const createSessionSchema = z.object({ startedAt: when.optional(), endedAt: when.optional(), outcome: z.enum(PLAY_OUTCOMES).optional(), note });
+export const createSessionSchema = z.object({
+  startedAt: when.optional(),
+  endedAt: when.optional(),
+  undated: z.boolean().optional(),
+  outcome: z.enum(PLAY_OUTCOMES).optional(),
+  note,
+});
 
 /**
  * PATCH: finish, reopen, or correct. `endedAt: null` is the reopen — explicit
  * null clears the column, absent leaves it alone (see `blank`).
+ *
+ * `undated` is editable both ways: ticking it forgets the dates, clearing it
+ * is the "I remembered when that was" path and must arrive with real ones.
  */
 export const sessionPatchSchema = z.object({
   startedAt: when.optional(),
   endedAt: when.nullish(),
+  undated: z.boolean().optional(),
   outcome: z.enum(PLAY_OUTCOMES).optional(),
   note,
 });
@@ -138,9 +180,14 @@ export async function finishSession(sessionId: string, input: FinishSessionInput
   return prisma.playSession.update({ where: { id: sessionId }, data: { endedAt, outcome: input.outcome, note: blank(input.note) } });
 }
 
-/** Clear `endedAt` and go back to "playing" — how a mis-tapped Finish is undone. */
+/**
+ * Clear `endedAt` and go back to "playing" — how a mis-tapped Finish is undone.
+ * Not available to an undated run: its `startedAt` is the day it was typed in,
+ * so "still playing it" would resume from a moment that never happened.
+ */
 export async function reopenSession(sessionId: string): Promise<PlaySession> {
   const s = await requireSession(sessionId);
+  if (s.undated) throw new EnrichmentError("an undated run cannot be reopened — give it dates first", 400);
   return prisma
     .$transaction(async (tx) => {
       await assertNoOpenRun(tx, s.ownedGameId, sessionId);
@@ -149,12 +196,28 @@ export async function reopenSession(sessionId: string): Promise<PlaySession> {
     .catch(asOpenRunConflict);
 }
 
-/** A run that already happened. Must be closed — this never creates an open run. */
+/**
+ * A run that already happened. Must be closed — this never creates an open
+ * run, undated or otherwise.
+ *
+ * An undated run is stamped at both ends with the moment it was recorded.
+ * Those are placeholders, not dates: `endedAt is null` is the one definition
+ * of "playing now", so a run with no end would claim to be in progress, which
+ * is the opposite of what "I played this years ago" means. `undated` is the
+ * flag that tells every reader the two timestamps mean nothing.
+ */
 export async function logPastSession(ownedGameId: string, input: PastSessionInput): Promise<PlaySession> {
   await requireOwned(ownedGameId);
+  const outcome = input.outcome ?? "completed";
+  if (input.undated) {
+    const recordedAt = new Date();
+    return prisma.playSession.create({
+      data: { ownedGameId, startedAt: recordedAt, endedAt: recordedAt, undated: true, outcome, note: blank(input.note) ?? null },
+    });
+  }
   assertOrder(input.startedAt, input.endedAt);
   return prisma.playSession.create({
-    data: { ownedGameId, startedAt: input.startedAt, endedAt: input.endedAt, outcome: input.outcome ?? "completed", note: blank(input.note) ?? null },
+    data: { ownedGameId, startedAt: input.startedAt, endedAt: input.endedAt, outcome, note: blank(input.note) ?? null },
   });
 }
 
@@ -165,8 +228,32 @@ export async function logPastSession(ownedGameId: string, input: PastSessionInpu
  */
 export async function updateSession(sessionId: string, patch: SessionPatch): Promise<PlaySession> {
   const s = await requireSession(sessionId);
-  const startedAt = patch.startedAt ?? s.startedAt;
-  const endedAt = patch.endedAt === undefined ? s.endedAt : patch.endedAt;
+  const undated = patch.undated ?? s.undated;
+
+  // An undated run can never be open: its timestamps are placeholders, so
+  // there is no point in it to resume from. Reopening one means giving it real
+  // dates first.
+  if (undated && patch.endedAt === null) throw new EnrichmentError("an undated run cannot be reopened — give it dates first", 400);
+  // Dates and "I do not know the dates" are contradictory in one patch. The
+  // way to date a run you had forgotten is to send `undated: false` with them,
+  // which is the path below.
+  if (undated && (patch.startedAt !== undefined || patch.endedAt !== undefined)) {
+    throw new EnrichmentError("send undated: false with the dates to give this run a date range", 400);
+  }
+  // Clearing the flag is the "I remembered when that was" edit, and it is only
+  // real if it arrives with dates: the stored ones are placeholders, so
+  // keeping them would silently claim the run happened the day it was typed
+  // in. A run that was already dated has real ones and needs no help.
+  if (patch.undated === false && s.undated && (patch.startedAt === undefined || !patch.endedAt)) {
+    throw new EnrichmentError("give this run a start and an end date to say when it happened", 400);
+  }
+
+  // Turning the flag on stamps fresh placeholders (see logPastSession) and
+  // closes the run; leaving an already-undated run undated keeps the ones it
+  // has, so editing its note does not move it up the list.
+  const recordedAt = new Date();
+  const startedAt = undated ? (s.undated ? s.startedAt : recordedAt) : patch.startedAt ?? s.startedAt;
+  const endedAt = undated ? (s.undated ? s.endedAt ?? s.startedAt : recordedAt) : patch.endedAt === undefined ? s.endedAt : patch.endedAt;
   assertOrder(startedAt, endedAt);
   if (endedAt && patch.outcome === "playing") throw new EnrichmentError('a finished run cannot have the outcome "playing" — clear endedAt to reopen it', 400);
 
@@ -179,7 +266,7 @@ export async function updateSession(sessionId: string, patch: SessionPatch): Pro
       // Reopening a closed run is subject to the same one-open-run rule, and
       // has to be checked in the transaction that performs the reopen.
       if (!endedAt && s.endedAt) await assertNoOpenRun(tx, s.ownedGameId, sessionId);
-      return tx.playSession.update({ where: { id: sessionId }, data: { startedAt, endedAt, outcome, note: blank(patch.note) } });
+      return tx.playSession.update({ where: { id: sessionId }, data: { startedAt, endedAt, outcome, undated, note: blank(patch.note) } });
     })
     .catch(asOpenRunConflict);
 }
@@ -193,9 +280,17 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await prisma.playSession.delete({ where: { id: sessionId } });
 }
 
-/** One copy's runs, newest first. */
+/**
+ * One copy's runs, newest first — with the undated ones last.
+ *
+ * An undated run's `startedAt` is the day it was typed in, so sorting on dates
+ * alone would file "I played this at some point in the nineties" between last
+ * month and last week. `undated` sorts first (false before true in SQLite), so
+ * every run with real dates comes before every run without, and the undated
+ * ones fall back to most-recently-recorded among themselves.
+ */
 export async function sessionsFor(ownedGameId: string): Promise<PlaySession[]> {
-  return prisma.playSession.findMany({ where: { ownedGameId }, orderBy: [{ startedAt: "desc" }, { createdAt: "desc" }] });
+  return prisma.playSession.findMany({ where: { ownedGameId }, orderBy: [{ undated: "asc" }, { startedAt: "desc" }, { createdAt: "desc" }] });
 }
 
 /**
@@ -207,6 +302,7 @@ export async function sessionsFor(ownedGameId: string): Promise<PlaySession[]> {
 export type PlayState = {
   status: "playing" | "played" | "never";
   runs: number;
+  /** Null with a `played` status too, when every run on the copy is undated. */
   lastPlayedAt: Date | null;
   openSessionId: string | null;
 };
@@ -225,15 +321,18 @@ export async function playStateFor(ownedGameIds: string[]): Promise<Map<string, 
 
   const rows = await prisma.playSession.findMany({
     where: { ownedGameId: { in: ownedGameIds } },
-    select: { id: true, ownedGameId: true, startedAt: true, endedAt: true },
+    select: { id: true, ownedGameId: true, startedAt: true, endedAt: true, undated: true },
   });
   for (const r of rows) {
     const state = out.get(r.ownedGameId);
     if (!state) continue;
     state.runs++;
-    // "Last played" is the latest end, or the start of a run still going.
-    const touched = r.endedAt ?? r.startedAt;
-    if (!state.lastPlayedAt || touched > state.lastPlayedAt) state.lastPlayedAt = touched;
+    // "Last played" is the latest end, or the start of a run still going — but
+    // never an undated run's timestamps, which are the moment it was recorded.
+    // A copy whose only runs are undated is therefore `played` with a null
+    // `lastPlayedAt`: you have played it, and when is genuinely not known.
+    const touched = r.undated ? null : r.endedAt ?? r.startedAt;
+    if (touched && (!state.lastPlayedAt || touched > state.lastPlayedAt)) state.lastPlayedAt = touched;
     if (r.endedAt === null) {
       state.status = "playing";
       state.openSessionId = r.id;

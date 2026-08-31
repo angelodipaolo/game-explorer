@@ -1,0 +1,11 @@
+-- A run whose dates the owner does not remember.
+--
+-- `undated` is an ordinary additive column, so this is a plain ADD COLUMN.
+-- Prisma generated a full SQLite table redefine here instead (create new_,
+-- copy, drop, rename) and that version was thrown away deliberately: dropping
+-- the table takes `PlaySession_one_open_run` — the hand-written partial unique
+-- index from 20260831032612 — with it, and the redefine does not recreate it,
+-- because Prisma's schema language cannot express a filtered index and so does
+-- not know it exists. Every future PlaySession migration Prisma generates will
+-- want to make the same silent deletion; check for it.
+ALTER TABLE "PlaySession" ADD COLUMN "undated" BOOLEAN NOT NULL DEFAULT false;

@@ -128,7 +128,10 @@ export function PlayHistory({ gameId, sessions, queued, canEdit }: { gameId: str
                   busy={busy}
                   onCancel={() => setEditId(null)}
                   onSubmit={(body) => call("PATCH", `/api/sessions/${s.id}`, body)}
-                  onReopen={() => call("PATCH", `/api/sessions/${s.id}`, { endedAt: null })}
+                  // "Still playing it" needs a start to resume from, and an
+                  // undated run's is the day it was typed in. The service
+                  // refuses it too; this keeps the button off the screen.
+                  onReopen={s.undated ? undefined : () => call("PATCH", `/api/sessions/${s.id}`, { endedAt: null })}
                   onDelete={() => confirm("Delete this run? Anything written during it stays in the journal.") && call("DELETE", `/api/sessions/${s.id}`)}
                 />
               </li>
@@ -136,13 +139,23 @@ export function PlayHistory({ gameId, sessions, queued, canEdit }: { gameId: str
               <li key={s.id} className="flex items-start justify-between gap-3 rounded-xl border border-border bg-surface p-3" data-testid="run-row">
                 <div className="min-w-0">
                   <div className="text-sm font-medium">
-                    {day(s.startedAt)} — {day(s.endedAt!)}
+                    {/* An undated run's timestamps are the day it was typed in, so
+                        they are never shown — "at some point" is the whole claim. */}
+                    {s.undated ? (
+                      <span className="text-muted" data-testid="run-undated">
+                        Played · date unknown
+                      </span>
+                    ) : (
+                      <>
+                        {day(s.startedAt)} — {day(s.endedAt!)}
+                      </>
+                    )}
                     <span className={cx("ml-2 text-xs", s.outcome === "completed" ? "text-good" : "text-muted")}>{OUTCOME_LABEL[s.outcome] ?? s.outcome}</span>
                   </div>
                   {s.note ? <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{s.note}</p> : null}
                 </div>
                 {editing && canEdit ? (
-                  <button onClick={() => setEditId(s.id)} disabled={busy} className="min-h-11 shrink-0 rounded-lg border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" aria-label={`Edit the run from ${day(s.startedAt)}`}>
+                  <button onClick={() => setEditId(s.id)} disabled={busy} className="min-h-11 shrink-0 rounded-lg border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" aria-label={s.undated ? "Edit the run with no dates" : `Edit the run from ${day(s.startedAt)}`}>
                     Edit
                   </button>
                 ) : null}
@@ -168,16 +181,28 @@ export function PlayHistory({ gameId, sessions, queued, canEdit }: { gameId: str
   );
 }
 
-type RunBody = { startedAt: string; endedAt: string; outcome: string; note: string | null };
+type RunBody = { startedAt: string; endedAt: string; undated: false; outcome: string; note: string | null } | { undated: true; outcome: string; note: string | null };
 
 /**
  * One run's dates, outcome and note. Date-only inputs on purpose: the API
  * reads a bare `YYYY-MM-DD` as local midnight, so a run backdated to
  * "yesterday" on a phone never renders as the day before that.
+ *
+ * A run you know you played but cannot date is the common case for anything
+ * you owned as a child, so the dates come off entirely rather than being
+ * guessed: ticking the box drops the two inputs out of the form and sends
+ * `undated: true` with no dates at all. Unticking it on a saved run is the
+ * other half — the way you fill the dates in once you remember them.
  */
 function RunForm({ initial, past, busy, onCancel, onSubmit, onReopen, onDelete }: { initial?: PlaySession; past?: boolean; busy: boolean; onCancel: () => void; onSubmit: (body: RunBody) => Promise<boolean>; onReopen?: () => void; onDelete?: () => void }) {
-  const [startedAt, setStartedAt] = useState(dateInput(initial?.startedAt ?? new Date()));
-  const [endedAt, setEndedAt] = useState(dateInput(initial?.endedAt ?? new Date()));
+  // An undated run's stored timestamps are the afternoon it was typed in, so
+  // seeding the inputs from them would hand that back as the answer and let one
+  // tap on Save enshrine it — exactly the corruption the flag exists to prevent.
+  // Empty instead; the inputs are `required`, so the form asks for real dates
+  // before it will submit. A brand new past run still defaults to today.
+  const [startedAt, setStartedAt] = useState(initial ? (initial.undated ? "" : dateInput(initial.startedAt)) : dateInput(new Date()));
+  const [endedAt, setEndedAt] = useState(initial ? (initial.undated ? "" : dateInput(initial.endedAt ?? new Date())) : dateInput(new Date()));
+  const [undated, setUndated] = useState(initial?.undated ?? false);
   const [outcome, setOutcome] = useState(initial && initial.outcome !== "playing" ? initial.outcome : "completed");
   const [note, setNote] = useState(initial?.note ?? "");
   const field = "min-h-11 w-full rounded-lg border border-border bg-bg px-3 text-base outline-none focus:border-accent";
@@ -185,20 +210,43 @@ function RunForm({ initial, past, busy, onCancel, onSubmit, onReopen, onDelete }
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        void onSubmit({ startedAt, endedAt, outcome, note: note.trim() || null });
+        void onSubmit(undated ? { undated: true, outcome, note: note.trim() || null } : { startedAt, endedAt, undated: false, outcome, note: note.trim() || null });
       }}
       className="rounded-xl border border-border bg-bg-elev p-3"
       data-testid="run-form"
     >
       <div className="grid gap-2 sm:grid-cols-3">
-        <label className="text-xs text-muted">
-          Started
-          <input type="date" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} required className={cx(field, "mt-1")} aria-label="Started" data-testid="run-started" />
+        <label className="flex min-h-11 items-center gap-2 text-sm text-muted sm:col-span-3">
+          <input
+            type="checkbox"
+            checked={undated}
+            // Ticking this on a run that has real dates overwrites them with
+            // placeholders and there is no undo, so it asks first — the same
+            // stance as Delete right beside it.
+            onChange={(e) => {
+              if (e.target.checked && initial && !initial.undated && !confirm("Forget this run's dates? They cannot be recovered.")) return;
+              setUndated(e.target.checked);
+            }}
+            className="h-5 w-5 accent-accent"
+            data-testid="run-undated-toggle"
+          />
+          I don’t know the dates
         </label>
-        <label className="text-xs text-muted">
-          Finished
-          <input type="date" value={endedAt} onChange={(e) => setEndedAt(e.target.value)} required className={cx(field, "mt-1")} aria-label="Finished" data-testid="run-ended" />
-        </label>
+        {/* Not merely disabled: an unsubmitted `required` date input that is
+            hidden blocks the form silently, and the dates are not part of this
+            run at all when the box is ticked. */}
+        {undated ? null : (
+          <>
+            <label className="text-xs text-muted">
+              Started
+              <input type="date" value={startedAt} onChange={(e) => setStartedAt(e.target.value)} required className={cx(field, "mt-1")} aria-label="Started" data-testid="run-started" />
+            </label>
+            <label className="text-xs text-muted">
+              Finished
+              <input type="date" value={endedAt} onChange={(e) => setEndedAt(e.target.value)} required className={cx(field, "mt-1")} aria-label="Finished" data-testid="run-ended" />
+            </label>
+          </>
+        )}
         <label className="text-xs text-muted">
           How it went
           <select value={outcome} onChange={(e) => setOutcome(e.target.value)} className={cx(field, "mt-1")} aria-label="How it went">
