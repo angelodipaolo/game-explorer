@@ -18,7 +18,6 @@ import {
 
 export { IgdbClient, IgdbError, getIgdbClient } from "./client";
 export { buildGameQuery, buildQuery, MAIN_GAME_TYPE, PORT_GAME_TYPE, CARTRIDGE_GAME_TYPES } from "./query";
-export { igdbImageUrl, type IgdbImageSize } from "./images";
 export type { IgdbGame, IgdbSearchHit, IgdbTimeToBeat } from "./schemas";
 export { GAME_FIELDS, SEARCH_FIELDS, STUB_FIELDS };
 

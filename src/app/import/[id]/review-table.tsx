@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge, Button, Card, cx } from "@/components/ui";
+import { cachedImageUrl } from "@/lib/images/sizes";
 import { platformLabel, resolvePlatform } from "@/lib/platforms";
 
 type Candidate = { igdbId: number; name: string; confidence: number; reason: string; firstReleaseYear: number | null; platformNames: string[]; coverImageId: string | null; onPlatform: boolean };
@@ -182,7 +183,7 @@ export function ReviewTable({ session, rows }: { session: { id: string; status: 
                             data-testid="candidate"
                           >
                             {c.coverImageId ? (
-                              <img src={`https://images.igdb.com/igdb/image/upload/t_cover_small/${c.coverImageId}.jpg`} alt="" className="h-12 w-9 rounded object-cover" />
+                              <img src={cachedImageUrl("cover_small", c.coverImageId)} alt="" className="h-12 w-9 rounded object-cover" />
                             ) : (
                               <div className="h-12 w-9 rounded bg-surface-2" />
                             )}

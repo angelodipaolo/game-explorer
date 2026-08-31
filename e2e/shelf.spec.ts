@@ -106,7 +106,10 @@ test("platform sidebar lists the collection and filters the shelf", async ({ pag
   await page.goto("/");
   await page.getByTestId("open-platforms").click();
   await expect(page.getByTestId("platform-sidebar")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Game platforms" }).getByRole("button")).toHaveCount(18);
+  // "All" plus one button per platform in the collection (23). Update after an import.
+  const platformButtons = page.getByRole("navigation", { name: "Game platforms" }).getByRole("button");
+  await expect(platformButtons).toHaveCount(24);
+  await expect(page.getByTestId("platform-all")).toBeVisible();
   await page.getByTestId("platform-ps5").click();
   await expect(page).toHaveURL(/platform=ps5/);
   await expect(page.getByTestId("result-count")).toContainText("games");

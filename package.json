@@ -18,7 +18,8 @@
     "db:snapshot": "tsx scripts/db-snapshot.ts",
     "db:restore": "prisma migrate deploy && tsx scripts/db-restore.ts",
     "import:collection": "tsx scripts/import-collection.ts",
-    "catalog:sync": "tsx scripts/sync-catalog.ts"
+    "catalog:sync": "tsx scripts/sync-catalog.ts",
+    "images:warm": "tsx scripts/warm-images.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

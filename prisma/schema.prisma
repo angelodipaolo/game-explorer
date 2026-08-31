@@ -151,7 +151,7 @@ model CatalogGame {
   summary          String?
   storyline        String?
   firstReleaseDate DateTime?
-  /// IGDB image id for the cover; URL built in src/lib/igdb/images.ts.
+  /// IGDB image id for the cover; served from the local cache by src/lib/images/.
   coverImageId     String?
   coverWidth       Int?
   coverHeight      Int?

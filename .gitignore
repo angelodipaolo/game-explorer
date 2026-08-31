@@ -45,6 +45,9 @@ npm-debug.log*
 *.png
 !public/**/*.png
 
+# cached IGDB cover art and screenshots (npm run images:warm rebuilds it)
+/.cache/
+
 # map images
 /data/maps/
 /scripts/scratch/

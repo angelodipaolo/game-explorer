@@ -1,10 +1,12 @@
 import { cx } from "@/components/ui";
+import { cachedImageUrl, type ImageSize } from "@/lib/images/sizes";
 
 type Size = "small" | "big" | "huge";
-const sizes: Record<Size, string> = { small: "t_cover_small", big: "t_cover_big", huge: "t_cover_big_2x" };
+const sizes: Record<Size, ImageSize> = { small: "cover_small", big: "cover_big", huge: "cover_big_2x" };
 
+/** Covers come from the local disk cache, which backfills from IGDB on a miss. */
 export function coverUrl(imageId: string, size: Size = "big"): string {
-  return `https://images.igdb.com/igdb/image/upload/${sizes[size]}/${imageId}.jpg`;
+  return cachedImageUrl(sizes[size], imageId);
 }
 
 /** Cover art, or a typographic tile when IGDB has none. Always 3:4. */
