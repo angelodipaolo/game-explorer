@@ -6,11 +6,12 @@ Nothing moved to a host, a hosted database or blob storage — the collection,
 the images, the map scans and the journal photos are still files on the mini,
 which is the whole reason this shape was chosen (GAMEEXPLOR-0002).
 
-Two services, both surviving a reboot:
+Three services, all surviving a reboot:
 
 | Service | What | Runs as |
 | --- | --- | --- |
 | `com.angelodipaolo.game-explorer` | `npm run start` on port 3000 | LaunchAgent (your login) |
+| `com.angelodipaolo.game-explorer-deploy` | polls GitHub, deploys `main` when it moves | LaunchAgent (your login) |
 | `com.cloudflare.cloudflared` | the tunnel to Cloudflare's edge | LaunchDaemon (`cloudflared service install`) |
 
 Templates in this directory are **not live config**: copy them into place and
@@ -114,6 +115,8 @@ tail -f ~/Library/Logs/game-explorer/err.log
 launchctl bootout gui/$UID/com.angelodipaolo.game-explorer # stop it entirely
 ```
 
+You mostly should not need `scripts/deploy.sh` by hand — see the next section.
+
 **`next dev` and `next start` cannot share port 3000.** Develop in a different
 checkout or worktree, or `npm run dev -- -p 3001`. (Next 16 keeps dev and
 production build output apart — `.next/dev` and `.next/build` — so the two can
@@ -125,6 +128,83 @@ Data and backups are unchanged by hosting: `prisma/dev.db`, `.cache/`,
 `npm run backup` captures the database and every blob directory in one archive;
 `npm run db:snapshot` still exports the collection. Time Machine on the mini is
 the other half. See `data/README.md`.
+
+---
+
+## 1b. The deploy timer — pushing to `main` is the deploy
+
+`scripts/deploy.sh` still works and always will, but you should not have to open
+a terminal on the mini to ship. `com.angelodipaolo.game-explorer-deploy` runs
+`scripts/deploy-if-changed.sh` every 5 minutes: it fetches `origin/main`,
+compares it to the local `main`, and calls `scripts/deploy.sh` only when the
+remote is ahead. Push from the MacBook, walk away, and the mini has it inside
+one interval.
+
+The mini polls **outward**. There is no webhook endpoint, no port opened and no
+CI runner executing repo-supplied workflow code on the machine that holds your
+collection — the same trade as the tunnel. The cost is up to five minutes of
+latency, which is not worth a new inbound surface.
+
+```bash
+cd ~/projects/game-explorer
+cp ops/com.angelodipaolo.game-explorer-deploy.plist ~/Library/LaunchAgents/
+# check WorkingDirectory, the script path, PATH and the log path inside it first
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.angelodipaolo.game-explorer-deploy.plist
+
+scripts/deploy-if-changed.sh                # run one tick by hand; safe, no-ops if nothing moved
+tail -f ~/Library/Logs/game-explorer/deploy.log
+```
+
+What it will and will not do:
+
+- **`main` only.** The branch is named explicitly, never taken from HEAD. A
+  feature branch advancing on origin does nothing. If it ever finds HEAD
+  somewhere other than `main` it logs that loudly and switches back — so the
+  timer effectively *owns* the checkout's branch.
+- **Nothing when nothing changed.** The common tick is one `git fetch` and a
+  `no change` line. No build, no restart, no downtime.
+- **One deploy at a time.** A lockfile
+  (`~/Library/Logs/game-explorer/deploy.lock`) means a tick landing mid-build
+  logs and leaves rather than stacking a second `npm ci` on the first.
+- **Refuses a dirty tree**, and refuses when `origin/main` is not a
+  fast-forward (a force-push, or commits made on the mini). Both are logged and
+  left for a human; nothing is discarded.
+- **Fails loud but non-fatal.** A broken build leaves the LaunchAgent serving
+  the build it already has, and `deploy.sh` has already taken a backup before
+  the migrate step. The log records the exit code; the next tick retries, so a
+  fixing push recovers on its own.
+
+The log is `~/Library/Logs/game-explorer/deploy.log`, timestamped, with
+`deploy.sh`'s own output inline:
+
+```
+2026-08-31T15:40:02-0700  no change (main at 94a75ce)
+2026-08-31T15:45:03-0700  deploying 94a75ce..1f3c9d0 (2 commit(s)) — GAMEEXPLOR-0013: …
+2026-08-31T15:47:41-0700  deployed 1f3c9d0 in 158s
+```
+
+`~/Library/Logs/game-explorer/deploy-launchd.err.log` should stay near-empty —
+it only catches failures before the script starts logging (a bad path in the
+plist, a shell that cannot start).
+
+### Pause it before you touch the checkout by hand
+
+Hand-deploying, rolling back to an older SHA, or testing a branch on the mini
+all race the timer, and the timer wins: within one interval it drags the
+checkout back to `main`. Stop it first.
+
+```bash
+launchctl bootout gui/$UID/com.angelodipaolo.game-explorer-deploy   # pause
+# … git checkout <sha>; scripts/deploy.sh; poke at it …
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.angelodipaolo.game-explorer-deploy.plist   # resume
+```
+
+A bootout lasts until you bootstrap it again **or until the mini reboots** —
+launchd loads everything in `~/Library/LaunchAgents` at login. So do not rely on
+it as an off switch for anything longer than an afternoon; to disable the timer
+for real, move the plist out of that directory. The better rollback
+is still a `git revert` pushed to `main`: the timer ships it unattended, and the
+mini stays a machine nobody has to log into.
 
 ---
 
@@ -218,6 +298,12 @@ say so rather than retry.
 | Signed out on every request | the cookie is `Secure` only over https; check Cloudflare is not serving the origin over plain http |
 | A new API route is somehow public | it is not: `src/proxy.ts` gates `/api/*` wholesale. If you exempted it there, undo that |
 | Covers are blank for visitors | the `/api/img/*` allowlist in `src/proxy.ts` — it must stay public |
+| A push to `main` never went live | `tail ~/Library/Logs/game-explorer/deploy.log` — it says what it saw. Then `launchctl print gui/$UID/com.angelodipaolo.game-explorer-deploy` |
+| The timer keeps refusing | the log names it: dirty tree, HEAD off `main`, or a non-fast-forward `origin/main`. All want a human, none discard anything |
+| A hand-deploy got reverted minutes later | the timer put the checkout back on `main`. `bootout` it first next time — see §1b |
+| `deploy.lock` looks stuck | it holds a pid; if that process is gone the next tick reclaims it. `rm -rf ~/Library/Logs/game-explorer/deploy.lock` if you are sure no deploy is running |
 
-Rolling back a bad deploy is a git checkout plus `scripts/deploy.sh`; rolling
-back bad *data* is `npm run backup`'s archive, or an import batch rollback.
+Rolling back a bad deploy is a `git revert` pushed to `main` — the timer ships
+it. (A local `git checkout` plus `scripts/deploy.sh` still works, but bootout the
+timer first or it will pull you forward again.) Rolling back bad *data* is
+`npm run backup`'s archive, or an import batch rollback.

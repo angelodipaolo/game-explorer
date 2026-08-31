@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template — copy to
+  ~/Library/LaunchAgents/com.angelodipaolo.game-explorer-deploy.plist on the Mac
+  mini and check the paths marked below. See ops/README.md.
+
+  This is the deploy timer, not the app. Every StartInterval seconds it runs
+  scripts/deploy-if-changed.sh, which asks GitHub whether `main` moved and calls
+  scripts/deploy.sh when it has. Pushing to `main` is the deploy trigger; the
+  mini polls outward, so nothing new listens on this machine.
+
+  A LaunchAgent (gui/$UID), not a LaunchDaemon: it deploys as the owner, into
+  the owner's checkout, and restarts the owner's app LaunchAgent. No secrets
+  here either — deploy.sh reads nothing but the repo.
+
+  RunAtLoad means a reboot catches up on whatever was pushed while the mini was
+  off, before anyone notices.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.angelodipaolo.game-explorer-deploy</string>
+
+  <!-- CHECK: the checkout, same one as com.angelodipaolo.game-explorer.plist. -->
+  <key>WorkingDirectory</key>
+  <string>/Users/angelo/projects/game-explorer</string>
+
+  <!-- A login shell so nvm/homebrew's node is on PATH for `npm ci` and the
+       build, the way it is in a terminal.
+       CHECK: the script path must match WorkingDirectory above. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>exec /Users/angelo/projects/game-explorer/scripts/deploy-if-changed.sh</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- CHECK: match `echo $PATH` on the mini if node or git is not found. -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <!-- Every 5 minutes. The common tick is one `git fetch` and nothing else, so
+       this is cheap; lower it if you want pushes to land faster. launchd also
+       fires it on wake, and RunAtLoad covers boot. -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- No KeepAlive: this job is meant to exit. A non-zero exit (failed fetch,
+       failed build) is recorded by launchctl and logged; the next tick retries. -->
+
+  <!-- Standard, not Background: a throttled build would drag out the window
+       where the old build is still serving. Switch to Background if deploys
+       ever make the site feel slow. -->
+  <key>ProcessType</key>
+  <string>Standard</string>
+
+  <!-- The script writes its own timestamped ~/Library/Logs/game-explorer/deploy.log.
+       These two only catch what happens before that — a missing script, a
+       broken shell — so err.log should stay near-empty.
+       CHECK: mkdir -p ~/Library/Logs/game-explorer first, or launchd fails silently. -->
+  <key>StandardOutPath</key>
+  <string>/dev/null</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/angelo/Library/Logs/game-explorer/deploy-launchd.err.log</string>
+</dict>
+</plist>
