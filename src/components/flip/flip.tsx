@@ -18,7 +18,9 @@ import { platformLabel } from "@/lib/platforms";
  * shuffle button that lands somewhere new.
  */
 export function Flip({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) {
-  const [filters, set, reset] = useFilters();
+  // Flip is worth coming back to, so it records where you were; it has no
+  // covers/list toggle, so it has no view to restore.
+  const [filters, set, reset] = useFilters({ trackLastUrl: true });
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
   const facets = useMemo(() => buildFacets(games), [games]);
   const [sheetOpen, setSheetOpen] = useState(false);

@@ -12,7 +12,7 @@ import { useRegisterShelfFilters } from "./filter-context";
 import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
 
 export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) {
-  const [filters, set, reset] = useFilters({ scrollTopOnChange: true });
+  const [filters, set, reset] = useFilters({ scrollTopOnChange: true, rememberView: true, trackLastUrl: true });
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
   const [sheetOpen, setSheetOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);

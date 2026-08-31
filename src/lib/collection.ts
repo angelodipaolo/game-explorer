@@ -159,9 +159,14 @@ export async function loadShelf(): Promise<ShelfGame[]> {
 /**
  * One ShelfGame per owned row, before grouping. `play` is left at
  * `NEVER_PLAYED` here; `loadShelf` fills it in for every row in one query.
+ *
+ * `ids` narrows the query to specific owned copies, which is what `/playing`
+ * needs: that page is a handful of rows and has no business pulling the whole
+ * collection through Prisma to find them. Called with no argument the query is
+ * unchanged — `loadShelf` depends on that.
  */
-export async function loadOwnedRows(): Promise<ShelfGame[]> {
-  const owned = await prisma.ownedGame.findMany({ include: { catalogGame: true, facts: true, tags: true }, orderBy: { title: "asc" } });
+export async function loadOwnedRows(ids?: string[]): Promise<ShelfGame[]> {
+  const owned = await prisma.ownedGame.findMany({ ...(ids ? { where: { id: { in: ids } } } : {}), include: { catalogGame: true, facts: true, tags: true }, orderBy: { title: "asc" } });
   return owned.map((g) => {
     const c = g.catalogGame;
     const profile = resolvePlayerProfile(
@@ -383,7 +388,21 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
 
 /* ----------------------------------------------------------------- /playing */
 
-export type PlayingGame = { ownedGameId: string; name: string; cover: string | null; platformLabel: string };
+export type PlayingGame = {
+  ownedGameId: string;
+  name: string;
+  cover: string | null;
+  platformLabel: string;
+  /**
+   * The whole shelf entry for this copy, so `/playing` can filter with the
+   * shelf's own `verdictFor`/`facets` instead of growing a second filter
+   * vocabulary (GAMEEXPLOR-0015). It is per **owned copy** and deliberately
+   * ungrouped: you play a specific cartridge, and `groupShelf` would collapse
+   * two copies of one game into a single entry and take the queue's
+   * `ownedGameId` keys with it.
+   */
+  game: ShelfGame;
+};
 /** An open run, with the last thing written during it as the "where I left off" line. */
 export type InProgressRow = PlayingGame & { sessionId: string; startedAt: Date; note: string | null; lastEntry: { title: string | null; body: string | null; occurredAt: Date } | null };
 export type QueuedRow = PlayingGame & { position: number; note: string | null };
@@ -394,27 +413,56 @@ export type QueuedRow = PlayingGame & { position: number; note: string | null };
  * transaction (see src/lib/play/service.ts).
  */
 export async function loadPlaying(): Promise<{ inProgress: InProgressRow[]; upNext: QueuedRow[] }> {
-  // Both queries already carry the copy and its catalog entry, so there is no
-  // third pass over OwnedGame here — the rows below are built from what they
-  // returned.
+  // Both queries already carry the copy and its catalog entry, so the name,
+  // cover and platform below cost nothing extra.
   const [open, queue] = await Promise.all([listOpenSessions(), loadQueue()]);
   if (!open.length && !queue.length) return { inProgress: [], upNext: [] };
-  // Only entries written during one of the open runs: a note from a
-  // playthrough three years ago is not where you left off this time.
-  const entries = open.length
-    ? await prisma.journalEntry.findMany({ where: { sessionId: { in: open.map((s) => s.id) } }, orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }] })
-    : [];
-  const game = (o: PlayingCopy): PlayingGame => ({
-    ownedGameId: o.id,
-    name: o.catalogGame?.name ?? o.title,
-    cover: o.catalogGame?.coverImageId ?? null,
-    platformLabel: platformLabel(o.platform),
-  });
-  return {
-    inProgress: open.map((s) => {
-      const e = entries.find((x) => x.sessionId === s.id);
-      return { ...game(s.ownedGame), sessionId: s.id, startedAt: s.startedAt, note: s.note, lastEntry: e ? { title: e.title, body: e.body, occurredAt: e.occurredAt } : null };
-    }),
-    upNext: queue.map((q) => ({ ...game(q.ownedGame), position: q.position, note: q.note })),
+  const ids = [...new Set([...open.map((s) => s.ownedGameId), ...queue.map((q) => q.ownedGameId)])];
+  // Two more queries, both bounded by the ids above rather than by the size of
+  // the collection: the shelf entries the filters read, and one pass over the
+  // session log for their play state — merged exactly the way `loadShelf`
+  // merges it, minus the grouping.
+  const [shelfRows, play, entries] = await Promise.all([
+    loadOwnedRows(ids),
+    playStateFor(ids),
+    // Only entries written during one of the open runs: a note from a
+    // playthrough three years ago is not where you left off this time.
+    open.length
+      ? prisma.journalEntry.findMany({ where: { sessionId: { in: open.map((s) => s.id) } }, orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }] })
+      : Promise.resolve([]),
+  ]);
+  const shelf = new Map<string, ShelfGame>();
+  for (const r of shelfRows) {
+    const s = play.get(r.id);
+    if (s) r.play = { status: s.status, runs: s.runs, lastPlayedAt: s.lastPlayedAt };
+    shelf.set(r.id, r);
+  }
+  const game = (o: PlayingCopy): PlayingGame | null => {
+    // Both lists are foreign-keyed to OwnedGame, so a miss here is not a state
+    // the database can hold; the null is only so a row can be dropped rather
+    // than crash the page if one ever slips through.
+    const g = shelf.get(o.id);
+    if (!g) return null;
+    return {
+      ownedGameId: o.id,
+      name: o.catalogGame?.name ?? o.title,
+      cover: o.catalogGame?.coverImageId ?? null,
+      platformLabel: platformLabel(o.platform),
+      game: g,
+    };
   };
+  const inProgress: InProgressRow[] = [];
+  for (const s of open) {
+    const base = game(s.ownedGame);
+    if (!base) continue;
+    const e = entries.find((x) => x.sessionId === s.id);
+    inProgress.push({ ...base, sessionId: s.id, startedAt: s.startedAt, note: s.note, lastEntry: e ? { title: e.title, body: e.body, occurredAt: e.occurredAt } : null });
+  }
+  const upNext: QueuedRow[] = [];
+  for (const q of queue) {
+    const base = game(q.ownedGame);
+    if (!base) continue;
+    upNext.push({ ...base, position: q.position, note: q.note });
+  }
+  return { inProgress, upNext };
 }

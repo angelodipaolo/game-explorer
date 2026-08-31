@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { groupShelf, platformCounts, type ShelfGame } from "./collection";
+import { groupShelf, loadPlaying, platformCounts, type ShelfGame } from "./collection";
 import { platformLabel } from "./platforms";
 
 function row(title: string, platform: string, igdbId: number | null, ownedId = `${title}-${platform}`): ShelfGame {
@@ -96,5 +96,56 @@ describe("platformCounts", () => {
 
   it("has nothing to list on an empty shelf", async () => {
     await expect(platformCounts()).resolves.toEqual({ platforms: [], total: 0 });
+  });
+});
+
+/**
+ * `/playing` filters with the shelf's own machinery (GAMEEXPLOR-0015), which
+ * means every row on that page has to arrive carrying a real `ShelfGame` —
+ * with its tags, its platform and its derived play state. Two things this
+ * pins that are easy to lose: the rows are per **owned copy** and are never
+ * grouped (you play a specific cartridge, and the queue is keyed by
+ * `ownedGameId`), and the play state is merged in the way `loadShelf` merges
+ * it, so a filter for `play=playing` on this page is not a contradiction.
+ */
+describe("loadPlaying", () => {
+  beforeEach(async () => {
+    await prisma.queueEntry.deleteMany();
+    await prisma.playSession.deleteMany();
+    await prisma.ownedGame.deleteMany();
+    await prisma.catalogGame.deleteMany();
+  });
+
+  it("carries a per-copy ShelfGame, ungrouped, with play state merged in", async () => {
+    await prisma.catalogGame.create({ data: { igdbId: 300, name: "Contra", slug: "contra", genres: JSON.stringify(["Shooter"]) } });
+    const own = (title: string, platform: string, catalogGameId: number | null) =>
+      prisma.ownedGame.create({ data: { title, normalizedTitle: title.toLowerCase(), platform, catalogGameId } });
+    // The same catalog game on two systems: groupShelf would collapse these
+    // into one entry and take one of the queue's keys with it.
+    const nes = await own("Contra", "nes", 300);
+    const snes = await own("Contra", "snes", 300);
+    const zelda = await own("Zelda", "nes", null);
+    await prisma.playSession.create({ data: { ownedGameId: nes.id, startedAt: new Date("2026-08-20T12:00:00.000Z") } });
+    await prisma.queueEntry.create({ data: { ownedGameId: snes.id, position: 0 } });
+    await prisma.queueEntry.create({ data: { ownedGameId: zelda.id, position: 1 } });
+
+    const { inProgress, upNext } = await loadPlaying();
+    expect(inProgress.map((r) => r.ownedGameId)).toEqual([nes.id]);
+    expect(inProgress[0].game.id).toBe(nes.id);
+    expect(inProgress[0].game.platform).toBe("nes");
+    // Derived from the open session, exactly as loadShelf derives it — the
+    // `play` filter reads this and would otherwise see every row as `never`.
+    expect(inProgress[0].game.play.status).toBe("playing");
+    expect(inProgress[0].game.tags.map((t) => t.tag)).toEqual(["Shooter"]);
+
+    // The queue keeps its curated order and both copies stay distinct.
+    expect(upNext.map((r) => r.ownedGameId)).toEqual([snes.id, zelda.id]);
+    expect(upNext[0].game.copies.map((c) => c.platform)).toEqual(["snes"]);
+    expect(upNext[0].game.play.status).toBe("never");
+    expect(upNext[1].game.tags).toEqual([]);
+  });
+
+  it("does no work at all when both lists are empty", async () => {
+    await expect(loadPlaying()).resolves.toEqual({ inProgress: [], upNext: [] });
   });
 });

@@ -60,11 +60,22 @@ export function useScrollMemory(key: string) {
 }
 
 /**
- * `scrollTopOnChange` is the shelf's: a filter change there is a new set of
- * games and starts at the top. Flip has one card and no scroll memory, so it
- * leaves it off and nothing moves.
+ * Three opt-ins, all off by default, because this hook is shared by pages that
+ * want very different things from it:
+ *
+ * - `scrollTopOnChange` is the shelf's: a filter change there is a screenful of
+ *   different games and starts at the top. Flip has one card and no scroll
+ *   memory, so it leaves it off and nothing moves.
+ * - `rememberView` restores the covers/list choice from localStorage. **Only
+ *   the shelf has that toggle.** Left on for every caller it would `router.replace`
+ *   on mount of any page whose visitor had once chosen list view — a server
+ *   round trip, on a page with no view to restore, to add a `view=list` param
+ *   that means nothing there and then rides along in every link they share.
+ * - `trackLastUrl` records where to come back to, which `BackLink` reads. The
+ *   shelf and Flip are the places worth returning to; a page that opts in and
+ *   is not one of them makes the game page's "◂ Shelf" link go somewhere else.
  */
-export function useFilters({ scrollTopOnChange = false }: { scrollTopOnChange?: boolean } = {}): [Filters, (patch: Partial<Filters>) => void, () => void] {
+export function useFilters({ scrollTopOnChange = false, rememberView = false, trackLastUrl = false }: { scrollTopOnChange?: boolean; rememberView?: boolean; trackLastUrl?: boolean } = {}): [Filters, (patch: Partial<Filters>) => void, () => void] {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -73,6 +84,8 @@ export function useFilters({ scrollTopOnChange = false }: { scrollTopOnChange?: 
 
   useEffect(() => {
     try {
+      if (trackLastUrl) window.sessionStorage.setItem("shelf:last", `${pathname}${serializeFilters(filters)}`);
+      if (!rememberView) return;
       if (params.has("view")) {
         window.localStorage.setItem(VIEW_KEY, filters.view);
         restored.current = true;
@@ -85,7 +98,6 @@ export function useFilters({ scrollTopOnChange = false }: { scrollTopOnChange?: 
         // The user chose the default (grid) after having list remembered.
         window.localStorage.setItem(VIEW_KEY, "grid");
       }
-      window.sessionStorage.setItem("shelf:last", `${pathname}${serializeFilters(filters)}`);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);

@@ -214,17 +214,57 @@ function sortKey(name: string): string {
 
 export type FilterResult = { confirmed: ShelfGame[]; maybe: ShelfGame[]; excluded: number };
 
+/**
+ * The shelf's filter: the same three-valued split as `splitInOrder`, then
+ * sorted by `f.sort`. Expressed in terms of it rather than repeating the rule,
+ * so "what counts as could-work" can only ever be changed in one place — two
+ * copies would let the shelf and `/playing` quietly disagree about it while
+ * the whole suite stayed green.
+ */
 export function applyFilters(games: ShelfGame[], f: Filters): FilterResult {
-  const confirmed: ShelfGame[] = [];
-  const maybe: ShelfGame[] = [];
+  const { confirmed, maybe, excluded } = splitInOrder(games.map((game) => ({ game })), f);
+  return { confirmed: sortGames(confirmed.map((r) => r.game), f), maybe: sortGames(maybe.map((r) => r.game), f), excluded };
+}
+
+/**
+ * The same three-valued split as `applyFilters`, over rows that carry a
+ * `ShelfGame` — **and without sorting them**. `/playing` needs this: its two
+ * lists are ordered by run recency and by the queue's curated `position`, and
+ * those orders are the content, not a default that a filter may replace. Any
+ * surface whose order is already meaningful should reach for this rather than
+ * `applyFilters`, which always re-sorts by `f.sort`.
+ */
+export type Split<T> = {
+  confirmed: T[];
+  maybe: T[];
+  /**
+   * Everything kept, confirmed and maybe together, **in the input order**.
+   * This is what a surface whose order is its content must render: showing the
+   * confirmed rows and then the maybes re-sorts the list just as surely as
+   * `sortGames` would. On the queue that is not cosmetic — the order IS the
+   * plan, so a "could work" game at position 1 drawn after a confirmed one at
+   * position 2 tells you the wrong game is next.
+   */
+  kept: T[];
+  excluded: number;
+};
+
+export function splitInOrder<T extends { game: ShelfGame }>(rows: T[], f: Filters): Split<T> {
+  const confirmed: T[] = [];
+  const maybe: T[] = [];
+  const kept: T[] = [];
   let excluded = 0;
-  for (const g of games) {
-    const v = verdictFor(g, f);
-    if (v === "yes") confirmed.push(g);
-    else if (v === "unknown" && !f.strict) maybe.push(g);
-    else excluded++;
+  for (const r of rows) {
+    const v = verdictFor(r.game, f);
+    if (v === "yes") {
+      confirmed.push(r);
+      kept.push(r);
+    } else if (v === "unknown" && !f.strict) {
+      maybe.push(r);
+      kept.push(r);
+    } else excluded++;
   }
-  return { confirmed: sortGames(confirmed, f), maybe: sortGames(maybe, f), excluded };
+  return { confirmed, maybe, kept, excluded };
 }
 
 export type TagFacet = { name: string; count: number };
