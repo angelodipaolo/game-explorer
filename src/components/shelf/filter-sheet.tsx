@@ -8,13 +8,16 @@ import { FilterControls } from "./filter-controls";
 /** One-tap ways in. The first is the flagship. Shared by the shelf and Flip. */
 export const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
   { label: "2 of us, co-op", hint: "NES", patch: { platforms: ["nes"], players: 2, mode: "coop" } },
+  // The reason the play filter exists: a shelf this size hides the games you
+  // have never actually put in the machine.
+  { label: "Never played", hint: "not yet", patch: { play: "never" } },
   { label: "Head to head", hint: "versus", patch: { players: 2, mode: "versus" } },
   { label: "Just me", hint: "single player", patch: { players: 1 } },
   { label: "4 players", hint: "party", patch: { players: 4 } },
   { label: "Something quick", hint: "under an hour", patch: { length: "quick" } },
 ];
 
-const CLEARED: Partial<Filters> = { q: "", platforms: [], hideHandhelds: false, players: null, mode: null, tags: [], length: null, era: null };
+const CLEARED: Partial<Filters> = { q: "", platforms: [], hideHandhelds: false, players: null, mode: null, tags: [], length: null, era: null, play: null };
 
 export function isPreset(p: (typeof PRESETS)[number], filters: Filters, active: number): boolean {
   return Object.entries(p.patch).every(([k, v]) => (Array.isArray(v) ? JSON.stringify(v) === JSON.stringify(filters[k as keyof Filters]) : filters[k as keyof Filters] === v)) && active === Object.keys(p.patch).length;

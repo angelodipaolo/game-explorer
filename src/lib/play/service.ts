@@ -244,11 +244,21 @@ export async function playStateFor(ownedGameIds: string[]): Promise<Map<string, 
   return out;
 }
 
-export type OpenSession = PlaySession & { ownedGame: OwnedGame };
+export type PlayingCopy = OwnedGame & { catalogGame: { name: string; coverImageId: string | null; firstReleaseDate: Date | null } | null };
+export type OpenSession = PlaySession & { ownedGame: PlayingCopy };
 
-/** Every open run, most recently started first — the data behind `/playing`. */
+/**
+ * Every open run, most recently started first — the data behind `/playing`.
+ * Carries the same slice of the catalog entry as `loadQueue`, so the two lists
+ * on that page render from what they were handed and neither needs a second
+ * pass over `OwnedGame`.
+ */
 export async function listOpenSessions(): Promise<OpenSession[]> {
-  return prisma.playSession.findMany({ where: { endedAt: null }, include: { ownedGame: true }, orderBy: [{ startedAt: "desc" }, { createdAt: "desc" }] });
+  return prisma.playSession.findMany({
+    where: { endedAt: null },
+    include: { ownedGame: { include: { catalogGame: { select: { name: true, coverImageId: true, firstReleaseDate: true } } } } },
+    orderBy: [{ startedAt: "desc" }, { createdAt: "desc" }],
+  });
 }
 
 /* ------------------------------------------------------------------ queue */

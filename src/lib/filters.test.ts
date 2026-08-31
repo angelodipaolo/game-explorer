@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ShelfGame } from "./collection";
-import { applyFilters, facets, parseFilters, seededShuffle, serializeFilters, tonightsPicks, verdictFor } from "./filters";
+import { applyFilters, facets, parseFilters, playVerdict, seededShuffle, serializeFilters, tonightsPicks, verdictFor } from "./filters";
 
 function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
   return {
@@ -23,6 +23,7 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
     tags: [],
     similar: [],
     summary: null,
+    play: { status: "never", runs: 0, lastPlayedAt: null },
     ...over,
   };
 }
@@ -36,6 +37,8 @@ const zelda = withTags(game({ title: "Zelda", players: { label: "", tier: "mode"
 const mystery = game({ title: "Mystery", year: null });
 const tecmo = withTags(game({ title: "Tecmo Bowl", players: { label: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false }, genres: ["Sport"], platform: "snes", platformLabel: "SNES" }));
 const all = [contra, zelda, mystery, tecmo];
+
+const played = (over: Partial<ShelfGame["play"]>) => ({ status: "never" as const, runs: 0, lastPlayedAt: null, ...over });
 
 describe("parse/serialize", () => {
   it("round-trips through the URL and drops defaults", () => {
@@ -51,6 +54,18 @@ describe("parse/serialize", () => {
     expect(verdictFor(contra, f)).toBe("yes");
     expect(verdictFor(tecmo, f)).toBe("yes");
     expect(verdictFor(contra, parseFilters(new URLSearchParams("platform=snes")))).toBe("no");
+  });
+  it("round-trips play state and drops a value it does not know", () => {
+    for (const v of ["playing", "played", "never"] as const) {
+      const f = parseFilters(new URLSearchParams(`play=${v}`));
+      expect(f.play).toBe(v);
+      expect(serializeFilters(f)).toBe(`?play=${v}`);
+      // Survives the parse→serialize→parse normalisation use-filters.ts does on every write.
+      expect(parseFilters(new URLSearchParams(serializeFilters(f))).play).toBe(v);
+    }
+    expect(parseFilters(new URLSearchParams("play=someday")).play).toBeNull();
+    expect(serializeFilters(parseFilters(new URLSearchParams("play=someday")))).toBe("");
+    expect(serializeFilters(parseFilters(new URLSearchParams("play=never&platform=nes")))).toBe("?platform=nes&play=never");
   });
   it("round-trips the handheld exclusion", () => {
     const f = parseFilters(new URLSearchParams("handhelds=hide"));
@@ -161,5 +176,35 @@ describe("facets and picks", () => {
     const d = new Date(2026, 7, 28);
     expect(tonightsPicks(all, d, 3)).toEqual(tonightsPicks(all, d, 3));
     expect(tonightsPicks(all, d, 3)).toHaveLength(3);
+  });
+});
+
+/**
+ * Two-valued, unlike every other verdict here: there is no "unknown" branch to
+ * test, because no sessions means never played rather than no data.
+ */
+describe("play state", () => {
+  const never = game({ title: "Untouched" });
+  const playing = game({ title: "Open", play: played({ status: "playing", runs: 1, lastPlayedAt: new Date("2026-08-01") }) });
+  const done = game({ title: "Finished", play: played({ status: "played", runs: 2, lastPlayedAt: new Date("2026-01-01") }) });
+
+  it("matches exactly one of the three states and never answers unknown", () => {
+    for (const g of [never, playing, done]) {
+      const verdicts = (["playing", "played", "never"] as const).map((v) => playVerdict(g, v));
+      expect(verdicts.filter((v) => v === "yes")).toHaveLength(1);
+      expect(verdicts).not.toContain("unknown");
+    }
+    expect(playVerdict(never, "never")).toBe("yes");
+    expect(playVerdict(playing, "playing")).toBe("yes");
+    expect(playVerdict(done, "played")).toBe("yes");
+  });
+
+  it("filters the shelf, and never-played games are excluded rather than 'could work'", () => {
+    const shelf = [never, playing, done];
+    const r = applyFilters(shelf, parseFilters(new URLSearchParams("play=never")));
+    expect(r.confirmed.map((g) => g.name)).toEqual(["Untouched"]);
+    expect(r.maybe).toEqual([]);
+    expect(r.excluded).toBe(2);
+    expect(applyFilters(shelf, parseFilters(new URLSearchParams("play=playing"))).confirmed.map((g) => g.name)).toEqual(["Open"]);
   });
 });

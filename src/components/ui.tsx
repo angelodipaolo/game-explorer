@@ -37,6 +37,41 @@ export function Badge({ tone = "muted", children, className }: { tone?: "muted" 
   return <span className={cx("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap", tones[tone], className)}>{children}</span>;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * `12 Aug 2026`, formatted off the machine's own clock rather than
+ * `toLocaleDateString`, so a server render and the browser render that
+ * hydrates it are byte-identical and React stays quiet.
+ *
+ * Here rather than in `src/lib/dates.ts` for two reasons: a helper exported
+ * from a `"use client"` module is a client reference on the server (not a
+ * function you can call), and `lib/dates` imports zod — which a client
+ * component has no business dragging into its bundle. `lib/dates` still owns
+ * the parsing half: a bare `YYYY-MM-DD` is local midnight, never UTC.
+ */
+export function day(d: Date | string): string {
+  const x = new Date(d);
+  return `${x.getDate()} ${MONTHS[x.getMonth()]} ${x.getFullYear()}`;
+}
+
+/** The local calendar day as `YYYY-MM-DD`: what a date input holds, and what `parseWhen` reads back as local midnight. */
+export function dateInput(d: Date | string = new Date()): string {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * The message behind a failed API response, for the alert every write path
+ * shows. The body is not always JSON — a 413 can come back as HTML, a dropped
+ * connection as nothing at all — and a bare `res.json()` there replaces the
+ * real failure with "Unexpected end of JSON input". Falls back to the status.
+ */
+export async function apiError(res: Response): Promise<Error> {
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  return new Error(body?.error || res.statusText || `HTTP ${res.status}`);
+}
+
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cx("rounded-2xl border border-border bg-surface", className)}>{children}</div>;
 }

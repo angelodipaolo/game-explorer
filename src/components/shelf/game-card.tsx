@@ -12,6 +12,13 @@ export function GameCard({ game, dim, priority }: { game: ShelfGame; dim?: boole
       <div className="relative transition duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]">
         <Cover imageId={game.cover} title={game.name} priority={priority} className="shadow-lg shadow-black/40 ring-1 ring-white/5 group-hover:ring-accent/60" />
         {dim ? <span className="absolute right-2 top-2 rounded-md bg-bg/80 px-1.5 py-0.5 text-xs text-muted backdrop-blur">?</span> : null}
+        {/* Open runs only. "Played" is deliberately unbadged: most of the shelf
+            would carry one and it would read as wallpaper rather than news. */}
+        {game.play.status === "playing" ? (
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-ink shadow-lg shadow-black/40" data-testid="playing-marker">
+            <span aria-hidden>▶</span> Playing
+          </span>
+        ) : null}
         {game.copies.length > 1 || game.platform !== "nes" ? (
           <span className="absolute left-2 top-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-bg/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-text backdrop-blur">
             {game.copies.map((c) => c.platformLabel).join(" · ")}
@@ -34,7 +41,16 @@ export function GameRow({ game, dim }: { game: ShelfGame; dim?: boolean }) {
     <Link href={`/game/${game.id}`} className={cx("flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-surface", dim && "opacity-70 hover:opacity-100")} data-testid="game-row" prefetch={false}>
       <Cover imageId={game.cover} title={game.name} size="small" className="w-10 shrink-0 rounded-md" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{game.name}</div>
+        <div className="flex items-center gap-1.5">
+          {game.play.status === "playing" ? (
+            // A bare glyph: `role="img"` + a label is what makes it reach a
+            // screen reader at all, since there is no room for the word here.
+            <span role="img" aria-label="Playing" className="shrink-0 rounded bg-accent px-1 text-[10px] font-bold uppercase text-accent-ink" data-testid="playing-marker">
+              ▶
+            </span>
+          ) : null}
+          <span className="truncate text-sm font-medium">{game.name}</span>
+        </div>
         <div className="truncate text-xs text-muted">
           {game.genres.slice(0, 3).join(" · ") || "—"}
         </div>

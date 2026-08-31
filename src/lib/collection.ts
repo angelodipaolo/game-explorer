@@ -4,6 +4,8 @@ import { platformBySlug, platformLabel } from "@/lib/platforms";
 import { resolveTags, type EffectiveTag } from "@/lib/tags";
 import { codesFor, type GameCode } from "@/lib/codes/service";
 import { mapsFor, type MapWithMarkers } from "@/lib/maps/service";
+import { entriesFor, type JournalEntry } from "@/lib/journal/service";
+import { NEVER_PLAYED, listOpenSessions, loadQueue, playStateFor, sessionsFor, type PlaySession, type PlayState, type PlayingCopy } from "@/lib/play/service";
 
 /**
  * View models the UI reads. Built server-side from local tables only, then
@@ -47,14 +49,39 @@ export type ShelfGame = {
   /** IGDB ids of similar games (owned or not); resolved by the UI against the shelf. */
   similar: number[];
   summary: string | null;
+  /**
+   * Derived from the PlaySession log — never a column on OwnedGame. Filled in
+   * by `loadShelf` from one `playStateFor` call for the whole shelf.
+   */
+  play: ShelfPlay;
 };
+
+/** `PlayState` without the open session id, which only the game page needs. */
+export type ShelfPlay = { status: PlayState["status"]; runs: number; lastPlayedAt: Date | null };
 
 export type ShelfCopy = { ownedId: string; platform: string; platformLabel: string; quantity: number };
 
 /**
+ * Play state for a grouped entry, across every copy of the game.
+ *
+ * `playing` if **any** copy has an open run; else `played` if any copy has a
+ * finished one; else `never`. `runs` is the sum and `lastPlayedAt` the latest
+ * of the two. The grouped card answers "am I in the middle of this game" — and
+ * you are, whichever machine the cartridge is in.
+ */
+function rollUpPlay(a: ShelfPlay, b: ShelfPlay): ShelfPlay {
+  return {
+    status: a.status === "playing" || b.status === "playing" ? "playing" : a.status === "played" || b.status === "played" ? "played" : "never",
+    runs: a.runs + b.runs,
+    lastPlayedAt: !a.lastPlayedAt ? b.lastPlayedAt : !b.lastPlayedAt ? a.lastPlayedAt : a.lastPlayedAt > b.lastPlayedAt ? a.lastPlayedAt : b.lastPlayedAt,
+  };
+}
+
+/**
  * Group owned rows into shelf entries: same IGDB game (or same shelf title
  * when unlinked) on several platforms collapses into one entry. Platforms are
- * ordered by era so the primary is the oldest system.
+ * ordered by era so the primary is the oldest system. Play state rolls up with
+ * `rollUpPlay`.
  */
 export function groupShelf(rows: ShelfGame[]): ShelfGame[] {
   const groups = new Map<string, ShelfGame>();
@@ -71,6 +98,7 @@ export function groupShelf(rows: ShelfGame[]): ShelfGame[] {
       else g.copies.push(c);
     }
     g.quantity += r.quantity;
+    g.play = rollUpPlay(g.play, r.play);
     // Facts may live on any copy; prefer the copy that knows more.
     if (g.players.tier === "unknown" && r.players.tier !== "unknown") g.players = r.players;
     if (g.playtime == null && r.playtime != null) g.playtime = r.playtime;
@@ -110,10 +138,21 @@ function arr(json: string): string[] {
 }
 
 export async function loadShelf(): Promise<ShelfGame[]> {
-  return groupShelf(await loadOwnedRows());
+  const rows = await loadOwnedRows();
+  // ONE query for the play state of the entire shelf — never a per-game round
+  // trip — merged per copy *before* grouping, so groupShelf can roll it up.
+  const play = await playStateFor(rows.map((r) => r.id));
+  for (const r of rows) {
+    const s = play.get(r.id);
+    if (s) r.play = { status: s.status, runs: s.runs, lastPlayedAt: s.lastPlayedAt };
+  }
+  return groupShelf(rows);
 }
 
-/** One ShelfGame per owned row, before grouping. */
+/**
+ * One ShelfGame per owned row, before grouping. `play` is left at
+ * `NEVER_PLAYED` here; `loadShelf` fills it in for every row in one query.
+ */
 export async function loadOwnedRows(): Promise<ShelfGame[]> {
   const owned = await prisma.ownedGame.findMany({ include: { catalogGame: true, facts: true, tags: true }, orderBy: { title: "asc" } });
   return owned.map((g) => {
@@ -144,6 +183,7 @@ export async function loadOwnedRows(): Promise<ShelfGame[]> {
       tags: resolveTags({ genres: c ? arr(c.genres) : [], perspectives: c ? arr(c.playerPerspectives) : [], themes: c ? arr(c.themes) : [] }, g.tags),
       similar: c ? (JSON.parse(c.similarGameIds) as number[]) : [],
       summary: c?.summary ?? null,
+      play: { ...NEVER_PLAYED },
     };
   });
 }
@@ -172,6 +212,12 @@ export type GameDetail = ShelfGame & {
   codes: GameCode[];
   /** Interactive maps for this copy, with markers, in display order. */
   maps: MapWithMarkers[];
+  /** Runs at this copy, newest first. Play state is derived from these, never stored. */
+  sessions: PlaySession[];
+  /** Notes and photos for this copy, newest first. */
+  journal: JournalEntry[];
+  /** Whether this copy is in the one "up next" queue. A copy with an open run never is. */
+  queued: boolean;
 };
 
 export type SimilarGame = { igdbId: number; name: string; cover: string | null; year: number | null; ownedId: string | null; platformLabel: string | null };
@@ -226,11 +272,14 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   const allShelf = await loadShelf();
   const shelf = allShelf.find((s) => s.copies.some((c) => c.ownedId === id))!;
   const similarIds = c ? (JSON.parse(c.similarGameIds) as number[]) : [];
-  const [similarCatalog, ownedLinks, codes, maps] = await Promise.all([
+  const [similarCatalog, ownedLinks, codes, maps, sessions, journal, queueEntry] = await Promise.all([
     similarIds.length ? prisma.catalogGame.findMany({ where: { igdbId: { in: similarIds } } }) : Promise.resolve([]),
     prisma.ownedGame.findMany({ where: { catalogGameId: { not: null } }, select: { id: true, catalogGameId: true, platform: true, catalogGame: { select: { parentIgdbId: true } } } }),
     codesFor(id),
     mapsFor(id),
+    sessionsFor(id),
+    entriesFor(id),
+    prisma.queueEntry.findUnique({ where: { ownedGameId: id }, select: { id: true } }),
   ]);
   const ownedMatches = matchSimilarToOwned(
     similarIds,
@@ -284,5 +333,46 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
     hiddenTags: g.tags.filter((t) => t.source === "igdb-hide").map((t) => ({ key: t.key, tag: t.tag })),
     codes,
     maps,
+    sessions,
+    journal,
+    queued: queueEntry != null,
+  };
+}
+
+/* ----------------------------------------------------------------- /playing */
+
+export type PlayingGame = { ownedGameId: string; name: string; cover: string | null; platformLabel: string };
+/** An open run, with the last thing written during it as the "where I left off" line. */
+export type InProgressRow = PlayingGame & { sessionId: string; startedAt: Date; note: string | null; lastEntry: { title: string | null; body: string | null; occurredAt: Date } | null };
+export type QueuedRow = PlayingGame & { position: number; note: string | null };
+
+/**
+ * The two lists behind `/playing`: runs in progress, and the ordered queue.
+ * Disjoint by construction — starting a run dequeues the copy in the same
+ * transaction (see src/lib/play/service.ts).
+ */
+export async function loadPlaying(): Promise<{ inProgress: InProgressRow[]; upNext: QueuedRow[] }> {
+  // Both queries already carry the copy and its catalog entry, so there is no
+  // third pass over OwnedGame here — the rows below are built from what they
+  // returned.
+  const [open, queue] = await Promise.all([listOpenSessions(), loadQueue()]);
+  if (!open.length && !queue.length) return { inProgress: [], upNext: [] };
+  // Only entries written during one of the open runs: a note from a
+  // playthrough three years ago is not where you left off this time.
+  const entries = open.length
+    ? await prisma.journalEntry.findMany({ where: { sessionId: { in: open.map((s) => s.id) } }, orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }] })
+    : [];
+  const game = (o: PlayingCopy): PlayingGame => ({
+    ownedGameId: o.id,
+    name: o.catalogGame?.name ?? o.title,
+    cover: o.catalogGame?.coverImageId ?? null,
+    platformLabel: platformLabel(o.platform),
+  });
+  return {
+    inProgress: open.map((s) => {
+      const e = entries.find((x) => x.sessionId === s.id);
+      return { ...game(s.ownedGame), sessionId: s.id, startedAt: s.startedAt, note: s.note, lastEntry: e ? { title: e.title, body: e.body, occurredAt: e.occurredAt } : null };
+    }),
+    upNext: queue.map((q) => ({ ...game(q.ownedGame), position: q.position, note: q.note })),
   };
 }

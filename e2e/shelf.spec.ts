@@ -24,7 +24,7 @@ test("load, filter, flip, open", async ({ page, isMobile }) => {
     await page.getByTestId("preset").filter({ hasText: "2 of us, co-op" }).click();
     await expect(page).toHaveURL(/platform=nes&players=2&mode=coop/);
     const count = page.getByTestId("result-count");
-    await expect(count).toContainText(/^\d+ games/);
+    await expect(count).toContainText(/^\d+ games?/);
     await expect(count).toContainText("that could work");
     await expect(page.getByTestId("game-card").first()).toBeVisible();
 
@@ -149,6 +149,24 @@ test("platform sidebar lists the collection and filters the shelf", async ({ pag
   await page.getByTestId("platform-all").click();
   await expect(page).not.toHaveURL(/platform=/);
   await expect(page.getByTestId("result-count")).toContainText(/All \d+ games/);
+});
+
+/**
+ * Play state is the one two-valued filter: never-played games are a fact, not
+ * a gap, so they are confirmed matches and never land in the "could work" pile.
+ * Count-agnostic — how many are unplayed changes every time a run is started.
+ */
+test("the shelf can be narrowed to games you have never played", async ({ page }) => {
+  await page.goto("/?play=never");
+  await expect(page.getByTestId("result-count")).toContainText(/^\d+ games?/);
+  await expect(page.getByTestId("result-count")).not.toContainText("that could work");
+  await expect(page.getByTestId("game-card").first()).toBeVisible();
+
+  // And it is one tap from the shelf, as a preset.
+  await page.goto("/");
+  await page.getByTestId("preset").filter({ hasText: "Never played" }).click();
+  await expect(page).toHaveURL(/play=never/);
+  await expect(page.getByTestId("result-count")).toContainText(/^\d+ games?/);
 });
 
 test("tags can be added by hand and are filterable at once", async ({ page }) => {

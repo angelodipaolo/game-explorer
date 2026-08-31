@@ -5,6 +5,8 @@ import { BackLink } from "@/components/game/back-link";
 import { Screenshots } from "@/components/game/screenshots";
 import { CodeList } from "@/components/game/code-list";
 import { MapCards } from "@/components/game/map-cards";
+import { Journal } from "@/components/game/journal";
+import { PlayHistory } from "@/components/game/play-history";
 import { TagEditor } from "@/components/game/tag-editor";
 import { Cover } from "@/components/shelf/cover";
 import { minutesLabel } from "@/components/shelf/players-line";
@@ -21,7 +23,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function GamePage({ params }: { params: Promise<{ id: string }> }) {
-  const game = await loadGame((await params).id);
+  // The route id is the copy you opened; `game.id` is the *primary* copy of the
+  // grouped entry (`groupShelf` sets it to `copies[0].ownedId`). They differ on
+  // a multi-platform game opened at a non-primary copy — exactly what a
+  // `/playing` row links to. Everything per-copy below therefore takes `id`:
+  // `loadGame` reads codes, maps, runs, journal and the queue entry for `id`,
+  // so a write addressed to `game.id` would land on a different cartridge —
+  // and a journal entry filed under this copy's open run would be rejected
+  // ("session belongs to a different game").
+  const { id } = await params;
+  const game = await loadGame(id);
   if (!game) notFound();
   const owned = game.similarGames.filter((s) => s.ownedId);
   const notOwned = game.similarGames.filter((s) => !s.ownedId);
@@ -84,13 +95,17 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           </div>
 
           {game.summary ? <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-text/90">{game.summary}</p> : <p className="mt-5 text-sm text-faint">No description in the catalog{game.igdbId ? "" : " — this cartridge is not linked to IGDB yet"}.</p>}
-          <TagEditor gameId={game.id} tags={game.tags} hidden={game.hiddenTags} />
+          <TagEditor gameId={id} tags={game.tags} hidden={game.hiddenTags} />
         </div>
       </div>
 
-      <MapCards gameId={game.id} maps={game.maps} />
+      {/* Directly after the tags: this is the part of the page that is about
+          you, and the thing you came here to tap. */}
+      <PlayHistory gameId={id} sessions={game.sessions} queued={game.queued} />
 
-      <CodeList gameId={game.id} codes={game.codes} />
+      <MapCards gameId={id} maps={game.maps} />
+
+      <CodeList gameId={id} codes={game.codes} />
 
       {game.screenshots.length ? (
         <section className="mt-8">
@@ -132,6 +147,9 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
       </section>
 
       <LookupLinks name={game.name} copies={game.copies} />
+
+      {/* Last on the page: the journal is the one section that grows without bound. */}
+      <Journal gameId={id} entries={game.journal} sessions={game.sessions} />
 
       <footer className="mt-10 border-t border-border/60 py-4 text-xs text-faint">
         {game.igdbId ? (

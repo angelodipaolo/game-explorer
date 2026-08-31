@@ -21,6 +21,19 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
           ]}
         />
       </Group>
+      {/* Two-valued, not three: no sessions means never played, so there is no
+          "unknown" option here the way there is for IGDB-derived facts. */}
+      <Group label="Have you played it?">
+        <Segmented
+          value={filters.play}
+          onChange={(v) => set({ play: v })}
+          options={[
+            ["never", "Never played"],
+            ["playing", "Playing now"],
+            ["played", "Played before"],
+          ]}
+        />
+      </Group>
       <label className="flex items-center gap-3 rounded-xl border border-border bg-bg-elev px-3 py-2.5 text-sm">
         <input type="checkbox" checked={filters.hideHandhelds} onChange={(e) => set({ hideHandhelds: e.target.checked })} className="h-5 w-5 accent-[var(--accent)]" />
         <span>

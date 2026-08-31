@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { cx } from "@/components/ui";
 import type { Facets, Filters } from "@/lib/filters";
@@ -41,6 +42,17 @@ export function PlatformSidebar({ open, onClose, platforms, totalGames, filters,
             <p className="mt-1 text-sm text-muted">Choose a console to see its games.</p>
           </div>
           <button ref={closeButton} type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface text-xl text-muted hover:border-muted hover:text-text" aria-label="Close platform menu" data-testid="close-platforms">×</button>
+        </div>
+
+        {/* The drawer is the phone's main navigation, so "Now playing" lives at
+            the top of it as well as in the header — one thumb, one tap, from
+            the shelf. */}
+        <div className="border-b border-border p-3">
+          <Link href="/playing" onClick={onClose} className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-3 text-left text-text transition hover:border-accent" data-testid="sidebar-playing">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-black/25 text-accent" aria-hidden="true">▶</span>
+            <span className="min-w-0 flex-1 font-display font-semibold">Now playing</span>
+            <span className="text-xs text-faint" aria-hidden="true">›</span>
+          </Link>
         </div>
 
         <nav className="min-h-0 flex-1 overflow-y-auto p-3" aria-label="Game platforms">

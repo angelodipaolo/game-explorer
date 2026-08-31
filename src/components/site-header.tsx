@@ -15,6 +15,13 @@ export function SiteHeader() {
           <Link href="/" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text">
             Shelf
           </Link>
+          {/* Two homes on purpose: this is the one-tap route from anywhere with
+              a header, and the platform drawer carries it too because that is
+              what a thumb reaches for on the shelf. Short label so the row still
+              fits beside the wordmark at 390px. */}
+          <Link href="/playing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-playing">
+            Playing
+          </Link>
           <Link href="/import" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text">
             Import
           </Link>

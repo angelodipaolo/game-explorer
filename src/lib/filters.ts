@@ -6,6 +6,10 @@ import { tagKey } from "./tags";
  * three-valued against sparse data: a game is CONFIRMED, EXCLUDED, or
  * UNKNOWN (no data either way). Unknowns are shown, separately, unless
  * `strict` is on.
+ *
+ * `play` is the one exception and is two-valued — it reads your own play log,
+ * not IGDB, so there is no "no data either way" to represent. See
+ * `playVerdict`.
  */
 export type Filters = {
   q: string;
@@ -22,6 +26,8 @@ export type Filters = {
   /** quick (< 1h) | evening (1–4h) | long (> 4h) */
   length: "quick" | "evening" | "long" | null;
   era: "80s" | "90s" | "00s" | "10s" | null;
+  /** Have you played it? Two-valued, unlike everything else here — see playVerdict. */
+  play: "playing" | "played" | "never" | null;
   strict: boolean;
   view: "grid" | "list";
   sort: "title" | "year" | "rating" | "shuffle";
@@ -29,7 +35,7 @@ export type Filters = {
   seed: number | null;
 };
 
-export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], hideHandhelds: false, players: null, mode: null, tags: [], length: null, era: null, strict: false, view: "grid", sort: "title", seed: null };
+export const DEFAULT_FILTERS: Filters = { q: "", platforms: [], hideHandhelds: false, players: null, mode: null, tags: [], length: null, era: null, play: null, strict: false, view: "grid", sort: "title", seed: null };
 
 /** Hybrid systems such as Switch are intentionally not in this set. */
 export const HANDHELD_ONLY_PLATFORMS = new Set(["gb", "gbc", "gba", "ds", "3ds", "psp", "vita"]);
@@ -44,6 +50,7 @@ export function parseFilters(params: URLSearchParams | Record<string, string | s
   const mode = get("mode");
   const length = get("length");
   const era = get("era");
+  const play = get("play");
   const view = get("view");
   const sort = get("sort");
   const seed = Number(get("seed"));
@@ -56,6 +63,7 @@ export function parseFilters(params: URLSearchParams | Record<string, string | s
     tags: [...new Set(`${get("tags") ?? ""},${get("genre") ?? ""}`.split(",").map((s) => s.trim()).filter(Boolean))],
     length: length === "quick" || length === "evening" || length === "long" ? length : null,
     era: era === "80s" || era === "90s" || era === "00s" || era === "10s" ? era : null,
+    play: play === "playing" || play === "played" || play === "never" ? play : null,
     strict: get("strict") === "1",
     view: view === "list" ? "list" : "grid",
     sort: sort === "year" || sort === "rating" || sort === "shuffle" ? sort : "title",
@@ -73,6 +81,7 @@ export function serializeFilters(f: Partial<Filters>): string {
   if (f.tags?.length) p.set("tags", f.tags.join(","));
   if (f.length) p.set("length", f.length);
   if (f.era) p.set("era", f.era);
+  if (f.play) p.set("play", f.play);
   if (f.strict) p.set("strict", "1");
   if (f.view && f.view !== "grid") p.set("view", f.view);
   if (f.sort && f.sort !== "title") p.set("sort", f.sort);
@@ -82,7 +91,7 @@ export function serializeFilters(f: Partial<Filters>): string {
 }
 
 export function activeFilterCount(f: Filters): number {
-  return [f.q, f.platforms.length ? f.platforms : null, f.hideHandhelds, f.players, f.mode, f.tags.length ? f.tags : null, f.length, f.era].filter(Boolean).length;
+  return [f.q, f.platforms.length ? f.platforms : null, f.hideHandhelds, f.players, f.mode, f.tags.length ? f.tags : null, f.length, f.era, f.play].filter(Boolean).length;
 }
 
 export function gameTags(g: ShelfGame): Set<string> {
@@ -131,6 +140,26 @@ export function eraVerdict(g: ShelfGame, era: NonNullable<Filters["era"]>): Verd
   return g.year >= decade && g.year < decade + 10 ? "yes" : "no";
 }
 
+/**
+ * **Two-valued on purpose: this never returns `unknown`.** Every other verdict
+ * here is three-valued because IGDB's data is sparse and a missing field must
+ * not read as a "no". Play state is not IGDB data and is not sparse: it is
+ * derived from a log only you write, so "no sessions" means you have never
+ * played it — a fact, not a gap. Do not "fix" this by adding an unknown branch;
+ * a shelf where never-played games land in the "could work" pile is the exact
+ * thing this filter exists to avoid.
+ *
+ * The three statuses partition the shelf, deliberately: a replay is a game
+ * being played *again*, so its status is `playing`, and `play=played`
+ * therefore means "played before, not currently" rather than "has ever been
+ * played". That is the useful reading of each — "what am I in the middle of",
+ * "what could I come back to", "what have I never started" — and it is why
+ * this is an equality check and not a set of overlapping tests.
+ */
+export function playVerdict(g: ShelfGame, want: NonNullable<Filters["play"]>): Verdict {
+  return g.play.status === want ? "yes" : "no";
+}
+
 export function verdictFor(g: ShelfGame, f: Filters): Verdict {
   const vs: Verdict[] = [];
   if (f.q) {
@@ -147,6 +176,7 @@ export function verdictFor(g: ShelfGame, f: Filters): Verdict {
   if (f.mode) vs.push(modeVerdict(g, f.mode));
   if (f.length) vs.push(lengthVerdict(g, f.length));
   if (f.era) vs.push(eraVerdict(g, f.era));
+  if (f.play) vs.push(playVerdict(g, f.play));
   return and(...vs);
 }
 
