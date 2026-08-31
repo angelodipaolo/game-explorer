@@ -38,7 +38,7 @@ async function stateOf(page: Page, gameId: string): Promise<CopyState> {
  * cleanup at the end safe — everything on the copy afterwards is this test's.
  */
 async function openNeverPlayed(page: Page, index: number): Promise<string> {
-  await page.goto("/?play=never&sort=title");
+  await page.goto("/shelf?play=never&sort=title");
   await expect(page.getByTestId("result-count")).toContainText(/game/);
   const cards = page.getByTestId("game-card");
   await expect(cards.first()).toBeVisible();

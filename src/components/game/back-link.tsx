@@ -7,11 +7,12 @@ import { useSyncExternalStore } from "react";
 function subscribe() {
   return () => {};
 }
+/** Where the shelf was last left. Nothing remembered yet means the shelf itself, not home. */
 function read(): string {
   try {
-    return window.sessionStorage.getItem("shelf:last") || "/";
+    return window.sessionStorage.getItem("shelf:last") || "/shelf";
   } catch {
-    return "/";
+    return "/shelf";
   }
 }
 
@@ -21,7 +22,7 @@ function read(): string {
  * scroll position; a page opened from a shared link falls back to the URL.
  */
 export function BackLink() {
-  const href = useSyncExternalStore(subscribe, read, () => "/");
+  const href = useSyncExternalStore(subscribe, read, () => "/shelf");
   const router = useRouter();
   const label = href.startsWith("/flip") ? "◂ Back to flipping" : "◂ Shelf";
   return (

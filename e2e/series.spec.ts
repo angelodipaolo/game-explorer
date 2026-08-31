@@ -16,7 +16,7 @@ const MISSING = "E2E entry nobody owns";
 
 /** A game on the shelf that is linked to IGDB, plus its copy id. */
 async function anOwnedGame(page: Page): Promise<{ ownedId: string; igdbId: number; name: string }> {
-  await page.goto("/");
+  await page.goto("/shelf");
   const cards = page.getByTestId("game-card");
   await expect(cards.first()).toBeVisible();
   for (let i = 0; i < 3; i++) {

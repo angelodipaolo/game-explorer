@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import type { ShelfGame } from "@/lib/collection";
-import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilters, tonightsPicks, type Filters } from "@/lib/filters";
+import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilters, type Filters } from "@/lib/filters";
 import { Button, cx } from "@/components/ui";
 import { FilterSheet, PresetRow } from "./filter-sheet";
 import { GameCard, GameRow } from "./game-card";
@@ -20,7 +20,6 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
   const facets = useMemo(() => buildFacets(games), [games]);
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
   const active = activeFilterCount(filters);
-  const picks = useMemo(() => tonightsPicks(games), [games]);
   const qs = serializeFilters(filters);
   useScrollMemory(qs);
 
@@ -81,22 +80,8 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
         </div>
       </div>
 
-      {/* Tonight's picks */}
-      {active === 0 && filters.view === "grid" && picks.length ? (
-        <section className="mt-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <h2 className="font-display text-base font-bold">Tonight&apos;s picks</h2>
-            <span className="text-xs text-faint">six at random, same on every phone today</span>
-          </div>
-          <div className="scrollbar-none -mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
-            {picks.map((g) => (
-              <div key={g.id} className="w-28 shrink-0 sm:w-32">
-                <GameCard game={g} priority />
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {/* Tonight's picks lives on home now (GAMEEXPLOR-0012); the shelf keeps
+          the toolbar, presets, genre row and filter sheet. */}
 
       {/* Results */}
       <section className="mt-5">

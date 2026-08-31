@@ -49,7 +49,7 @@ export default async function PlayingPage() {
           ) : (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted" data-testid="in-progress-empty">
               Nothing on the go.{" "}
-              <Link href="/?play=never" className="text-accent-2 underline">
+              <Link href="/shelf?play=never" className="text-accent-2 underline">
                 Find something you have never played
               </Link>
               .
@@ -66,7 +66,7 @@ export default async function PlayingPage() {
           ) : (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted" data-testid="queue-empty">
               The queue is empty. Open a game and tap <span className="text-text">Add to queue</span> —{" "}
-              <Link href="/" className="text-accent-2 underline">
+              <Link href="/shelf" className="text-accent-2 underline">
                 back to the shelf
               </Link>
               .

@@ -15,7 +15,7 @@ const urlFor = (project: string) => `https://example.test/e2e/${project}/guide`;
 const manualFor = (project: string) => `E2E ${project} manual`;
 
 async function openContra(page: Page) {
-  await page.goto("/?q=Contra&platform=nes");
+  await page.goto("/shelf?q=Contra&platform=nes");
   await page.getByTestId("game-card").first().click();
   await expect(page.getByTestId("game-title")).toHaveText("Contra");
   return new URL(page.url()).pathname.match(/^\/game\/(.+)$/)![1];

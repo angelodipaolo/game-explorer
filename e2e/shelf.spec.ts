@@ -16,7 +16,7 @@ async function expectNoConsoleErrors(page: Page, run: () => Promise<void>) {
 
 test("load, filter, flip, open", async ({ page, isMobile }) => {
   await expectNoConsoleErrors(page, async () => {
-    await page.goto("/");
+    await page.goto("/shelf");
     await expect(page.getByTestId("result-count")).toContainText(/All \d+ games/);
     await expect(page.getByTestId("game-card").first()).toBeVisible();
 
@@ -51,9 +51,9 @@ test("load, filter, flip, open", async ({ page, isMobile }) => {
 });
 
 test("view mode survives navigation and the URL is enough", async ({ page }) => {
-  await page.goto("/?players=4");
+  await page.goto("/shelf?players=4");
   await expect(page.getByTestId("result-count")).not.toContainText(/All \d+ games/);
-  await page.goto("/?view=list&tags=Shooter");
+  await page.goto("/shelf?view=list&tags=Shooter");
   await expect(page.getByTestId("list")).toBeVisible();
   await page.getByTestId("game-row").first().click();
   await expect(page.getByTestId("game-title")).toBeVisible();
@@ -63,7 +63,7 @@ test("view mode survives navigation and the URL is enough", async ({ page }) => 
 });
 
 test("opening a game and coming back keeps the shelf scroll position", async ({ page }) => {
-  await page.goto("/?platform=nes");
+  await page.goto("/shelf?platform=nes");
   await page.getByTestId("game-card").nth(40).scrollIntoViewIfNeeded();
   await page.waitForTimeout(500);
   const before = await page.evaluate(() => window.scrollY);
@@ -78,7 +78,7 @@ test("opening a game and coming back keeps the shelf scroll position", async ({ 
 });
 
 test("changing a filter starts the new result set at the top", async ({ page, isMobile }) => {
-  await page.goto("/");
+  await page.goto("/shelf");
   await expect(page.getByTestId("game-card").first()).toBeVisible();
   const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
 
@@ -108,14 +108,14 @@ test("changing a filter starts the new result set at the top", async ({ page, is
 });
 
 test("an empty result explains itself and offers a way out", async ({ page }) => {
-  await page.goto("/?players=4&mode=coop&tags=Puzzle&length=long&strict=1&q=zzqx");
+  await page.goto("/shelf?players=4&mode=coop&tags=Puzzle&length=long&strict=1&q=zzqx");
   await expect(page.getByTestId("empty")).toBeVisible();
   await page.getByTestId("empty").getByRole("button", { name: /Clear search/ }).click();
   await expect(page).not.toHaveURL(/q=zzqx/);
 });
 
 test("filters open as a sheet and apply instantly", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/shelf");
   await page.getByTestId("open-filters").click();
   await page.getByRole("button", { name: "Co-op", exact: true }).click();
   await expect(page).toHaveURL(/mode=coop/);
@@ -124,7 +124,7 @@ test("filters open as a sheet and apply instantly", async ({ page }) => {
 });
 
 test("handheld-only games can be hidden", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/shelf");
   await page.getByTestId("open-filters").click();
   await page.getByRole("checkbox", { name: /Hide handheld-only games/ }).check();
   await expect(page).toHaveURL(/handhelds=hide/);
@@ -133,7 +133,7 @@ test("handheld-only games can be hidden", async ({ page }) => {
 });
 
 test("platform sidebar lists the collection and filters the shelf", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/shelf");
   await page.getByTestId("open-platforms").click();
   await expect(page.getByTestId("platform-sidebar")).toBeVisible();
   // "All" plus one button per platform in the collection (23). Update after an import.
@@ -157,27 +157,27 @@ test("platform sidebar lists the collection and filters the shelf", async ({ pag
  * Count-agnostic — how many are unplayed changes every time a run is started.
  */
 test("the shelf can be narrowed to games you have never played", async ({ page }) => {
-  await page.goto("/?play=never");
+  await page.goto("/shelf?play=never");
   await expect(page.getByTestId("result-count")).toContainText(/^\d+ games?/);
   await expect(page.getByTestId("result-count")).not.toContainText("that could work");
   await expect(page.getByTestId("game-card").first()).toBeVisible();
 
   // And it is one tap from the shelf, as a preset.
-  await page.goto("/");
+  await page.goto("/shelf");
   await page.getByTestId("preset").filter({ hasText: "Never played" }).click();
   await expect(page).toHaveURL(/play=never/);
   await expect(page.getByTestId("result-count")).toContainText(/^\d+ games?/);
 });
 
 test("tags can be added by hand and are filterable at once", async ({ page }) => {
-  await page.goto("/?q=Contra&platform=nes");
+  await page.goto("/shelf?q=Contra&platform=nes");
   await page.getByTestId("game-card").first().click();
   await expect(page.getByTestId("game-title")).toHaveText("Contra");
   await page.getByTestId("edit-tags").click();
   await page.getByTestId("tag-input").fill("E2E run-and-gun");
   await page.getByTestId("tag-input").press("Enter");
   await expect(page.getByTestId("tag-editor").getByRole("link", { name: "E2E run-and-gun" })).toBeVisible();
-  await page.goto("/?tags=E2E%20run-and-gun");
+  await page.goto("/shelf?tags=E2E%20run-and-gun");
   await expect(page.getByTestId("result-count")).toContainText("1 game");
   // clean up
   await page.getByTestId("game-card").first().click();

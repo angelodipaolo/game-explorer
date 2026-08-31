@@ -253,8 +253,17 @@ export function facets(games: ShelfGame[]): Facets {
   };
 }
 
+/**
+ * The local calendar day as a number — `20260830`. Every "same for everyone,
+ * new tomorrow" surface seeds off this one function: tonight's picks and the
+ * home page's rows. Local, not UTC, for the same reason `parseWhen` is: the
+ * day changes when the day changes here, not in Greenwich.
+ */
+export function daySeed(date = new Date()): number {
+  return Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`);
+}
+
 /** Six picks that change daily but match on every phone in the room. */
 export function tonightsPicks(games: ShelfGame[], date = new Date(), n = 6): ShelfGame[] {
-  const seed = Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`);
-  return seededShuffle(games.filter((g) => g.cover), seed).slice(0, n);
+  return seededShuffle(games.filter((g) => g.cover), daySeed(date)).slice(0, n);
 }

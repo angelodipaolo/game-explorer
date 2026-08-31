@@ -138,6 +138,9 @@ export type SeriesView = SeriesCard & {
 
 export type SeriesLink = { id: string; name: string; slug: string };
 
+/** A card plus the owned copy ids it resolves to, in series order. */
+export type SeriesWithOwned = SeriesCard & { ownedIds: string[] };
+
 /* ------------------------------------------------------------------ resolving */
 
 type OwnedLink = { id: string; catalogGameId: number | null; platform: string; normalizedTitle: string; parentIgdbId: number | null };
@@ -250,16 +253,29 @@ function card(s: Series, views: SeriesEntryView[]): SeriesCard {
 const byPositionThenName = (a: { position: number; name: string }, b: { position: number; name: string }) => a.position - b.position || a.name.localeCompare(b.name);
 
 /**
- * Every series as a card. Three queries for the whole index however many
- * series there are — the catalog rows and the shelf are fetched once and
- * shared, never per series.
+ * Every series as a card, plus the owned copies behind it **in series order** —
+ * what the home page's "Every Mario Party" row lists.
+ *
+ * Three queries for the whole index however many series there are: the catalog
+ * rows and the shelf are fetched once and shared, never per series. That is
+ * what lets home ask for every series at once without a query per row.
  */
-export async function listSeries(): Promise<SeriesCard[]> {
+export async function listSeriesWithOwned(): Promise<SeriesWithOwned[]> {
   const rows = await prisma.series.findMany({ include: { entries: true } });
   if (!rows.length) return [];
   const catalog = await catalogFor(rows.flatMap((s) => s.entries.map((e) => e.igdbId).filter((x): x is number => x != null)));
   const owned = await ownedLinks();
-  return rows.map((s) => card(s, resolveEntries(s.entries, catalog, owned))).sort(byPositionThenName);
+  return rows
+    .map((s) => {
+      const views = resolveEntries(s.entries, catalog, owned);
+      return { ...card(s, views), ownedIds: views.map((v) => v.ownedId).filter((x): x is string => x != null) };
+    })
+    .sort(byPositionThenName);
+}
+
+/** Every series as a card. */
+export async function listSeries(): Promise<SeriesCard[]> {
+  return (await listSeriesWithOwned()).map((s) => ({ id: s.id, name: s.name, slug: s.slug, blurb: s.blurb, cover: s.cover, owned: s.owned, total: s.total, position: s.position }));
 }
 
 export async function seriesBySlug(slug: string): Promise<SeriesView | null> {

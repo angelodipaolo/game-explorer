@@ -61,11 +61,42 @@ body {
   color: var(--accent-ink);
 }
 
-.scrollbar-none {
+.scrollbar-none,
+.carousel-scroll {
   scrollbar-width: none;
 }
-.scrollbar-none::-webkit-scrollbar {
+.scrollbar-none::-webkit-scrollbar,
+.carousel-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/*
+  Home's carousels: one scroll container per row, so the PAGE never scrolls
+  horizontally. Snap on the x axis, momentum on iOS, and the chain stopped at
+  the row's edge so swiping past the last cover does not drag the page. The
+  scrollbar is hidden by `.scrollbar-none` above, which this composes with
+  rather than repeating.
+*/
+.carousel-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.carousel-item {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+/* A mouse gets arrow buttons; a touch screen swipes and would only lose room. */
+.pointer-only {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pointer-only {
+    display: inline-flex;
+  }
 }
 
 /* Safe-area padding for phones with a home indicator. */

@@ -63,7 +63,7 @@ export function TagEditor({ gameId, tags, hidden }: { gameId: string; tags: Effe
             )}
             title={t.source === "igdb" ? "From IGDB" : t.source === "manual" ? "Added by hand" : `Added by an agent${t.sourceUrl ? ` — ${t.sourceUrl}` : ""}`}
           >
-            <Link href={`/?tags=${encodeURIComponent(t.tag)}`} className="hover:underline">
+            <Link href={`/shelf?tags=${encodeURIComponent(t.tag)}`} className="hover:underline">
               {t.tag}
             </Link>
             {t.source === "agent" && t.sourceUrl ? (

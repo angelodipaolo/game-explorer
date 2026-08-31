@@ -36,7 +36,7 @@ export function Flip({ games }: { games: ShelfGame[] }) {
   const [dir, setDir] = useState<1 | -1>(1);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const active = activeFilterCount(filters);
-  const shelfHref = `/${serializeFilters(filters)}`;
+  const shelfHref = `/shelf${serializeFilters(filters)}`;
 
   const go = useCallback(
     (d: 1 | -1) => {

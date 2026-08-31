@@ -16,7 +16,7 @@ const effectFor = (project: string) => `E2E ${project} infinite lives`;
 const CODE = "SXIOPO";
 
 async function openContra(page: Page) {
-  await page.goto("/?q=Contra&platform=nes");
+  await page.goto("/shelf?q=Contra&platform=nes");
   await page.getByTestId("game-card").first().click();
   await expect(page.getByTestId("game-title")).toHaveText("Contra");
 }

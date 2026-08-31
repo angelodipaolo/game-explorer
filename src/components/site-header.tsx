@@ -12,7 +12,9 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-1 text-sm">
-          <Link href="/" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text">
+          {/* The wordmark is home (GAMEEXPLOR-0012 moved it there); "Shelf" is
+              the grid with the filters, now at /shelf. */}
+          <Link href="/shelf" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-shelf">
             Shelf
           </Link>
           {/* Two homes on purpose: this is the one-tap route from anywhere with
