@@ -136,9 +136,11 @@ test("platform sidebar lists the collection and filters the shelf", async ({ pag
   await page.goto("/shelf");
   await page.getByTestId("open-platforms").click();
   await expect(page.getByTestId("platform-sidebar")).toBeVisible();
-  // "All" plus one button per platform in the collection (23). Update after an import.
+  // "All" plus one button per platform in the collection (23 platforms today).
+  // Update after an import: the 2026-08-31 batch brought the first 3DS games in
+  // and so added a row here.
   const platformButtons = page.getByRole("navigation", { name: "Game platforms" }).getByRole("button");
-  await expect(platformButtons).toHaveCount(23);
+  await expect(platformButtons).toHaveCount(24);
   await expect(page.getByTestId("platform-all")).toBeVisible();
   await page.getByTestId("platform-ps5").click();
   await expect(page).toHaveURL(/platform=ps5/);
