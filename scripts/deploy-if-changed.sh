@@ -40,12 +40,26 @@ log() { printf '%s  %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)" "$*" | tee -a "$LOG"; }
 # theoretical one: the second tick logs and leaves rather than stacking.
 if ! mkdir "$LOCK" 2>/dev/null; then
   holder="$(cat "$LOCK/pid" 2>/dev/null || true)"
-  if [[ "$holder" =~ ^[0-9]+$ ]] && kill -0 "$holder" 2>/dev/null; then
+  if [[ -z "$holder" ]]; then
+    # The lock dir exists but carries no pid yet. Almost always this is another
+    # run that won the `mkdir` microseconds ago and is about to write its pid on
+    # the next line — so back off rather than reclaim, or we'd race it into two
+    # concurrent deploys. The one exception is a run that died in that tiny
+    # window, which would leave a pidless lock forever; guard against a permanent
+    # wedge by reclaiming only once the dir is far older than that startup gap.
+    lock_age=$(( $(date +%s) - $(stat -f %m "$LOCK" 2>/dev/null || echo 0) ))
+    if (( lock_age < 60 )); then
+      log "a deploy is starting up (lock held, pid not yet written) — skipping this tick"
+      exit 0
+    fi
+    log "lock has no pid and is ${lock_age}s old — treating as broken, reclaiming"
+  elif [[ "$holder" =~ ^[0-9]+$ ]] && kill -0 "$holder" 2>/dev/null; then
     log "a deploy is already running (pid $holder) — skipping this tick"
     exit 0
+  else
+    # A real pid that names no live process: a previous run was killed mid-deploy.
+    log "stale lock (pid ${holder:-unknown}) — reclaiming"
   fi
-  # Nobody is home: a previous run was killed mid-deploy. Take it over.
-  log "stale lock (pid ${holder:-unknown}) — reclaiming"
   rm -rf "$LOCK"
   if ! mkdir "$LOCK" 2>/dev/null; then
     log "!! could not take the lock at $LOCK — skipping this tick"
@@ -81,9 +95,15 @@ if [[ "$head_ref" != "$BRANCH" ]]; then
   log "!! HEAD is on '$head_ref', not '$BRANCH' — switching back to $BRANCH."
   log "   (bootout this timer before hand-deploying or rolling back; see ops/README.md)"
   if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
-    git checkout --quiet "$BRANCH"
+    if ! git checkout --quiet "$BRANCH" 2>>"$LOG"; then
+      log "!! could not switch to $BRANCH — resolve by hand in $REPO. Skipping this tick."
+      exit 1
+    fi
   else
-    git checkout --quiet -b "$BRANCH" --track "$REMOTE/$BRANCH"
+    if ! git checkout --quiet -b "$BRANCH" --track "$REMOTE/$BRANCH" 2>>"$LOG"; then
+      log "!! could not create tracking branch $BRANCH — resolve by hand. Skipping this tick."
+      exit 1
+    fi
   fi
 fi
 
