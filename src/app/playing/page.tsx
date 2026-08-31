@@ -4,6 +4,7 @@ import { Cover } from "@/components/shelf/cover";
 import { QueueList } from "@/components/playing/queue-list";
 import { day } from "@/components/ui";
 import { loadPlaying } from "@/lib/collection";
+import { readViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Now playing" };
@@ -14,7 +15,9 @@ export const metadata = { title: "Now playing" };
  * transaction, so a game is never in both.
  */
 export default async function PlayingPage() {
-  const { inProgress, upNext } = await loadPlaying();
+  // Public: what is on the go is worth showing to anyone with the link.
+  // Only the controls that reorder or start a run are the owner's.
+  const [{ inProgress, upNext }, { canEdit }] = await Promise.all([loadPlaying(), readViewer()]);
   return (
     <>
       <SiteHeader />
@@ -62,7 +65,7 @@ export default async function PlayingPage() {
             Up next {upNext.length ? <span className="text-muted">· {upNext.length}</span> : null}
           </h2>
           {upNext.length ? (
-            <QueueList rows={upNext} />
+            <QueueList rows={upNext} canEdit={canEdit} />
           ) : (
             <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted" data-testid="queue-empty">
               The queue is empty. Open a game and tap <span className="text-text">Add to queue</span> —{" "}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ShelfGame } from "@/lib/collection";
+import type { Viewer } from "@/lib/viewer";
 import { applyFilters, activeFilterCount, facets as buildFacets, serializeFilters } from "@/lib/filters";
 import { FilterSheet } from "@/components/shelf/filter-sheet";
 import { Badge, cx } from "@/components/ui";
@@ -16,7 +17,7 @@ import { platformLabel } from "@/lib/platforms";
  * (confirmed first, then the "could work" ones). Arrow keys, swipe, and a
  * shuffle button that lands somewhere new.
  */
-export function Flip({ games }: { games: ShelfGame[] }) {
+export function Flip({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) {
   const [filters, set, reset] = useFilters();
   const result = useMemo(() => applyFilters(games, filters), [games, filters]);
   const facets = useMemo(() => buildFacets(games), [games]);
@@ -120,7 +121,7 @@ export function Flip({ games }: { games: ShelfGame[] }) {
           </button>
         </div>
       </header>
-      <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} showPresets />
+      <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} showPresets viewer={viewer} />
 
       {!game ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">

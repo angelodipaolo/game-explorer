@@ -12,7 +12,7 @@ type Hidden = { key: string; tag: string };
  * Tags on a game page. IGDB tags can be hidden (never deleted); yours can be
  * removed; agent tags show their citation. Typing suggests tags already in use.
  */
-export function TagEditor({ gameId, tags, hidden }: { gameId: string; tags: EffectiveTag[]; hidden: Hidden[] }) {
+export function TagEditor({ gameId, tags, hidden, canEdit }: { gameId: string; tags: EffectiveTag[]; hidden: Hidden[]; canEdit: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -21,13 +21,13 @@ export function TagEditor({ gameId, tags, hidden }: { gameId: string; tags: Effe
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!editing) return;
+    if (!editing || !canEdit) return;
     inputRef.current?.focus();
     fetch("/api/tags")
       .then((r) => r.json())
       .then((list: { tag: string; count: number }[]) => setSuggestions(list))
       .catch(() => {});
-  }, [editing]);
+  }, [editing, canEdit]);
 
   async function call(method: "PUT" | "DELETE", body: object) {
     setBusy(true);
@@ -71,7 +71,7 @@ export function TagEditor({ gameId, tags, hidden }: { gameId: string; tags: Effe
                 ↗
               </a>
             ) : null}
-            {editing ? (
+            {editing && canEdit ? (
               <button
                 disabled={busy}
                 onClick={() => call("DELETE", { tag: t.tag, igdb: t.source === "igdb" })}
@@ -84,12 +84,14 @@ export function TagEditor({ gameId, tags, hidden }: { gameId: string; tags: Effe
             ) : null}
           </span>
         ))}
-        <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-dashed border-border px-2.5 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-tags">
-          {editing ? "Done" : "+ tag"}
-        </button>
+        {canEdit ? (
+          <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-dashed border-border px-2.5 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-tags">
+            {editing ? "Done" : "+ tag"}
+          </button>
+        ) : null}
       </div>
 
-      {editing ? (
+      {editing && canEdit ? (
         <div className="mt-2 rounded-xl border border-border bg-bg-elev p-3">
           <form
             onSubmit={(e) => {

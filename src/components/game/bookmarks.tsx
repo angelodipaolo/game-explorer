@@ -20,7 +20,7 @@ import { cx } from "@/components/ui";
  * button, outside the link — nesting a button inside an anchor is invalid and
  * makes the tap ambiguous on a phone.
  */
-export function Bookmarks({ gameId, bookmarks }: { gameId: string; bookmarks: GameBookmark[] }) {
+export function Bookmarks({ gameId, bookmarks, canEdit }: { gameId: string; bookmarks: GameBookmark[]; canEdit: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -63,7 +63,7 @@ export function Bookmarks({ gameId, bookmarks }: { gameId: string; bookmarks: Ga
         <h2 className="font-display text-base font-bold">
           Guides &amp; links {bookmarks.length ? <span className="text-muted">· {bookmarks.length}</span> : null}
         </h2>
-        {bookmarks.length ? (
+        {bookmarks.length && canEdit ? (
           <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-bookmarks">
             {editing ? "Done" : "Edit"}
           </button>
@@ -88,16 +88,16 @@ export function Bookmarks({ gameId, bookmarks }: { gameId: string; bookmarks: Ga
                   />
                 </li>
               ) : (
-                <BookmarkRow key={b.id} bookmark={b} editing={editing} busy={busy} onEdit={() => setEditId(b.id)} />
+                <BookmarkRow key={b.id} bookmark={b} editing={editing && canEdit} busy={busy} onEdit={() => setEditId(b.id)} />
               ),
             )}
           </ul>
         </div>
       ))}
 
-      {adding ? (
+      {adding && canEdit ? (
         <BookmarkForm busy={busy} onCancel={() => setAdding(false)} onSubmit={(body) => call("POST", body)} />
-      ) : (
+      ) : canEdit ? (
         <button
           onClick={() => setAdding(true)}
           disabled={full}
@@ -107,7 +107,7 @@ export function Bookmarks({ gameId, bookmarks }: { gameId: string; bookmarks: Ga
         >
           + link
         </button>
-      )}
+      ) : null}
       {!bookmarks.length && !adding ? <p className="mt-2 text-xs text-faint">The guide, the wiki, the longplay — with a line saying why that one.</p> : null}
     </section>
   );

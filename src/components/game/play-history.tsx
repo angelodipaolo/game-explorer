@@ -18,7 +18,7 @@ import { apiError, cx, day, dateInput } from "@/components/ui";
 
 const OUTCOME_LABEL: Record<string, string> = { playing: "Playing", completed: "Finished it", abandoned: "Gave up" };
 
-export function PlayHistory({ gameId, sessions, queued }: { gameId: string; sessions: PlaySession[]; queued: boolean }) {
+export function PlayHistory({ gameId, sessions, queued, canEdit }: { gameId: string; sessions: PlaySession[]; queued: boolean; canEdit: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -61,7 +61,7 @@ export function PlayHistory({ gameId, sessions, queued }: { gameId: string; sess
         <h2 className="font-display text-base font-bold">
           Play history {sessions.length ? <span className="text-muted">· {sessions.length} {sessions.length === 1 ? "run" : "runs"}</span> : null}
         </h2>
-        {closed.length ? (
+        {closed.length && canEdit ? (
           <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-runs">
             {editing ? "Done" : "Edit"}
           </button>
@@ -74,25 +74,27 @@ export function PlayHistory({ gameId, sessions, queued }: { gameId: string; sess
             <span className="text-accent" aria-hidden>▶</span> Playing since {day(open.startedAt)}
           </div>
           {open.note ? <p className="mt-1 text-sm text-muted">{open.note}</p> : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => finish("completed")} disabled={busy} className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid="finish-run">
-              Finished
-            </button>
-            <button onClick={() => finish("abandoned")} disabled={busy} className="min-h-11 rounded-xl border border-border bg-surface px-4 text-sm hover:border-muted disabled:opacity-40" data-testid="give-up-run">
-              Gave up
-            </button>
-            {/* The mis-tap escape: the run never happened, so it is deleted rather than closed. */}
-            <button
-              onClick={() => confirm("Undo starting this run? It is removed from the log.") && call("DELETE", `/api/sessions/${open.id}`)}
-              disabled={busy}
-              className="ml-auto min-h-11 rounded-xl px-3 text-sm text-muted hover:text-text disabled:opacity-40"
-              data-testid="undo-run"
-            >
-              Undo
-            </button>
-          </div>
+          {canEdit ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => finish("completed")} disabled={busy} className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid="finish-run">
+                Finished
+              </button>
+              <button onClick={() => finish("abandoned")} disabled={busy} className="min-h-11 rounded-xl border border-border bg-surface px-4 text-sm hover:border-muted disabled:opacity-40" data-testid="give-up-run">
+                Gave up
+              </button>
+              {/* The mis-tap escape: the run never happened, so it is deleted rather than closed. */}
+              <button
+                onClick={() => confirm("Undo starting this run? It is removed from the log.") && call("DELETE", `/api/sessions/${open.id}`)}
+                disabled={busy}
+                className="ml-auto min-h-11 rounded-xl px-3 text-sm text-muted hover:text-text disabled:opacity-40"
+                data-testid="undo-run"
+              >
+                Undo
+              </button>
+            </div>
+          ) : null}
         </div>
-      ) : (
+      ) : canEdit ? (
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={start} disabled={busy} className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid={closed.length ? "play-again" : "start-run"}>
             {closed.length ? "Play again" : "Start playing"}
@@ -108,7 +110,13 @@ export function PlayHistory({ gameId, sessions, queued }: { gameId: string; sess
             </button>
           )}
         </div>
-      )}
+      ) : queued ? (
+        // A visitor still sees that this copy is up next — that is a fact about
+        // the collection, not a control.
+        <p className="text-sm text-accent-2" data-testid="queued-note">
+          Up next.
+        </p>
+      ) : null}
 
       {closed.length ? (
         <ul className="mt-3 flex flex-col gap-2">
@@ -133,7 +141,7 @@ export function PlayHistory({ gameId, sessions, queued }: { gameId: string; sess
                   </div>
                   {s.note ? <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{s.note}</p> : null}
                 </div>
-                {editing ? (
+                {editing && canEdit ? (
                   <button onClick={() => setEditId(s.id)} disabled={busy} className="min-h-11 shrink-0 rounded-lg border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" aria-label={`Edit the run from ${day(s.startedAt)}`}>
                     Edit
                   </button>
@@ -144,15 +152,17 @@ export function PlayHistory({ gameId, sessions, queued }: { gameId: string; sess
         </ul>
       ) : null}
 
-      <div className="mt-3">
-        {pastOpen ? (
-          <RunForm past busy={busy} onCancel={() => setPastOpen(false)} onSubmit={(body) => call("POST", `/api/games/${gameId}/sessions`, body)} />
-        ) : (
-          <button onClick={() => setPastOpen(true)} className="min-h-11 rounded-xl border border-dashed border-border px-4 text-sm text-muted hover:border-muted hover:text-text" data-testid="add-past-run">
-            + a run that already happened
-          </button>
-        )}
-      </div>
+      {canEdit ? (
+        <div className="mt-3">
+          {pastOpen ? (
+            <RunForm past busy={busy} onCancel={() => setPastOpen(false)} onSubmit={(body) => call("POST", `/api/games/${gameId}/sessions`, body)} />
+          ) : (
+            <button onClick={() => setPastOpen(true)} className="min-h-11 rounded-xl border border-dashed border-border px-4 text-sm text-muted hover:border-muted hover:text-text" data-testid="add-past-run">
+              + a run that already happened
+            </button>
+          )}
+        </div>
+      ) : null}
       {!sessions.length && !pastOpen ? <p className="mt-2 text-xs text-faint">Runs at this copy. Finishing one keeps its dates and its journal, so a replay in three years is its own run.</p> : null}
     </section>
   );

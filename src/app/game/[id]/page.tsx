@@ -16,6 +16,7 @@ import { Badge, cx } from "@/components/ui";
 import { loadGame, type ShelfCopy } from "@/lib/collection";
 import type { Fact, PlayerProfile } from "@/lib/facts";
 import { buildEbaySearchUrl, buildEbaySoldSearchUrl, buildPriceChartingSearchUrl } from "@/lib/links";
+import { readViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,9 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   // ("session belongs to a different game").
   const { id } = await params;
   const game = await loadGame(id);
+  // Read-only for a visitor: the tags, codes, runs, journal and links are all
+  // still here, only the controls that write them are not (GAMEEXPLOR-0002).
+  const { canEdit } = await readViewer();
   if (!game) notFound();
   const owned = game.similarGames.filter((s) => s.ownedId);
   const notOwned = game.similarGames.filter((s) => !s.ownedId);
@@ -110,23 +114,23 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           </div>
 
           {game.summary ? <p className="mt-5 max-w-prose text-[15px] leading-relaxed text-text/90">{game.summary}</p> : <p className="mt-5 text-sm text-faint">No description in the catalog{game.igdbId ? "" : " — this cartridge is not linked to IGDB yet"}.</p>}
-          <TagEditor gameId={id} tags={game.tags} hidden={game.hiddenTags} />
+          <TagEditor gameId={id} tags={game.tags} hidden={game.hiddenTags} canEdit={canEdit} />
         </div>
       </div>
 
       {/* Directly after the tags: this is the part of the page that is about
           you, and the thing you came here to tap. */}
-      <PlayHistory gameId={id} sessions={game.sessions} queued={game.queued} />
+      <PlayHistory gameId={id} sessions={game.sessions} queued={game.queued} canEdit={canEdit} />
 
       <MapCards gameId={id} maps={game.maps} />
 
-      <CodeList gameId={id} codes={game.codes} />
+      <CodeList gameId={id} codes={game.codes} canEdit={canEdit} />
 
       <ManualCards gameId={id} manuals={game.manuals} />
 
       {/* Reference material sits with the codes and maps: it is the same kind
           of thing — impersonal, the same for every owner, and agent-fillable. */}
-      <Bookmarks gameId={id} bookmarks={game.bookmarks} />
+      <Bookmarks gameId={id} bookmarks={game.bookmarks} canEdit={canEdit} />
 
       {game.screenshots.length ? (
         <section className="mt-8">
@@ -170,7 +174,7 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
       <LookupLinks name={game.name} copies={game.copies} />
 
       {/* Last on the page: the journal is the one section that grows without bound. */}
-      <Journal gameId={id} entries={game.journal} sessions={game.sessions} />
+      <Journal gameId={id} entries={game.journal} sessions={game.sessions} canEdit={canEdit} />
 
       <footer className="mt-10 border-t border-border/60 py-4 text-xs text-faint">
         {game.igdbId ? (

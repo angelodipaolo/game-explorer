@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import type { Facets, Filters } from "@/lib/filters";
+import type { Viewer } from "@/lib/viewer";
+import { AuthMenu } from "@/components/auth-menu";
 import { Button, cx } from "@/components/ui";
 import { FilterControls } from "./filter-controls";
 
@@ -53,7 +55,7 @@ export function PresetRow({ filters, active, set, reset }: { filters: Filters; a
  * The filter sheet: bottom sheet on phones, popover on larger screens. The
  * same one is used on the shelf and in Flip, so the two never drift.
  */
-export function FilterSheet({ open, onClose, filters, facets, set, reset, active, confirmed, maybe, showPresets }: { open: boolean; onClose: () => void; filters: Filters; facets: Facets; set: (p: Partial<Filters>) => void; reset: () => void; active: number; confirmed: number; maybe: number; showPresets?: boolean }) {
+export function FilterSheet({ open, onClose, filters, facets, set, reset, active, confirmed, maybe, showPresets, viewer }: { open: boolean; onClose: () => void; filters: Filters; facets: Facets; set: (p: Partial<Filters>) => void; reset: () => void; active: number; confirmed: number; maybe: number; showPresets?: boolean; viewer: Viewer }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -89,6 +91,9 @@ export function FilterSheet({ open, onClose, filters, facets, set, reset, active
           </div>
         ) : null}
         <FilterControls filters={filters} facets={facets} set={set} />
+        {/* The owner's way in and out, at the bottom of a sheet the public
+            opens for filters. Renders nothing when no auth is configured. */}
+        <AuthMenu viewer={viewer} className="mt-5 border-t border-border/60 pt-3" />
       </div>
     </div>
   );

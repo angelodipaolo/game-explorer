@@ -15,6 +15,7 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 | `npm run db:restore` | Rebuild `prisma/dev.db` from the committed snapshot in `data/` |
 | `npm run db:snapshot` | Export the current database to `data/` so it ships with the repo |
 | `npm run backup` | One restorable archive of `prisma/dev.db` + `data/` in `backups/` (`-- --out <dir>` to put it elsewhere) |
+| `scripts/deploy.sh` | On the mini: pull, install, back up, migrate, build, restart the LaunchAgent |
 
 ## Architecture constraints (decided — do not re-propose)
 
@@ -24,7 +25,14 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   `src/lib/igdb/boundary.test.ts`.
 - **No provider interface or plugin abstraction.** One catalog source, IGDB.
 - **No RAWG.** Rejected: similarity is paywalled, retro player data is thin.
-- **No hosting, Postgres, auth, or accounts.** SQLite, local + LAN only.
+- **Hosted on the owner's Mac mini behind a Cloudflare Tunnel**
+  (`https://games.angelodipaolo.com`, GAMEEXPLOR-0002). SQLite and every blob
+  directory stay files on that disk. One owner password + named bearer tokens;
+  no accounts, no roles, no Postgres, no hosted database, no blob storage.
+  Reads are public and unindexed; every write is the owner. Auth lives in the
+  app (`src/lib/auth.ts`, enforced in `src/proxy.ts`) rather than at the edge,
+  because the same token has to work for the skills and a future iOS client.
+  Ops runbook: `ops/README.md`.
 - **No cost, price, ROI, or resale tracking.** That is `game-manage`'s job.
   Carve-out, GAMEEXPLOR-0008: outbound price-lookup links are in — the game
   page links out to a PriceCharting and eBay search for the copy you own
@@ -89,8 +97,10 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 
 ## Secrets
 
-`.env` holds a live Twitch client secret. It is gitignored. Never print it,
-never commit it, never copy it into notes.
+`.env` holds a live Twitch client secret, and since GAMEEXPLOR-0002 also
+`OWNER_PASSWORD`, `AUTH_SECRET` and `API_TOKENS` — the keys to every write path
+on the public site. It is gitignored. Never print it, never commit it, never
+copy it into notes. `.env.example` documents the names and nothing else.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

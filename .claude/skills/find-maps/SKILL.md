@@ -19,7 +19,18 @@ uploads by hand are the same rows through the same API. Nothing you write
 outranks anything, and nothing blocks you — so the only thing keeping the
 section useful is your judgement.
 
-The dev server must be running (`http://localhost:3000`).
+A server must be reachable, and every call is authenticated:
+
+- `GAME_EXPLORER_URL` — where the app is. Defaults to `http://localhost:3000`
+  (`npm run dev`); set it to `https://games.angelodipaolo.com` to work against
+  the hosted one.
+- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
+  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
+  `401`.
+
+If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
+not fall back to writing to the database directly — say the token is missing or
+wrong and let the owner fix it.
 
 ## Sources
 
@@ -107,21 +118,21 @@ Names and kinds are the filter chips on a phone; stay in this vocabulary.
 
 ```bash
 # Copies with no maps yet
-curl -s 'localhost:3000/api/maps/gaps?limit=50'
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/maps/gaps?limit=50"
 # → { total, gaps: [{ ownedGameId, title, name, platform, year, igdbId }] }
 
 # 1. Create the map row (or refresh it — same slug updates in place)
-curl -s -X POST localhost:3000/api/games/<ownedGameId>/maps \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/games/<ownedGameId>/maps" \
   -H 'content-type: application/json' \
   -d '{ "title": "Overworld", "subtitle": "Blue Planet", "sourceUrl": "https://…", "position": 0 }'
 # → { id: "<mapId>", slug: "overworld", width: 0, height: 0, … }
 
 # 2. Upload the image bytes (PNG or JPEG, ≤ 16 MB). Records width/height.
-curl -s -X PUT localhost:3000/api/maps/<mapId>/image --data-binary @scripts/scratch/overworld.png
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PUT "${GAME_EXPLORER_URL:-http://localhost:3000}/api/maps/<mapId>/image" --data-binary @scripts/scratch/overworld.png
 # → { …, width: 4096, height: 4096 }
 
 # 3. Write the markers — upsert by name; replace:true drops the ones not listed
-curl -s -X POST localhost:3000/api/maps/<mapId>/markers \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/maps/<mapId>/markers" \
   -H 'content-type: application/json' \
   -d '{ "replace": true, "markers": [
     { "name": "Baron", "kind": "castle", "x": 1630, "y": 2510, "note": "Kingdom of Baron; where the game opens." },
@@ -140,7 +151,7 @@ Also: `GET /api/games/:id/maps` lists a copy's maps with markers;
 
 ## Verify
 
-Open `http://localhost:3000/game/<ownedGameId>/map?m=<slug>` in the browser at
+Open `$GAME_EXPLORER_URL/game/<ownedGameId>/map?m=<slug>` in the browser at
 a desktop width and at 390px. Click a few list entries in different corners
 of the map and check the marker sits on the place the map itself labels.
 Check the console is clean. Then open `/game/<ownedGameId>` and confirm the

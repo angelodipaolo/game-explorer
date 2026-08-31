@@ -26,6 +26,7 @@ npm run test:e2e       # Playwright, desktop + phone; reuses a running dev serve
 npm run db:restore     # rebuild prisma/dev.db from data/snapshot.json
 npm run db:snapshot    # export the DB to data/snapshot.json (commit it after imports)
 npm run catalog:sync   # refresh every linked catalog entry from IGDB
+scripts/deploy.sh      # on the Mac mini only: pull → build → restart the service (ops/README.md)
 npm run backup         # one tar.gz of prisma/dev.db + data/ into backups/ (-- --out <dir>)
 npm run images:warm    # pre-fill .cache/igdb-images with every cover + screenshot
 ```
@@ -54,6 +55,8 @@ reuses the one on port 3000.
 | `src/lib/play/` | Play history and the one ordered "up next" queue. `PlaySession` rows are the log play state is derived from; `startSession` dequeues in the same transaction. No agent write path. |
 | `src/lib/journal/` | Dated notes and photos per owned copy (`kind: note \| photo`), optionally tied to the run they were written during. Photos live in `data/journal/`, served by `/api/journal/:entryId/image`. No agent write path. |
 | `src/lib/media/` | `createImageStore(dir)` + `sniffImage` — the on-disk blob store behind `data/maps/`, `data/journal/` and `data/manuals/`. Reuse it; never add a fourth. |
+| `src/lib/auth.ts`, `src/proxy.ts` | One owner password + named bearer tokens; the gate in front of every `/api/*` route and the `noindex` header. `src/lib/viewer.ts` turns the cookie into `canEdit` for pages. |
+| `ops/` | Hosting: the LaunchAgent and `cloudflared` templates, and the runbook for the Mac mini. |
 | `src/lib/collection.ts` | Shelf/game view models. `groupShelf` collapses one game on several platforms into one entry (and rolls play state up across copies). `loadPlaying` is the `/playing` view model. |
 | `src/lib/home.ts` | Home's rows: a pool of candidate filters (tag×platform, tag, players, era, platform, never-played, series), a fixed 6–8 drawn per day by `daySeed`, quality-gated. Pure — components stay thin. |
 | `src/lib/filters.ts` | URL ⇄ filter state; three-valued verdicts (yes / no / unknown). `play` is the one two-valued filter — it reads your own log, not IGDB, so "never played" is a fact and not a gap. |
@@ -85,6 +88,15 @@ reuses the one on port 3000.
   client** — `boundary.test.ts` enforces it.
 - **Imports go through the API** (`POST /api/import/sessions`), never a
   private write path. Every commit is an undoable batch.
+- **Every `/api/*` route is behind `src/proxy.ts`.** A new route is
+  authenticated the moment it exists; never add a credential check inside a
+  route handler and never exempt one from the proxy. The only exemptions are
+  `/api/auth/*` and the public image reads — all of `/api/img/*` plus `GET` on
+  `/api/maps/:id/image`, `/api/journal/:id/image` and
+  `/api/manual-pages/:id/image` — because every public page is made of those
+  pixels. Owner-only *pages* (`/import/*`, `/series/new`) redirect to `/login`;
+  every write control in the UI renders only when the server-derived `canEdit`
+  says so (`src/lib/viewer.ts`).
 - **Manual facts and tags are never overwritten** by IGDB sync or agents.
   Codes, maps, bookmarks and manuals are the deliberate exception: they are
   lists, not contested values, so `GameCode`, `GameMap`, `MapMarker`,

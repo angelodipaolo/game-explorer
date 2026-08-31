@@ -9,7 +9,18 @@ IGDB knows co-op yes/no for most of the shelf but exact player counts for only
 a fifth, and it does not model "at the same time vs. taking turns" at all. This
 skill fills those gaps from the web, one cited fact at a time.
 
-The dev server must be running (`http://localhost:3000`).
+A server must be reachable, and every call is authenticated:
+
+- `GAME_EXPLORER_URL` — where the app is. Defaults to `http://localhost:3000`
+  (`npm run dev`); set it to `https://games.angelodipaolo.com` to work against
+  the hosted one.
+- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
+  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
+  `401`.
+
+If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
+not fall back to writing to the database directly — say the token is missing or
+wrong and let the owner fix it.
 
 ## Rules
 
@@ -42,16 +53,16 @@ co-op" filterable.
 
 ```bash
 # 1. What is missing? (default fields: maxPlayers, simultaneousPlay, coop)
-curl -s 'localhost:3000/api/enrichment/gaps?fields=maxPlayers,simultaneousPlay&limit=25'
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/gaps?fields=maxPlayers,simultaneousPlay&limit=25"
 # → { total, gaps: [{ ownedGameId, title, name, platform, year, igdbId, missing, known }] }
 
 # 2. Start a run
-curl -s -X POST localhost:3000/api/enrichment/runs -H 'content-type: application/json' -d '{"label":"players pass 1"}'
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/runs" -H 'content-type: application/json' -d '{"label":"players pass 1"}'
 # → { id: <runId> }
 
 # 3. Research each game (web search: "<name> NES players", the manual, a wiki),
 #    then write what you found — batches are fine.
-curl -s -X POST localhost:3000/api/enrichment/runs/<runId>/facts -H 'content-type: application/json' -d '{
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/runs/<runId>/facts" -H 'content-type: application/json' -d '{
   "facts": [
     { "ownedGameId": "…", "field": "maxPlayers", "value": 2, "sourceUrl": "https://…", "note": "manual p.4: 1 or 2 players, alternating" },
     { "ownedGameId": "…", "field": "simultaneousPlay", "value": false, "sourceUrl": "https://…" }
@@ -60,7 +71,7 @@ curl -s -X POST localhost:3000/api/enrichment/runs/<runId>/facts -H 'content-typ
 # → { written: [...], skipped: [{ ownedGameId, field, reason }] }
 
 # 4. Finish, and read the report back to the user
-curl -s -X POST localhost:3000/api/enrichment/runs/<runId>/finish
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/runs/<runId>/finish"
 # → { factsWritten, gamesTouched, byField, ... }
 ```
 

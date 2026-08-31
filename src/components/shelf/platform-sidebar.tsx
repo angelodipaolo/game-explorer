@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { cx } from "@/components/ui";
 import type { Facets, Filters } from "@/lib/filters";
+import type { Viewer } from "@/lib/viewer";
+import { AuthMenu } from "@/components/auth-menu";
 import { PlatformIcon } from "./platform-icon";
 
-export function PlatformSidebar({ open, onClose, platforms, totalGames, filters, set }: { open: boolean; onClose: () => void; platforms: Facets["platforms"]; totalGames: number; filters: Filters; set: (patch: Partial<Filters>) => void }) {
+export function PlatformSidebar({ open, onClose, platforms, totalGames, filters, set, viewer }: { open: boolean; onClose: () => void; platforms: Facets["platforms"]; totalGames: number; filters: Filters; set: (patch: Partial<Filters>) => void; viewer: Viewer }) {
   const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export function PlatformSidebar({ open, onClose, platforms, totalGames, filters,
             })}
           </div>
         </nav>
+        <AuthMenu viewer={viewer} className="shrink-0 border-t border-border px-5 py-3 pb-safe" />
       </aside>
     </div>
   );

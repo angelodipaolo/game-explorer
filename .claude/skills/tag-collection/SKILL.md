@@ -9,7 +9,18 @@ Tags sit on top of IGDB's genres / perspectives / themes. Yours and an agent's
 are added; IGDB's can only be hidden. In filters they are one pool, so a tag
 you add is filterable the moment it exists (`/?tags=Metroidvania`).
 
-The dev server must be running (`http://localhost:3000`).
+A server must be reachable, and every call is authenticated:
+
+- `GAME_EXPLORER_URL` — where the app is. Defaults to `http://localhost:3000`
+  (`npm run dev`); set it to `https://games.angelodipaolo.com` to work against
+  the hosted one.
+- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
+  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
+  `401`.
+
+If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
+not fall back to writing to the database directly — say the token is missing or
+wrong and let the owner fix it.
 
 ## Rules
 
@@ -28,22 +39,22 @@ The dev server must be running (`http://localhost:3000`).
 
 ```bash
 # What is on the shelf (id, name, platform, current tags)
-curl -s 'localhost:3000/api/enrichment/gaps?fields=maxPlayers&limit=500'   # ids + names; or read data/snapshot.json
-curl -s localhost:3000/api/tags                                            # tags already in use
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/gaps?fields=maxPlayers&limit=500"   # ids + names; or read data/snapshot.json
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/tags"                                            # tags already in use
 
 # One run per session so the report is meaningful
-curl -s -X POST localhost:3000/api/enrichment/runs -H 'content-type: application/json' -d '{"label":"metroidvania pass"}'
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/runs" -H 'content-type: application/json' -d '{"label":"metroidvania pass"}'
 # → { id: <runId> }
 
 # Write tags in batches
-curl -s -X POST localhost:3000/api/enrichment/runs/<runId>/tags -H 'content-type: application/json' -d '{
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/runs/<runId>/tags" -H 'content-type: application/json' -d '{
   "tags": [
     { "ownedGameId": "…", "tag": "Metroidvania", "sourceUrl": "https://en.wikipedia.org/wiki/Metroidvania", "note": "listed as a defining example" }
   ]
 }'
 # → { written: [...], skipped: [{ ownedGameId, tag, reason }] }
 
-curl -s -X POST localhost:3000/api/enrichment/runs/<runId>/finish
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/enrichment/runs/<runId>/finish"
 ```
 
 For one game by hand: `PUT /api/games/:id/tags { "tag": "Metroidvania" }`;

@@ -17,7 +17,7 @@ import { apiError } from "@/components/ui";
  * `PATCH /api/queue`, which the service applies in a single transaction, so a
  * half-applied order is never readable.
  */
-export function QueueList({ rows }: { rows: QueuedRow[] }) {
+export function QueueList({ rows, canEdit }: { rows: QueuedRow[]; canEdit: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -64,22 +64,26 @@ export function QueueList({ rows }: { rows: QueuedRow[] }) {
               </span>
             </span>
           </Link>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            <button onClick={() => move(i, -1)} disabled={busy || i === 0} className="h-11 w-11 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} up`} data-testid="queue-up">
-              ▲
-            </button>
-            <button onClick={() => move(i, 1)} disabled={busy || i === rows.length - 1} className="h-11 w-11 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} down`} data-testid="queue-down">
-              ▼
-            </button>
-            {/* Starting a run dequeues the copy in the same transaction, so this
-                row lands in "In progress" on the very next refresh. */}
-            <button onClick={() => call("POST", `/api/games/${r.ownedGameId}/sessions`, {})} disabled={busy} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink disabled:opacity-40" aria-label={`Play ${r.name} now`} data-testid="queue-play-now">
-              Play now
-            </button>
-            <button onClick={() => call("DELETE", `/api/queue/${r.ownedGameId}`)} disabled={busy} className="h-11 w-11 rounded-lg border border-border text-lg text-muted hover:border-muted hover:text-text disabled:opacity-40" aria-label={`Remove ${r.name} from the queue`} data-testid="queue-remove-row">
-              ×
-            </button>
-          </div>
+          {/* Read-only for a visitor: the order is the interesting part, the
+              four controls that change it are the owner's. */}
+          {canEdit ? (
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <button onClick={() => move(i, -1)} disabled={busy || i === 0} className="h-11 w-11 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} up`} data-testid="queue-up">
+                ▲
+              </button>
+              <button onClick={() => move(i, 1)} disabled={busy || i === rows.length - 1} className="h-11 w-11 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} down`} data-testid="queue-down">
+                ▼
+              </button>
+              {/* Starting a run dequeues the copy in the same transaction, so this
+                  row lands in "In progress" on the very next refresh. */}
+              <button onClick={() => call("POST", `/api/games/${r.ownedGameId}/sessions`, {})} disabled={busy} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink disabled:opacity-40" aria-label={`Play ${r.name} now`} data-testid="queue-play-now">
+                Play now
+              </button>
+              <button onClick={() => call("DELETE", `/api/queue/${r.ownedGameId}`)} disabled={busy} className="h-11 w-11 rounded-lg border border-border text-lg text-muted hover:border-muted hover:text-text disabled:opacity-40" aria-label={`Remove ${r.name} from the queue`} data-testid="queue-remove-row">
+                ×
+              </button>
+            </div>
+          ) : null}
         </li>
       ))}
     </ul>

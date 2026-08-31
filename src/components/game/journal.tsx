@@ -65,7 +65,7 @@ async function downscale(file: File): Promise<Blob> {
   }
 }
 
-export function Journal({ gameId, entries, sessions }: { gameId: string; entries: JournalEntry[]; sessions: PlaySession[] }) {
+export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string; entries: JournalEntry[]; sessions: PlaySession[]; canEdit: boolean }) {
   const router = useRouter();
   const openRun = sessions.find((s) => !s.endedAt) ?? null;
   const [busy, setBusy] = useState(false);
@@ -162,62 +162,64 @@ export function Journal({ gameId, entries, sessions }: { gameId: string; entries
         <h2 className="font-display text-base font-bold">
           Journal {entries.length ? <span className="text-muted">· {entries.length}</span> : null}
         </h2>
-        {entries.length ? (
+        {entries.length && canEdit ? (
           <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-journal">
             {editing ? "Done" : "Edit"}
           </button>
         ) : null}
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void add();
-        }}
-        className="rounded-xl border border-border bg-bg-elev p-3"
-        data-testid="journal-composer"
-      >
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={3}
-          placeholder="Where you got to, what happened, what to remember next time"
-          aria-label="Journal entry"
-          className="w-full rounded-lg border border-border bg-bg p-3 text-base outline-none focus:border-accent"
-          data-testid="journal-body"
-        />
-        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" aria-label="Title" className={field} data-testid="journal-title" />
-          <input type="date" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When it happened" className={field} data-testid="journal-date" />
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {/* No `capture`: the screenshot is already in the camera roll. */}
-          <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Add photo" className="min-h-11 max-w-full text-xs text-muted file:mr-2 file:min-h-9 file:rounded-lg file:border file:border-border file:bg-surface file:px-3 file:text-sm file:text-text" data-testid="journal-photo" />
-          {file ? <span className="text-xs text-accent-2">{file.name}</span> : null}
-        </div>
-        {openRun ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {onRun ? (
-              <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent/15 px-3 text-xs text-accent" data-testid="journal-run-chip">
-                on this run · since {day(openRun.startedAt)}
-                <button type="button" onClick={() => setOnRun(false)} className="ml-1 rounded-full px-1 leading-none hover:bg-bg/40" aria-label="Not part of this run" data-testid="journal-clear-run">
-                  ×
-                </button>
-              </span>
-            ) : (
-              <button type="button" onClick={() => setOnRun(true)} className="min-h-8 rounded-full border border-dashed border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="journal-set-run">
-                + file under this run
-              </button>
-            )}
+      {canEdit ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void add();
+          }}
+          className="rounded-xl border border-border bg-bg-elev p-3"
+          data-testid="journal-composer"
+        >
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={3}
+            placeholder="Where you got to, what happened, what to remember next time"
+            aria-label="Journal entry"
+            className="w-full rounded-lg border border-border bg-bg p-3 text-base outline-none focus:border-accent"
+            data-testid="journal-body"
+          />
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (optional)" aria-label="Title" className={field} data-testid="journal-title" />
+            <input type="date" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When it happened" className={field} data-testid="journal-date" />
           </div>
-        ) : null}
-        <div className="mt-2 flex items-center gap-2">
-          <button type="submit" disabled={busy || (!body.trim() && !file)} className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid="journal-save">
-            {busy ? "Saving…" : file ? "Add photo" : "Add note"}
-          </button>
-          <span className="text-xs text-faint">A photo needs no words; a note does.</span>
-        </div>
-      </form>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {/* No `capture`: the screenshot is already in the camera roll. */}
+            <input ref={fileRef} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Add photo" className="min-h-11 max-w-full text-xs text-muted file:mr-2 file:min-h-9 file:rounded-lg file:border file:border-border file:bg-surface file:px-3 file:text-sm file:text-text" data-testid="journal-photo" />
+            {file ? <span className="text-xs text-accent-2">{file.name}</span> : null}
+          </div>
+          {openRun ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {onRun ? (
+                <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent/15 px-3 text-xs text-accent" data-testid="journal-run-chip">
+                  on this run · since {day(openRun.startedAt)}
+                  <button type="button" onClick={() => setOnRun(false)} className="ml-1 rounded-full px-1 leading-none hover:bg-bg/40" aria-label="Not part of this run" data-testid="journal-clear-run">
+                    ×
+                  </button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setOnRun(true)} className="min-h-8 rounded-full border border-dashed border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="journal-set-run">
+                  + file under this run
+                </button>
+              )}
+            </div>
+          ) : null}
+          <div className="mt-2 flex items-center gap-2">
+            <button type="submit" disabled={busy || (!body.trim() && !file)} className="min-h-11 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink disabled:opacity-40" data-testid="journal-save">
+              {busy ? "Saving…" : file ? "Add photo" : "Add note"}
+            </button>
+            <span className="text-xs text-faint">A photo needs no words; a note does.</span>
+          </div>
+        </form>
+      ) : null}
 
       {groups.map((g) => (
         <div key={g.key} className="mt-4">
@@ -237,7 +239,7 @@ export function Journal({ gameId, entries, sessions }: { gameId: string; entries
                     ) : null}
                     {e.kind === "photo" && !e.width ? <div className="mt-1 text-xs text-faint">photo not uploaded</div> : null}
                   </div>
-                  {editing ? (
+                  {editing && canEdit ? (
                     <button onClick={() => remove(e)} disabled={busy} className="min-h-11 shrink-0 rounded-lg border border-bad/30 bg-bad/10 px-3 text-xs text-bad hover:bg-bad/20" aria-label={`Delete the entry from ${day(e.occurredAt)}`} data-testid="delete-entry">
                       Delete
                     </button>

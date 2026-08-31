@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site-header";
 import { Cover } from "@/components/shelf/cover";
 import { LinkButton } from "@/components/ui";
 import { listSeries } from "@/lib/series/service";
+import { readViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Series" };
@@ -18,7 +19,7 @@ export const metadata = { title: "Series" };
  * "7 of 16" is the whole point of the card: what you have against what exists.
  */
 export default async function SeriesIndexPage() {
-  const series = await listSeries();
+  const [series, { canEdit }] = await Promise.all([listSeries(), readViewer()]);
   return (
     <>
       <SiteHeader />
@@ -28,9 +29,13 @@ export default async function SeriesIndexPage() {
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Series</h1>
             <p className="mt-1 text-sm text-muted">Every Final Fantasy, every Mario Party — and which ones are on the shelf.</p>
           </div>
-          <LinkButton href="/series/new" variant="primary" data-testid="new-series">
-            + Series
-          </LinkButton>
+          {/* Building a series is curation: /series/new is behind auth, so a
+              visitor gets no button that only leads to a login page. */}
+          {canEdit ? (
+            <LinkButton href="/series/new" variant="primary" data-testid="new-series">
+              + Series
+            </LinkButton>
+          ) : null}
         </div>
 
         {series.length ? (
@@ -50,11 +55,17 @@ export default async function SeriesIndexPage() {
           </ul>
         ) : (
           <p className="mt-8 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted" data-testid="series-empty">
-            No series yet. Start one from a game you own —{" "}
-            <Link href="/series/new" className="text-accent-2 underline">
-              seed it from IGDB and prune
-            </Link>
-            .
+            {canEdit ? (
+              <>
+                No series yet. Start one from a game you own —{" "}
+                <Link href="/series/new" className="text-accent-2 underline">
+                  seed it from IGDB and prune
+                </Link>
+                .
+              </>
+            ) : (
+              "No series yet."
+            )}
           </p>
         )}
       </main>

@@ -28,6 +28,14 @@ or `.png`), written by `PUT /api/journal/:entryId/image`. Same stance as
 entries, the files carry the pixels. Play sessions, journal entries, bookmarks
 and the play queue *are* in the snapshot.
 
+## These files are private on disk, public on the web
+
+Gitignored is not the same as protected. Once the site is served through the
+Cloudflare Tunnel (GAMEEXPLOR-0002), **anyone with the link can read journal
+entries, their photos, your notes and your play history** — reads are public by
+design and only writes need the owner. Treat a journal entry the way you would
+a public post: do not put anything in one you would not make public.
+
 ## Backups
 
 `npm run backup` writes `backups/game-explorer-<ISO8601>.tar.gz` — the one

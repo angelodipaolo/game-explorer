@@ -3,7 +3,8 @@
  * through the import API (never a private write path).
  *
  *   cp /path/to/game-manage/apps/web/prisma/dev.db scratch/game-manage.db
- *   npx tsx scripts/import-collection.ts scratch/game-manage.db http://localhost:3000 [report.md]
+ *   GAME_EXPLORER_TOKEN=… npx tsx scripts/import-collection.ts scratch/game-manage.db \
+ *     "${GAME_EXPLORER_URL:-http://localhost:3000}" [report.md]
  *
  * Creates one session, submits rows in batches of 25, then prints a report of
  * everything held for review and every title IGDB places on another platform.
@@ -15,15 +16,24 @@ import { collapseTitles, readSourceRows, splitPlatformSuffix } from "./lib/sourc
 type Row = { id: string; title: string; platform: string; quantity: number; decision: string; holdReason: string | null; candidates: string; chosenIgdbId: number | null; chosenConfidence: number | null };
 type Candidate = { igdbId: number; name: string; confidence: number; reason: string; onPlatform: boolean; platformNames: string[]; firstReleaseYear: number | null };
 
+/**
+ * Every `/api/*` call is behind `src/proxy.ts` (GAMEEXPLOR-0002), so this
+ * script carries a token like the skills do. Against a `npm run dev` server
+ * with no auth configured the header is simply ignored.
+ */
 async function api<T>(base: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(base + path, { headers: { "content-type": "application/json" }, ...init });
+  const token = process.env.GAME_EXPLORER_TOKEN;
+  const res = await fetch(base + path, {
+    ...init,
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...(init?.headers ?? {}) },
+  });
   const json = (await res.json()) as T & { error?: string };
   if (!res.ok) throw new Error(`${path}: ${res.status} ${json.error ?? ""}`);
   return json;
 }
 
 async function main() {
-  const [dbPath, base = "http://localhost:3001", reportPath] = process.argv.slice(2);
+  const [dbPath, base = process.env.GAME_EXPLORER_URL ?? "http://localhost:3000", reportPath] = process.argv.slice(2);
   if (!dbPath) throw new Error("usage: import-collection <db copy> [base url] [report.md]");
   const source = readSourceRows(dbPath);
   const { games, dropped } = collapseTitles(source);

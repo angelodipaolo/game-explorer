@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import type { ShelfGame } from "@/lib/collection";
+import type { Viewer } from "@/lib/viewer";
 import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilters, type Filters } from "@/lib/filters";
 import { Button, cx } from "@/components/ui";
 import { FilterSheet, PresetRow } from "./filter-sheet";
@@ -10,7 +11,7 @@ import { GameCard, GameRow } from "./game-card";
 import { PlatformSidebar } from "./platform-sidebar";
 import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
 
-export function Shelf({ games }: { games: ShelfGame[] }) {
+export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) {
   const [filters, set, reset] = useFilters({ scrollTopOnChange: true });
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -141,8 +142,8 @@ export function Shelf({ games }: { games: ShelfGame[] }) {
         Flip through ▸
       </Link>
 
-      <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} />
-      <PlatformSidebar open={platformsOpen} onClose={closePlatforms} platforms={facets.platforms} totalGames={games.length} filters={filters} set={set} />
+      <FilterSheet open={sheetOpen} onClose={closeSheet} filters={filters} facets={facets} set={set} reset={reset} active={active} confirmed={result.confirmed.length} maybe={result.maybe.length} viewer={viewer} />
+      <PlatformSidebar open={platformsOpen} onClose={closePlatforms} platforms={facets.platforms} totalGames={games.length} filters={filters} set={set} viewer={viewer} />
     </div>
   );
 }

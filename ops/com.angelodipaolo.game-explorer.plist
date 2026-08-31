@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template — copy to ~/Library/LaunchAgents/com.angelodipaolo.game-explorer.plist
+  on the Mac mini and check the three paths marked below. See ops/README.md.
+
+  A LaunchAgent (gui/$UID), not a LaunchDaemon: it runs as the owner, with the
+  owner's home directory, which is where the checkout, prisma/dev.db and the
+  data/ blobs live. RunAtLoad + KeepAlive means a reboot or a `kill -9` both
+  end with the site back up and nobody at a terminal.
+
+  Environment comes from the checkout's .env, which Next loads itself — the
+  Twitch secret, OWNER_PASSWORD, AUTH_SECRET and API_TOKENS are never in here,
+  because a plist is world-readable.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.angelodipaolo.game-explorer</string>
+
+  <!-- CHECK: the checkout. `npm run start` is `next start -H 0.0.0.0`, port 3000. -->
+  <key>WorkingDirectory</key>
+  <string>/Users/angelo/projects/game-explorer</string>
+
+  <!-- A login shell so nvm/homebrew's node is on PATH the way it is in a terminal. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>exec npm run start</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <!-- CHECK: match `echo $PATH` on the mini if node is not found in the logs. -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- 10s between restarts, so a crash loop does not spin the CPU. -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <!-- CHECK: mkdir -p ~/Library/Logs/game-explorer first, or launchd fails silently. -->
+  <key>StandardOutPath</key>
+  <string>/Users/angelo/Library/Logs/game-explorer/out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/angelo/Library/Logs/game-explorer/err.log</string>
+
+  <key>ProcessType</key>
+  <string>Interactive</string>
+</dict>
+</plist>

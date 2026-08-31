@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { readViewer } from "@/lib/viewer";
 
-export function SiteHeader() {
+/**
+ * Reads the session itself rather than taking a prop: every page that renders
+ * a header already renders it server-side, and threading `canEdit` through
+ * eight call sites to hide one link is worse than one cookie read.
+ */
+export async function SiteHeader() {
+  const { canEdit } = await readViewer();
   return (
     <header className="sticky top-0 z-30 border-b border-border/70 bg-bg/85 backdrop-blur">
       <div className="nes-stripe h-1" aria-hidden />
@@ -24,9 +31,14 @@ export function SiteHeader() {
           <Link href="/playing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-playing">
             Playing
           </Link>
-          <Link href="/import" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text">
-            Import
-          </Link>
+          {/* Import is a curation tool: `src/proxy.ts` sends a visitor who
+              types the URL to /login, so offering the link to one would only
+              be a dead end. */}
+          {canEdit ? (
+            <Link href="/import" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-import">
+              Import
+            </Link>
+          ) : null}
         </nav>
       </div>
     </header>

@@ -15,7 +15,7 @@ import { cx } from "@/components/ui";
  * are the same kind of record. The one-handed path is the copy button: read a
  * Game Genie code off the phone while typing it into the console.
  */
-export function CodeList({ gameId, codes }: { gameId: string; codes: GameCode[] }) {
+export function CodeList({ gameId, codes, canEdit }: { gameId: string; codes: GameCode[]; canEdit: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -58,7 +58,7 @@ export function CodeList({ gameId, codes }: { gameId: string; codes: GameCode[] 
         <h2 className="font-display text-base font-bold">
           Codes &amp; passwords {codes.length ? <span className="text-muted">· {codes.length}</span> : null}
         </h2>
-        {codes.length ? (
+        {codes.length && canEdit ? (
           <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-codes">
             {editing ? "Done" : "Edit"}
           </button>
@@ -70,7 +70,7 @@ export function CodeList({ gameId, codes }: { gameId: string; codes: GameCode[] 
           key={g.kind}
           kind={g.kind}
           rows={g.rows}
-          editing={editing}
+          editing={editing && canEdit}
           busy={busy}
           editId={editId}
           onEdit={setEditId}
@@ -81,9 +81,9 @@ export function CodeList({ gameId, codes }: { gameId: string; codes: GameCode[] 
         />
       ))}
 
-      {adding ? (
+      {adding && canEdit ? (
         <CodeForm busy={busy} onCancel={() => setAdding(false)} onSubmit={(body) => call("POST", body)} />
-      ) : (
+      ) : canEdit ? (
         <button
           onClick={() => setAdding(true)}
           disabled={full}
@@ -93,7 +93,7 @@ export function CodeList({ gameId, codes }: { gameId: string; codes: GameCode[] 
         >
           + code
         </button>
-      )}
+      ) : null}
       {!codes.length && !adding ? <p className="mt-2 text-xs text-faint">Passwords, cheats and Game Genie codes for this copy.</p> : null}
     </section>
   );

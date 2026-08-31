@@ -14,6 +14,44 @@ import path from "node:path";
 
 export type ImageInfo = { format: "png" | "jpeg"; width: number; height: number };
 
+/**
+ * A row id that was refused before it ever reached the filesystem. Typed so the
+ * routes can answer `404` — an id that cannot name a file cannot name a stored
+ * image either — instead of letting it fall through to `handle()`'s 500.
+ */
+export class ImageIdError extends Error {
+  constructor(id: string) {
+    super(`invalid image id ${JSON.stringify(id.slice(0, 64))}`);
+    this.name = "ImageIdError";
+  }
+}
+
+/**
+ * The one rule that keeps `data/maps`, `data/journal` and `data/manuals` shut.
+ *
+ * Every id here arrives from a URL segment (`/api/maps/:mapId/image`), and
+ * `path.join(dir, id + ext)` happily resolves `..` and `/` — `%2F..%2Fetc%2F`
+ * decoded is a read of any file the server process can open. So the id is
+ * matched against an allowlist rather than scanned for bad shapes: these are
+ * Prisma `cuid()` values (`@default(cuid())` on every row that owns an image),
+ * so letters, digits, `-` and `_` cover them with room to spare, and **no**
+ * `.`, `/`, `\`, NUL, or anything else that can mean a directory.
+ *
+ * The same rigor as `isImageId` in src/lib/images/sizes.ts, for the same
+ * reason: a URL segment is about to become a path.
+ */
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+
+export function isSafeImageId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 128 && SAFE_ID.test(value);
+}
+
+/** Every entry point runs through this before touching `dir`. */
+function requireSafeId(id: string): string {
+  if (!isSafeImageId(id)) throw new ImageIdError(String(id));
+  return id;
+}
+
 /** Upload cap, bytes. A 4096² palette PNG is well under 1 MB; a phone photo is a few MB. */
 export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 
@@ -60,19 +98,23 @@ export type ImageStore = {
  * closure over `dir` rather than a module-level constant.
  */
 export function createImageStore(dir: string): ImageStore {
-  const filePath = (id: string, format: ImageInfo["format"]) => path.join(dir, `${id}.${format === "png" ? "png" : "jpg"}`);
+  // `requireSafeId` is on the *inside* of the one function that builds a path,
+  // so no store method can reach the disk with an id that skipped the check.
+  const filePath = (id: string, format: ImageInfo["format"]) => path.join(dir, `${requireSafeId(id)}.${format === "png" ? "png" : "jpg"}`);
 
   return {
     dir,
     path: filePath,
     async write(id, buf, info) {
+      requireSafeId(id);
       await fs.mkdir(dir, { recursive: true });
       // One image per row: drop the other format if it is re-uploaded.
       await Promise.all([fs.rm(filePath(id, "png"), { force: true }), fs.rm(filePath(id, "jpeg"), { force: true })]);
       await fs.writeFile(filePath(id, info.format), buf);
     },
-    /** The stored image, or null when none has been uploaded yet. */
+    /** The stored image, or null when none has been uploaded yet. Throws `ImageIdError` on an id that is not a bare row id. */
     async read(id) {
+      requireSafeId(id);
       for (const [format, type] of [
         ["png", "image/png"],
         ["jpeg", "image/jpeg"],
@@ -84,6 +126,7 @@ export function createImageStore(dir: string): ImageStore {
       return null;
     },
     async delete(id) {
+      requireSafeId(id);
       await Promise.all([fs.rm(filePath(id, "png"), { force: true }), fs.rm(filePath(id, "jpeg"), { force: true })]);
     },
   };

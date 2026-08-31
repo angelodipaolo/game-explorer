@@ -19,7 +19,18 @@ IGDB has no cheat or password data (`/v4/cheats`, `/v4/game_cheats`, `/v4/codes`
 do not exist), so everything here comes from research. `games.websites` in the
 catalog sometimes links a wiki worth reading — a lead, not a source of truth.
 
-The dev server must be running (`http://localhost:3000`).
+A server must be reachable, and every call is authenticated:
+
+- `GAME_EXPLORER_URL` — where the app is. Defaults to `http://localhost:3000`
+  (`npm run dev`); set it to `https://games.angelodipaolo.com` to work against
+  the hosted one.
+- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
+  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
+  `401`.
+
+If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
+not fall back to writing to the database directly — say the token is missing or
+wrong and let the owner fix it.
 
 ## The four kinds
 
@@ -65,13 +76,13 @@ The dev server must be running (`http://localhost:3000`).
 
 ```bash
 # Games with no codes at all (or none of a kind)
-curl -s 'localhost:3000/api/codes/gaps?limit=50'
-curl -s 'localhost:3000/api/codes/gaps?kinds=game-genie&limit=50'
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/codes/gaps?limit=50"
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "${GAME_EXPLORER_URL:-http://localhost:3000}/api/codes/gaps?kinds=game-genie&limit=50"
 # → { total, gaps: [{ ownedGameId, title, name, platform, year, igdbId, have }] }
 # `have` is what that copy already holds per kind — don't redo it.
 
 # Research, then write across as many games as you like in one request
-curl -s -X POST localhost:3000/api/codes -H 'content-type: application/json' -d '{
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/codes" -H 'content-type: application/json' -d '{
   "codes": [
     { "ownedGameId": "…", "kind": "game-genie", "effect": "Infinite lives",
       "code": "SXIOPO", "sourceUrl": "https://…" },

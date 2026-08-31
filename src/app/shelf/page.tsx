@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { Shelf } from "@/components/shelf/shelf";
 import { loadShelf } from "@/lib/collection";
+import { readViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Shelf" };
@@ -13,13 +14,13 @@ export const metadata = { title: "Shelf" };
  * the toolbar, presets, genre row and filter sheet stayed.
  */
 export default async function ShelfPage() {
-  const games = await loadShelf();
+  const [games, viewer] = await Promise.all([loadShelf(), readViewer()]);
   return (
     <>
       <SiteHeader />
       <main>
         <Suspense>
-          <Shelf games={games} />
+          <Shelf games={games} viewer={viewer} />
         </Suspense>
       </main>
     </>

@@ -1,0 +1,26 @@
+# Template — copy to ~/.cloudflared/config.yml on the Mac mini and fill in the
+# tunnel UUID. See ops/README.md for the commands that create it.
+#
+# The tunnel dials out from the mini to Cloudflare, so there is no port to
+# forward, no dynamic DNS and no certificate to renew: inbound ports and TLS
+# stop being this project's problem. `angelodipaolo.com` keeps pointing at
+# Netlify; only the `games.` record belongs to this tunnel.
+
+tunnel: game-explorer
+# `cloudflared tunnel create` prints this path — it is the tunnel's private key.
+credentials-file: /Users/angelo/.cloudflared/TUNNEL-UUID-GOES-HERE.json
+
+ingress:
+  # Everything for this hostname goes to the LaunchAgent's `next start`.
+  # Auth happens in the app (src/proxy.ts), not at the edge, because the same
+  # bearer token has to work for the skills and for a future iOS client.
+  - hostname: games.angelodipaolo.com
+    service: http://localhost:3000
+    originRequest:
+      # Keep the public hostname on the request. `src/proxy.ts` builds its
+      # redirect to /login from the Host header, so an origin that saw
+      # "localhost" would send a phone on cellular to localhost.
+      httpHostHeader: games.angelodipaolo.com
+
+  # A tunnel with no catch-all refuses to start.
+  - service: http_status:404

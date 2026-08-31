@@ -2,14 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { EnrichmentError } from "@/lib/enrichment/service";
 import { handle, ok } from "@/lib/enrichment/http";
 import { readImage } from "@/lib/maps/image";
+import { isSafeImageId } from "@/lib/media/image-store";
 import { setMapImage } from "@/lib/maps/service";
 
 type Ctx = { params: Promise<{ mapId: string }> };
 
-/** GET /api/maps/:mapId/image — the stored PNG/JPEG. 404 until one is uploaded. */
+/**
+ * GET /api/maps/:mapId/image — the stored PNG/JPEG. 404 until one is uploaded.
+ *
+ * This route is public (the allowlist in `src/proxy.ts`), so the id in the URL
+ * is attacker-chosen. `isSafeImageId` is the same check the store enforces
+ * anyway — repeated here only so a rejected id is a plain 404 rather than the
+ * 500 an unhandled `ImageIdError` would become.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   return handle(async () => {
-    const img = await readImage((await ctx.params).mapId);
+    const { mapId } = await ctx.params;
+    if (!isSafeImageId(mapId)) throw new EnrichmentError("no image uploaded for this map", 404);
+    const img = await readImage(mapId);
     if (!img) throw new EnrichmentError("no image uploaded for this map", 404);
     return new NextResponse(new Uint8Array(img.buf), { headers: { "content-type": img.contentType, "cache-control": "private, max-age=0, must-revalidate" } });
   });
@@ -22,8 +32,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  */
 export async function PUT(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
+    const { mapId } = await ctx.params;
+    if (!isSafeImageId(mapId)) throw new EnrichmentError("no such map", 404);
     const buf = Buffer.from(await req.arrayBuffer());
     if (!buf.length) throw new EnrichmentError("empty body — send the image bytes", 400);
-    return ok(await setMapImage((await ctx.params).mapId, buf));
+    return ok(await setMapImage(mapId, buf));
   });
 }

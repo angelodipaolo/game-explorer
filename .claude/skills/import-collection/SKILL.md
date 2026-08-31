@@ -8,7 +8,18 @@ description: Import games into Game Explorer from a CSV, spreadsheet, list, or p
 You are the smart client. The API owns validation, matching, dedupe, and the
 transaction. You own parsing, normalizing, and judgment on the rows it holds.
 
-The dev server must be running (`npm run dev`, default `http://localhost:3000`).
+A server must be reachable, and every call is authenticated:
+
+- `GAME_EXPLORER_URL` — where the app is. Defaults to `http://localhost:3000`
+  (`npm run dev`); set it to `https://games.angelodipaolo.com` to work against
+  the hosted one.
+- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
+  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
+  `401`.
+
+If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
+not fall back to writing to the database directly — say the token is missing or
+wrong and let the owner fix it.
 
 ## 1. Parse
 
@@ -35,11 +46,11 @@ Turn whatever you were given into rows of:
 ## 2. Create a session, submit in batches
 
 ```bash
-curl -s -X POST localhost:3000/api/import/sessions -H 'content-type: application/json' \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/import/sessions" -H 'content-type: application/json' \
   -d '{"label":"shelf photo 2026-08-28","source":"agent","rows":[]}'
 # → { "id": "<sessionId>", ... }
 
-curl -s -X POST localhost:3000/api/import/sessions/<sessionId>/rows -H 'content-type: application/json' \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/import/sessions/<sessionId>/rows" -H 'content-type: application/json' \
   -d '{"defaultPlatform":"NES","rows":[ ...≤25 rows... ]}'
 ```
 
@@ -72,7 +83,7 @@ Decide yourself when the answer is not in doubt:
   the same list re-exported, `dropped`.
 
 ```bash
-curl -s -X PATCH localhost:3000/api/import/sessions/<sessionId>/rows/<rowId> -H 'content-type: application/json' \
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "${GAME_EXPLORER_URL:-http://localhost:3000}/api/import/sessions/<sessionId>/rows/<rowId>" -H 'content-type: application/json' \
   -d '{"decision":"accepted","igdbId":48181,"decidedBy":"agent"}'
 # other bodies: {"decision":"dropped"}  {"decision":"merge"}
 #               {"decision":"accepted","igdbId":null}        ← import with no catalog link
@@ -96,7 +107,7 @@ another game's co-op tags on this cartridge.
 ## 4. Commit
 
 ```bash
-curl -s -X POST localhost:3000/api/import/sessions/<sessionId>/commit -H 'content-type: application/json' -d '{}'
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/import/sessions/<sessionId>/commit" -H 'content-type: application/json' -d '{}'
 ```
 
 A 409 lists rows still in `review`. `{"force":true}` imports them unlinked —
@@ -109,11 +120,11 @@ Tell the user: how many rows, how many matched automatically, every decision
 you made on a held row and why, anything left unlinked, and the undo command:
 
 ```bash
-curl -s -X POST localhost:3000/api/import/batches/<batchId>/rollback
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "${GAME_EXPLORER_URL:-http://localhost:3000}/api/import/batches/<batchId>/rollback"
 ```
 
 Rollback removes exactly the rows that batch created (and reverses quantity
 merges) and nothing else.
 
-The review page at `http://localhost:3000/import/<sessionId>` shows the same
+The review page at `$GAME_EXPLORER_URL/import/<sessionId>` shows the same
 session for the user, with the same actions.
