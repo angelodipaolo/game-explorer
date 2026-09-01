@@ -20,7 +20,9 @@ export class EnrichmentError extends Error {
   }
 }
 
-const BOOL_FIELDS: FactField[] = ["singlePlayer", "multiplayer", "coop", "splitscreen", "simultaneousPlay"];
+// `coop` is the local kind — IGDB has no remote signal, so `onlineCoop` is
+// research-only and starts unknown on every game.
+const BOOL_FIELDS: FactField[] = ["singlePlayer", "multiplayer", "coop", "onlineCoop", "splitscreen", "simultaneousPlay"];
 const NUM_FIELDS: FactField[] = ["maxPlayers", "coopMaxPlayers", "playtimeMinutes"];
 
 export const factInputSchema = z

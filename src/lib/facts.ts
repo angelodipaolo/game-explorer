@@ -6,6 +6,12 @@
  *             multiplayer_modes (exact counts)
  *   derived — computed from other facts (simultaneousPlay from offlinecoop)
  *
+ * Every player column IGDB gives us describes LOCAL play, so `coop` here means
+ * couch co-op. Remote play is `onlineCoop`, which IGDB never sets and nothing
+ * derives: it starts unknown on every game and is filled in by the owner or by
+ * a research agent. `src/lib/players.ts` turns the resolved profile into the
+ * words a person reads.
+ *
  * Every resolved value carries where it came from so the UI can show
  * "verified" vs "from IGDB" vs "unknown".
  */
@@ -14,6 +20,7 @@ export const FACT_FIELDS = [
   "singlePlayer",
   "multiplayer",
   "coop",
+  "onlineCoop",
   "splitscreen",
   "maxPlayers",
   "coopMaxPlayers",
@@ -30,6 +37,7 @@ export type PlayerProfile = {
   singlePlayer: Fact<boolean>;
   multiplayer: Fact<boolean>;
   coop: Fact<boolean>;
+  onlineCoop: Fact<boolean>;
   splitscreen: Fact<boolean>;
   maxPlayers: Fact<number>;
   coopMaxPlayers: Fact<number>;
@@ -59,6 +67,7 @@ function fromCatalog(c: CatalogPlayerData | null): PlayerProfile {
     singlePlayer: UNKNOWN,
     multiplayer: UNKNOWN,
     coop: UNKNOWN,
+    onlineCoop: UNKNOWN,
     splitscreen: UNKNOWN,
     maxPlayers: UNKNOWN,
     coopMaxPlayers: UNKNOWN,
@@ -143,18 +152,4 @@ function derive(p: PlayerProfile, c: CatalogPlayerData | null): PlayerProfile {
 
 export function resolvePlayerProfile(catalog: CatalogPlayerData | null, overrides: Override[] = []): PlayerProfile {
   return derive(applyOverrides(fromCatalog(catalog), overrides), catalog);
-}
-
-/** How much do we know? Used by the UI to phrase the players line honestly. */
-export function playerSummary(p: PlayerProfile): { label: string; tier: "exact" | "mode" | "unknown" } {
-  if (p.maxPlayers.value != null) {
-    const n = p.maxPlayers.value;
-    if (n <= 1) return { label: "1 player", tier: "exact" };
-    const together = p.simultaneousPlay.value === true ? " together" : p.simultaneousPlay.value === false ? ", taking turns" : "";
-    return { label: `1–${n} players${together}`, tier: "exact" };
-  }
-  if (p.coop.value === true) return { label: "Co-op", tier: "mode" };
-  if (p.multiplayer.value === true) return { label: "Multiplayer", tier: "mode" };
-  if (p.singlePlayer.value === true && p.multiplayer.value === false) return { label: "1 player", tier: "mode" };
-  return { label: "Players unknown", tier: "unknown" };
 }

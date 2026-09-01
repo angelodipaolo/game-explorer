@@ -10,14 +10,18 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
       <Group label="How many of us?">
         <Segmented value={filters.players} onChange={(v) => set({ players: v })} options={[[1, "Just me"], [2, "2"], [3, "3"], [4, "4+"]]} />
       </Group>
+      {/* The vocabulary is `src/lib/players.ts`'s. The URL values are NOT —
+          `mode=coop|versus|together` is what every saved link and preset
+          carries, so only the words on the buttons changed. `coop` means the
+          local kind: every player column IGDB gives us is about one couch. */}
       <Group label="Playing how?">
         <Segmented
           value={filters.mode}
           onChange={(v) => set({ mode: v })}
           options={[
-            ["coop", "Co-op"],
+            ["coop", "Local co-op"],
             ["versus", "Versus"],
-            ["together", "At the same time"],
+            ["together", "Same time"],
           ]}
         />
       </Group>

@@ -27,9 +27,11 @@ export function GameCard({ game, dim, priority }: { game: ShelfGame; dim?: boole
       </div>
       <div className="mt-2 px-0.5">
         <div className="line-clamp-2 text-sm font-medium leading-snug">{game.name}</div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-xs">
-          <PlayersLine players={game.players} />
-          {game.playtime != null ? <span className="text-faint">· {minutesLabel(game.playtime)}</span> : null}
+        {/* min-w-0 so the players line can truncate instead of wrapping the
+            card to three lines on a 375px two-column grid. */}
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs">
+          <PlayersLine players={game.players} brief className="min-w-0" />
+          {game.playtime != null ? <span className="shrink-0 text-faint">· {minutesLabel(game.playtime)}</span> : null}
         </div>
       </div>
     </Link>
@@ -57,7 +59,7 @@ export function GameRow({ game, dim }: { game: ShelfGame; dim?: boolean }) {
       </div>
       <div className="hidden w-28 shrink-0 truncate text-xs text-muted sm:block">{game.copies.map((c) => c.platformLabel).join(" · ")}{game.year ? ` · ${game.year}` : ""}</div>
       <div className="w-28 shrink-0 text-right text-xs sm:w-36">
-        <PlayersLine players={game.players} />
+        <PlayersLine players={game.players} brief />
         {dim ? <span className="ml-1 text-faint">?</span> : null}
       </div>
       <div className="hidden w-14 shrink-0 text-right text-xs text-faint sm:block">{minutesLabel(game.playtime) ?? ""}</div>

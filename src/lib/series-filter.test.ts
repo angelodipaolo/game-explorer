@@ -37,7 +37,7 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
     perspectives: [],
     rating: null,
     playtime: null,
-    players: { label: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
+    players: { label: "", brief: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
     hasScreenshots: false,
     tags: [],
     similar: [],
@@ -68,7 +68,7 @@ const missing = (g: ShelfGame, platforms: string[], section: string | null = nul
 
 // One series in curated order: two you own, two you do not, in the order a
 // person put them in rather than alphabetically or owned-first.
-const one = owned(game({ title: "Contra", genres: ["Shooter"], players: { label: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false } }), "Mainline");
+const one = owned(game({ title: "Contra", genres: ["Shooter"], players: { label: "", brief: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false } }), "Mainline");
 const two = missing(game({ title: "Super C", genres: ["Shooter"], year: 1990 }), ["nes", "snes"], "Mainline");
 const three = owned(game({ title: "Contra III", platform: "snes", platformLabel: "SNES", genres: ["Shooter"], year: 1992, play: { status: "playing", runs: 1, lastPlayedAt: null } }), "Mainline");
 const four = missing(game({ title: "Probotector", genres: ["Platform"], year: 1994 }), ["genesis"], "Spin-offs");

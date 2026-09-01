@@ -58,23 +58,38 @@ you are talking to the right server.
 
 ## Fields
 
+The app describes a game on three independent axes — how many players, which
+kind of co-op, and whether they play together or take turns
+(`src/lib/players.ts`). These fields are what feed them.
+
 | field | type | meaning |
 | --- | --- | --- |
 | `maxPlayers` | int | most people who can play in one session |
-| `simultaneousPlay` | bool | true = together at once; false = alternating turns |
-| `coop` | bool | players cooperate (vs. only versus / alternating) |
+| `simultaneousPlay` | bool | true = together at once ("Together"); false = alternating turns ("Taking turns") |
+| `coop` | bool | **local** co-op: couch, same console, split screen |
+| `onlineCoop` | bool | **remote** co-op over a network. IGDB never says; this is yours to find |
 | `coopMaxPlayers` | int | most people in co-op at once |
-| `splitscreen` | bool | |
+| `splitscreen` | bool | a local-co-op signal; `coop` is the one to write |
 | `singlePlayer` / `multiplayer` | bool | rarely needed; IGDB covers these |
 | `playtimeMinutes` | int | typical time to finish once |
 
-`simultaneousPlay` is the one that matters most: it is what makes "2-player
-co-op" filterable.
+**Local and online co-op are two different fields, on purpose.** Every player
+column IGDB gives us describes one couch, so `coop` is the local kind and
+`onlineCoop` starts unknown on every game in the collection — it exists so you
+can fill it in. A game with both gets both set to true. Most cartridges on this
+shelf have no online anything: write `onlineCoop: false` only when a source
+says so, and otherwise leave it null rather than assuming.
+
+`simultaneousPlay` is the one that matters most: it is what makes "2 of us, at
+the same time" filterable. Super Mario Kart is 1–2 simultaneous; Donkey Kong
+Country is 1–2 taking turns.
 
 ## Path
 
 ```bash
 # 1. What is missing? (default fields: maxPlayers, simultaneousPlay, coop)
+#    `onlineCoop` is unknown on every game, so ask for it only on a pass that
+#    is actually about online play — otherwise it returns the whole shelf.
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/enrichment/gaps?fields=maxPlayers,simultaneousPlay&limit=25"
 # → { total, gaps: [{ ownedGameId, title, name, platform, year, igdbId, missing, known }] }
 
@@ -87,7 +102,8 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/enrichment/runs/<runId>/facts" -H 'content-type: application/json' -d '{
   "facts": [
     { "ownedGameId": "…", "field": "maxPlayers", "value": 2, "sourceUrl": "https://…", "note": "manual p.4: 1 or 2 players, alternating" },
-    { "ownedGameId": "…", "field": "simultaneousPlay", "value": false, "sourceUrl": "https://…" }
+    { "ownedGameId": "…", "field": "simultaneousPlay", "value": false, "sourceUrl": "https://…" },
+    { "ownedGameId": "…", "field": "onlineCoop", "value": true, "sourceUrl": "https://…", "note": "Xbox Live co-op campaign" }
   ]
 }'
 # → { written: [...], skipped: [{ ownedGameId, field, reason }] }

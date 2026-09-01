@@ -134,8 +134,9 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
             ) : null}
 
             {/* Should we play this? Six fact tiles condensed into one line
-                (step 2), with the same facts one tap away underneath. */}
-            <PlayLine profile={game.profile} playersFallback={game.players} playtimeCompletely={game.playtimeRange.completely} />
+                (step 2), with the same facts one tap away underneath. The
+                wording comes from `src/lib/players.ts`, same as the cards. */}
+            <PlayLine profile={game.profile} playtimeCompletely={game.playtimeRange.completely} />
 
             {/* The button the app exists for, moved above the fold (step 3) —
                 it used to sit ~2,000px down inside Play History. */}

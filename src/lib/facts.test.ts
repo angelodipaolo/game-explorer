@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { playerSummary, resolvePlayerProfile, type CatalogPlayerData } from "./facts";
+import { resolvePlayerProfile, type CatalogPlayerData } from "./facts";
 
 const base: CatalogPlayerData = {
   gameModes: [],
@@ -15,14 +15,13 @@ describe("resolvePlayerProfile", () => {
   it("is all-unknown without catalog data", () => {
     const p = resolvePlayerProfile(null);
     expect(p.coop).toEqual({ value: null, source: null });
-    expect(playerSummary(p)).toEqual({ label: "Players unknown", tier: "unknown" });
+    expect(p.onlineCoop).toEqual({ value: null, source: null });
   });
 
   it("reads co-op yes/no from game_modes and records the tier", () => {
     const p = resolvePlayerProfile({ ...base, gameModes: [1, 2, 3] });
     expect(p.coop).toEqual({ value: true, source: "igdb:game_modes" });
     expect(p.maxPlayers.value).toBeNull();
-    expect(playerSummary(p)).toEqual({ label: "Co-op", tier: "mode" });
   });
 
   it("reads exact counts from multiplayer_modes and derives simultaneous play", () => {
@@ -30,7 +29,6 @@ describe("resolvePlayerProfile", () => {
     expect(p.maxPlayers).toEqual({ value: 2, source: "igdb:multiplayer_modes" });
     expect(p.simultaneousPlay.value).toBe(true);
     expect(p.simultaneousPlay.source).toBe("derived");
-    expect(playerSummary(p).label).toBe("1–2 players together");
   });
 
   it("does not guess simultaneous play from a bare Multiplayer tag", () => {
@@ -43,7 +41,6 @@ describe("resolvePlayerProfile", () => {
     const p = resolvePlayerProfile({ ...base, gameModes: [1] });
     expect(p.maxPlayers).toMatchObject({ value: 1, source: "derived" });
     expect(p.simultaneousPlay.value).toBe(false);
-    expect(playerSummary(p).label).toBe("1 player");
   });
 
   it("agent overrides beat catalog; manual beats agent", () => {
@@ -54,6 +51,17 @@ describe("resolvePlayerProfile", () => {
     ]);
     expect(p.maxPlayers).toMatchObject({ value: 2, source: "agent", sourceUrl: "https://example.org" });
     expect(p.simultaneousPlay).toMatchObject({ value: true, source: "manual" });
+  });
+
+  it("leaves onlineCoop for research: IGDB never sets it, nothing derives it", () => {
+    const p = resolvePlayerProfile({ ...base, gameModes: [1, 2, 3], mpOfflineCoop: true, mpSplitscreen: true });
+    expect(p.coop.value).toBe(true);
+    expect(p.onlineCoop.value).toBeNull();
+  });
+
+  it("takes onlineCoop from an agent fact, with its citation", () => {
+    const p = resolvePlayerProfile({ ...base, gameModes: [1, 2] }, [{ field: "onlineCoop", value: "true", source: "agent", sourceUrl: "https://example.org/online" }]);
+    expect(p.onlineCoop).toMatchObject({ value: true, source: "agent", sourceUrl: "https://example.org/online" });
   });
 
   it("ignores overrides with the wrong type or an unknown field", () => {

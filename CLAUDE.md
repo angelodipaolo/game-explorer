@@ -68,7 +68,8 @@ reuses the one on port 3000.
 | `src/lib/catalog/` | Matching (`match.ts`: confidence scoring), normalization, `sync.ts` (upsert + parent backfill), `index.ts` (the `CatalogPort` everything else uses). |
 | `src/lib/import/` | Staged import: sessions → rows → decisions → one transactional commit → batch rollback. |
 | `src/lib/enrichment/` | Agent-written facts with citations; never overwrite manual facts. |
-| `src/lib/facts.ts` | Resolves player facts: manual > agent > IGDB tiers > derived. |
+| `src/lib/facts.ts` | Resolves player facts: manual > agent > IGDB tiers > derived. `coop` is the **local** kind (every IGDB player column is about one couch); `onlineCoop` is remote, IGDB never sets it, and it starts unknown on every game for research to fill in. |
+| `src/lib/players.ts` | **The one place player labelling is defined.** Three independent axes — a count range (`1`, `1–2`, `2–4`, en dash), co-op kind ("Local co-op" / "Online co-op", never a bare "Co-op"), and togetherness ("Together" vs "Taking turns"); multiplayer that is not co-op is "Versus". `describePlayers` turns a resolved `PlayerProfile` into the words, each axis carrying its own tier (exact / mode / unknown) and whether a person or an agent verified it. Pure. Nothing that renders player info may spell its own string. |
 | `src/lib/codes/` | Passwords, cheats, Game Genie / Action Replay codes per owned copy. No `source` column and no precedence — a code you typed and a code a skill wrote are one kind of record. |
 | `src/lib/images/` | Disk cache for IGDB art: `.cache/igdb-images/<size>/<id>.jpg`, served by `/api/img/:size/:imageId`, which backfills on a miss and 307s to the CDN when offline. The only place `images.igdb.com` is named. |
 | `src/lib/maps/` | Interactive maps: `GameMap` (image on disk under `data/maps/`, served by `/api/maps/:id/image`) + `MapMarker` in image pixels. Same no-`source`, no-precedence stance as codes. Viewer is `src/components/maps/map-viewer.tsx`. |
@@ -128,6 +129,11 @@ reuses the one on port 3000.
   pixels. Owner-only *pages* (`/import/*`, `/series/new`) redirect to `/login`;
   every write control in the UI renders only when the server-derived `canEdit`
   says so (`src/lib/viewer.ts`).
+- **Player labelling lives in `src/lib/players.ts`, and nowhere else.** Cards,
+  flip and the game page all render `describePlayers`, so one game is described
+  with the same words everywhere. The filter *values* are not part of that:
+  `mode=coop|versus|together` is what every saved link carries and must never
+  change — only the words on the buttons did.
 - **Manual facts and tags are never overwritten** by IGDB sync or agents.
   Codes, maps, bookmarks and manuals are the deliberate exception: they are
   lists, not contested values, so `GameCode`, `GameMap`, `MapMarker`,

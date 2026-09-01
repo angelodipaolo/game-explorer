@@ -120,7 +120,7 @@ test("an empty result explains itself and offers a way out", async ({ page }) =>
 test("filters open as a sheet and apply instantly", async ({ page }) => {
   await page.goto("/shelf");
   await page.getByTestId("open-filters").click();
-  await page.getByRole("button", { name: "Co-op", exact: true }).click();
+  await page.getByRole("button", { name: "Local co-op", exact: true }).click();
   await expect(page).toHaveURL(/mode=coop/);
   await page.getByTestId("close-filters").click();
   await expect(page.getByTestId("result-count")).toContainText("games");
