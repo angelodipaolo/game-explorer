@@ -171,7 +171,7 @@ export const COMMANDS: Command[] = [
     summary: "Search the shelf by title and platform. This is how a name becomes an ownedGameId.",
     route: "/api/games",
     method: "GET",
-    args: [positionalQuery("query", "q", "Title words, in any order: `sonic 2` finds \"Sonic the Hedgehog 2\". Omit to list the shelf.")],
+    args: [positionalQuery("query", "q", "Title words, in any order: `sonic 2` finds \"Sonic the Hedgehog 2\". `sonic2` splits too, but a two-letter abbreviation like `t2` does not and will match nothing. A query with no letters or digits at all is a 400, not an empty list. Omit to list the shelf.")],
     flags: [
       q("platform", "string", "Platform slug or alias (`nes`, `Super Nintendo`). An unknown console is a 400, not an empty list.", { repeat: true }),
       q("limit", "int", "Rows per page, 1–200 (default 50)."),

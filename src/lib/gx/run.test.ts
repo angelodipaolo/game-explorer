@@ -363,18 +363,23 @@ describe("binary reads and uploads", () => {
     expect(raw.out.join("")).toMatch(/^<\d+ bytes>$/);
   });
 
-  it("an upload streams a real file with a matching content-length", async () => {
-    // package.json is a file that certainly exists and whose size the test can
-    // check against — the point is that `content-length` is the file's true
-    // size, because the route refuses a body shorter than its declared length.
-    const { statSync } = await import("node:fs");
-    const size = statSync("package.json").size;
-    const h = harness({ body: { bytes: size } });
+  it("an upload sends the file's exact bytes as the body", async () => {
+    // Asserts what is *sent*, not what is declared. The route on the other end
+    // refuses a body shorter than its `content-length` — and since the body is
+    // a buffer, undici derives that header from these very bytes, so a body
+    // equal to the file is the whole guarantee. An earlier version streamed
+    // the file and set the header by hand from a separate `stat`; this test
+    // could only check the header, which is exactly the half that could lie.
+    const { readFileSync } = await import("node:fs");
+    const bytes = readFileSync("package.json");
+    const h = harness({ body: { bytes: bytes.length } });
     expect(await run(["music", "upload", "t1", "package.json"], h.io)).toBe(0);
     const headers = h.calls[0].init.headers as Record<string, string>;
-    expect(headers["content-length"]).toBe(String(size));
     expect(headers["content-type"]).toBe("audio/mpeg");
-    expect(h.calls[0].init.duplex).toBe("half");
+    // No hand-set content-length, and no stream to need `duplex`.
+    expect(headers["content-length"]).toBeUndefined();
+    expect(h.calls[0].init.duplex).toBeUndefined();
+    expect(Buffer.from(h.calls[0].init.body as Uint8Array).equals(bytes)).toBe(true);
   });
 
   it("an unreadable upload path is a usage error, before anything is sent", async () => {

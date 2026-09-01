@@ -1,6 +1,4 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { Readable } from "node:stream";
+import { readFile, stat } from "node:fs/promises";
 import { UsageError, type Target } from "./env";
 
 /**
@@ -117,24 +115,42 @@ export function buildUrl(target: Target, path: string, query: [string, string][]
  * no globbing, no directory walk and no default path: exactly the one file
  * named on the command line.
  *
- * `content-length` is set explicitly from `stat`, because the route on the
- * other end refuses a body that arrives shorter than its declared length
- * (`readUploadBody` in `src/lib/enrichment/http.ts`) — that check is what
- * turns a truncated upload into a `400` instead of a half-written file
- * reported as a success, and it can only fire if we declare a length at all.
+ * The file is **read into a buffer, not streamed**, and that is deliberate.
+ * The route on the other end refuses a body that arrives shorter than its
+ * declared `content-length` (`readUploadBody` in `src/lib/enrichment/http.ts`)
+ * — the check that turns a truncated upload into a `400` instead of a
+ * half-written file reported as a success. It can only fire if a length is
+ * declared and that length is honest. Streaming made both of those things
+ * true only by accident:
+ *
+ * - The length came from a `stat` and the bytes came from a *separate*
+ *   `createReadStream`. A file rewritten between the two — a scan being
+ *   re-saved, a converter still finishing — makes the CLI declare a size it
+ *   then does not send, and the owner gets "body was truncated" about a file
+ *   that was never truncated in transit.
+ * - `content-length` on a stream body is a header we set by hand. Undici
+ *   honours it today; a future release that chunks the body instead would
+ *   silently switch off the server's truncation check, with nothing failing
+ *   to say so.
+ *
+ * Handing `fetch` a `Buffer` removes both: undici derives the length from the
+ * bytes it is about to send, so the declared length cannot disagree with the
+ * body, and there is no header for a future runtime to drop. The caps here are
+ * 16 MB (images) and 32 MB (audio) in a process that exits straight after, so
+ * the memory this costs is not worth a correctness risk.
  */
-async function uploadBody(filePath: string): Promise<{ stream: ReadableStream<Uint8Array>; size: number }> {
-  let size: number;
+async function uploadBody(filePath: string): Promise<Buffer> {
+  let bytes: Buffer;
   try {
     const info = await stat(filePath);
     if (!info.isFile()) throw new UsageError(`${filePath} is not a file`);
-    size = info.size;
+    bytes = await readFile(filePath);
   } catch (e) {
     if (e instanceof UsageError) throw e;
     throw new UsageError(`cannot read ${filePath}: ${e instanceof Error ? e.message : String(e)}`);
   }
-  if (size === 0) throw new UsageError(`${filePath} is empty — there is nothing to upload`);
-  return { stream: Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>, size };
+  if (bytes.length === 0) throw new UsageError(`${filePath} is empty — there is nothing to upload`);
+  return bytes;
 }
 
 /**
@@ -180,15 +196,14 @@ export async function request(target: Target, req: ApiRequest, io: Io): Promise<
   const url = buildUrl(target, req.path, req.query);
   const headers: Record<string, string> = { authorization: `Bearer ${target.token}` };
 
-  const init: RequestInit & { duplex?: "half" } = { method: req.method, headers };
+  const init: RequestInit = { method: req.method, headers };
   if (req.upload) {
-    const { stream, size } = await uploadBody(req.upload.filePath);
+    const bytes = await uploadBody(req.upload.filePath);
     headers["content-type"] = req.upload.contentType;
-    headers["content-length"] = String(size);
-    init.body = stream;
-    // Node's fetch refuses a stream body without this; it says "I will finish
-    // sending before I start reading", which is true of every upload here.
-    init.duplex = "half";
+    // No explicit `content-length`: undici sets it from the buffer, which is
+    // the point — see `uploadBody`. Setting it here by hand would reintroduce
+    // a number that can disagree with the body.
+    init.body = new Uint8Array(bytes);
   } else if (req.body !== undefined) {
     headers["content-type"] = "application/json";
     init.body = JSON.stringify(req.body);

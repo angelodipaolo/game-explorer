@@ -70,12 +70,33 @@ export const TOKEN_VAR = "GAME_EXPLORER_TOKEN";
  * because this function is also called on raw strings in tests.
  */
 function isLoopbackHost(hostname: string): boolean {
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  // Strip the brackets an IPv6 literal arrives in, and the trailing dot of a
+  // fully-qualified name. `localhost.` is a legal spelling of `localhost` —
+  // the DNS root written explicitly — and it resolves to 127.0.0.1 like any
+  // other. Review drove a real POST through it, so the dot is not pedantry.
+  const h = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
   if (h === "localhost" || h.endsWith(".localhost")) return true;
   if (h === "::1" || h === "0:0:0:0:0:0:0:1") return true;
   if (h === "0.0.0.0" || h === "::") return true;
   // The whole 127.0.0.0/8 block is loopback, not just .1.
-  return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+  // An IPv4-mapped IPv6 address is the same machine wearing a different hat,
+  // and `URL` canonicalises the readable spelling into hex before we ever see
+  // it: `http://[::ffff:127.0.0.1]` arrives as `::ffff:7f00:1`. So match the
+  // hex form and re-expand its low 32 bits rather than comparing the dotted
+  // string, which never appears. Review reached a loopback server through
+  // this one without `--dev`.
+  const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+  if (mapped) {
+    const high = Number.parseInt(mapped[1], 16);
+    return high >>> 8 === 127;
+  }
+  // ...and the same address written with a dotted tail, which `URL` leaves
+  // alone for a hostname that was never parsed as an address.
+  return /^::ffff:127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
 }
 
 /**

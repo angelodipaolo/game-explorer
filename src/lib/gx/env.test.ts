@@ -50,12 +50,23 @@ describe("resolveTarget", () => {
     expect(resolved).toBeInstanceOf(UsageError);
   });
 
-  it.each(["http://localhost:3000", "http://LOCALHOST:3000", "http://127.0.0.1:3000", "http://127.0.0.2:3000", "http://[::1]:3000", "http://0.0.0.0:3000", "http://api.localhost:3000"])("refuses %s without --dev", (url) => {
+  // The last three were found by review, each with a real request driven
+  // through it: a trailing dot is a legal way to spell `localhost`, and an
+  // IPv4-mapped IPv6 address reaches the same machine while `URL` rewrites it
+  // into a hex form that no dotted-string compare would ever match.
+  it.each(["http://localhost:3000", "http://LOCALHOST:3000", "http://127.0.0.1:3000", "http://127.0.0.2:3000", "http://[::1]:3000", "http://0.0.0.0:3000", "http://api.localhost:3000", "http://localhost.:3000", "http://api.localhost.:3000", "http://[::ffff:127.0.0.1]:3000"])("refuses %s without --dev", (url) => {
     expect(() => resolveTarget({ ...REAL, [URL_VAR]: url }, prod)).toThrow(/refusing to talk to/);
   });
 
   it.each(["http://localhost:3000", "http://127.0.0.1:3001", "http://[::1]:3000"])("allows %s when --dev is on this invocation", (url) => {
     expect(resolveTarget({ ...REAL, [URL_VAR]: url }, dev).isDev).toBe(true);
+  });
+
+  it("does not mistake a mapped address for a public one, or the reverse", () => {
+    // ::ffff:8.8.8.8 is Google's resolver wearing an IPv6 hat, not this
+    // machine — the mapped-address rule must read the embedded octets, not
+    // just the ::ffff: prefix.
+    expect(resolveTarget({ ...REAL, [URL_VAR]: "http://[::ffff:8.8.8.8]:3000" }, prod).isDev).toBe(false);
   });
 
   it("does not mistake a real host that merely contains a loopback word", () => {
