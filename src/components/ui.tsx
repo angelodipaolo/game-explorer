@@ -112,3 +112,23 @@ export function PageTitle({ children, sub }: { children: ReactNode; sub?: ReactN
     </div>
   );
 }
+
+/**
+ * The magnifier, as real geometry rather than the character `⌕` (U+2315).
+ *
+ * The glyph was legible enough inside a labelled field, where the placeholder
+ * carries the meaning, but GAMEEXPLOR-0033 makes it the *entire* affordance of
+ * two icon-only buttons — the header's phone toggle and the collapsed filter
+ * search — and at 18px U+2315 renders as an ambiguous ring whose shape depends
+ * on whichever font the platform substitutes. A path we draw ourselves is the
+ * same mark on every device. `currentColor`, so each caller's contrast token
+ * decides the weight.
+ */
+export function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden focusable="false" className={cx("h-[18px] w-[18px] shrink-0", className)}>
+      <circle cx="8.75" cy="8.75" r="5.25" />
+      <path d="M12.6 12.6 16.5 16.5" />
+    </svg>
+  );
+}

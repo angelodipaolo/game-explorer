@@ -37,9 +37,15 @@ export async function SiteHeader() {
           </span>
         </Link>
         {/* Collection search, on every page that has a header
-            (GAMEEXPLOR-0027): an icon on a phone that opens a full-width row
-            under the bar, an inline field from `sm` up. It hides itself on
-            /shelf, where the toolbar's own box is the better one. */}
+            (GAMEEXPLOR-0027): a 44px glyph below `md` that opens a full-width
+            row under the bar, an inline 44px field from `md` up
+            (GAMEEXPLOR-0033 moved that split up from `sm`, where the field was
+            135px wide at 640). It hides itself on /shelf, where the toolbar's
+            own box is the better one, and from `md` up on /, where the hero is
+            the same control three times the size. The nav's `ml-auto` shares
+            the slack with the field's rather than taking it: the field grows
+            to `max-w-sm` first, and what is left of the row pushes the two
+            apart. */}
         <SearchBox variant="header" />
         {/* Phone: the wordmark and the hamburger, nothing else. Four links plus
             a wordmark plus a 44px button do not fit in 390px — the wordmark

@@ -163,7 +163,7 @@ test("walking from one game to another replaces the track", async ({ page }, tes
     // And on to the other game, without a page load: the incoming track
     // replaces the outgoing one, and the outgoing one is never left playing
     // over the new game's page.
-    await page.getByPlaceholder("Search the shelf").fill(second);
+    await page.getByPlaceholder("Search all games").fill(second);
     await cardFor(page, second).click();
     await expect(page.getByTestId("game-title")).toHaveText(second);
     await expect.poll(() => src(page)).toBe(`/api/music/${secondTrack}/audio`);

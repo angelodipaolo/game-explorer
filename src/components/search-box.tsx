@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { cx } from "@/components/ui";
+import { SearchIcon, cx } from "@/components/ui";
 import { focusTrigger, useOverlay } from "@/components/overlay";
 
 /**
@@ -21,6 +21,17 @@ import { focusTrigger, useOverlay } from "@/components/overlay";
  * box (`FilterBar`) always filters that page and says so, and offers a link
  * here when the answer is not on it. A segmented "this page / everything"
  * toggle would be the thing that makes both ambiguous.
+ *
+ * **GAMEEXPLOR-0033 moved the phone/inline split from `sm` (640) to `md`
+ * (768), and it is not a taste call.** At 640 the inline field measured 135×36
+ * with 14px text — the `max-w-56` cap never bound, because four nav links and
+ * a wordmark had already eaten the row — which is half the width the owner was
+ * already calling "super small", under the 44px target GAMEEXPLOR-0023 set,
+ * and under the 16px at which iOS stops zooming the page on focus. At 768 the
+ * same field with `flex-1` measures 263px signed in and 333px signed out, so
+ * iPad portrait keeps a real field; below that it is the 44px glyph, which is
+ * a bigger target than the field it replaces. Every `md:` in this file is one
+ * half of that split — they move together or not at all.
  */
 export function SearchBox({ variant }: { variant: "header" | "hero" }) {
   const router = useRouter();
@@ -81,18 +92,33 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
   // as you type, without a round trip. Two boxes on that page is just noise.
   if (variant === "header" && pathname === "/shelf") return null;
 
+  /*
+    Home is the other page that already has a search-everything box — the hero,
+    which is the same control at three times the width — and two of them 100px
+    apart is the whole of GAMEEXPLOR-0033. But the suppression only starts at
+    `md`, deliberately: home is 4.3 screens tall on a 390px phone and the hero
+    is not sticky, so removing the glyph outright would leave one flick between
+    a reader and any search at all, with a two-tap recovery. A 44px glyph
+    beside the wordmark is not a second search bar, and by the time it matters
+    the hero is off-screen. From `md` up the hero is always the search you can
+    see, so the header's field goes away.
+  */
+  const suppressed = variant === "header" && pathname === "/";
+
   if (variant === "hero") {
     return (
-      <form onSubmit={submit} role="search" aria-label="Search the whole collection" className="mt-4 flex items-center gap-2" data-testid="hero-search">
+      <form onSubmit={submit} role="search" aria-label="Search all games" className="mt-4 flex items-center gap-2" data-testid="hero-search">
         <label className="relative min-w-0 flex-1">
-          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-lg text-faint">⌕</span>
+          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-faint">
+            <SearchIcon className="h-5 w-5" />
+          </span>
           <input
             ref={input}
             type="search"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search the collection"
-            aria-label="Search the whole collection"
+            placeholder="Search all games"
+            aria-label="Search all games"
             className="h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
             data-testid="hero-search-input"
           />
@@ -106,11 +132,12 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
 
   return (
     <>
-      {/* Phone: the icon only. The header row is already the hamburger, the
-          wordmark and 390px — a second full input in it wrapped the wordmark
-          onto a second line and burst the row. Tapping it drops the field in
-          full width directly under the bar (the header is `sticky`, so it is
-          the containing block for this absolute row). */}
+      {/* Below `md`: the glyph only. The header row is already the hamburger,
+          the wordmark and 390px — a second full input in it wrapped the
+          wordmark onto a second line and burst the row — and at 640 the field
+          that did fit was 135px wide, which is worse than no field. Tapping it
+          drops the field in full width directly under the bar (the header is
+          `sticky`, so it is the containing block for this absolute row). */}
       <button
         ref={toggle}
         type="button"
@@ -125,30 +152,35 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
           if (open) collapse();
           else setOpen(true);
         }}
-        aria-label="Search the whole collection"
+        aria-label="Search all games"
         aria-expanded={open}
         aria-controls="header-search-panel"
-        className={cx("ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-lg transition sm:hidden", open ? "border-accent bg-surface-2 text-text" : "border-transparent text-muted hover:border-border hover:bg-surface-2")}
+        className={cx("ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition md:hidden", open ? "border-accent bg-surface-2 text-text" : "border-transparent text-muted hover:border-border hover:bg-surface-2")}
         data-testid="header-search-toggle"
       >
-        <span aria-hidden>⌕</span>
+        <SearchIcon />
       </button>
       {/* One form for both widths, so there is one input in the DOM and one
-          thing to focus. `max-sm:` is the phone dress: hidden until the icon
+          thing to focus. `max-md:` is the phone dress: hidden until the icon
           is tapped, then a full-width row beneath the bar. */}
       <form
         ref={panel}
         id="header-search-panel"
         onSubmit={submit}
         role="search"
-        // Named, because home renders two search landmarks and a landmark list
-        // that says "search, search" tells you nothing about either.
-        aria-label="Search the whole collection from any page"
-        className={cx("flex min-w-0 sm:ml-auto sm:max-w-56 sm:flex-1", "max-sm:absolute max-sm:inset-x-0 max-sm:top-full max-sm:border-b max-sm:border-border/70 max-sm:bg-bg max-sm:px-4 max-sm:py-3 max-sm:shadow-lg max-sm:shadow-black/40", open ? "" : "max-sm:hidden")}
+        // Every *visible* name on this control is now the one name for the
+        // job — "Search all games" — but the landmark keeps its qualifier:
+        // below `md` on home this panel and the hero can be open at the same
+        // time, and a landmark list that says "search, search" tells you
+        // nothing about either.
+        aria-label="Search all games from any page"
+        className={cx("flex min-w-0 md:ml-auto md:max-w-sm md:flex-1", "max-md:absolute max-md:inset-x-0 max-md:top-full max-md:border-b max-md:border-border/70 max-md:bg-bg max-md:px-4 max-md:py-3 max-md:shadow-lg max-md:shadow-black/40", open ? "" : "max-md:hidden", suppressed ? "md:hidden" : "")}
         data-testid="header-search"
       >
         <label className="relative min-w-0 flex-1">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">⌕</span>
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">
+            <SearchIcon />
+          </span>
           <input
             ref={input}
             type="search"
@@ -156,8 +188,8 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
             onChange={(e) => setTerm(e.target.value)}
             // Escape here as well as in `useOverlay`, and not instead of it:
             // the overlay only listens while `open` is true, and `open` is set
-            // by the phone toggle alone. Above `sm` the field is always in the
-            // header and never "open", so without this line Escape from a
+            // by the phone toggle alone. From `md` up the field is always in
+            // the header and never "open", so without this line Escape from a
             // desktop search box did nothing at all (GAMEEXPLOR-0027 shipped
             // it; the overlay refactor took it away).
             onKeyDown={(e) => {
@@ -165,8 +197,12 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
             }}
             onBlur={() => setOpen(false)}
             placeholder="Search all games"
-            aria-label="Search the whole collection"
-            className="h-11 w-full min-w-0 rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent sm:h-9 sm:text-sm"
+            aria-label="Search all games"
+            // `h-11`/`text-base` at every width, not `sm:h-9 sm:text-sm`: this
+            // field is the iPad's search and an iPad is a touch device, so 36px
+            // missed the GAMEEXPLOR-0023 target bar, and 14px made iPadOS zoom
+            // the whole page the moment it was focused.
+            className="h-11 w-full min-w-0 rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
             data-testid="header-search-input"
           />
         </label>

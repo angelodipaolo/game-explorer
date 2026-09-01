@@ -214,3 +214,134 @@ test("a page's own search box offers the whole collection when the answer is not
   await page.goto("/playing");
   await expect(page.getByTestId("search-all-games")).toHaveCount(0);
 });
+
+/**
+ * One search per screen (GAMEEXPLOR-0033). Home used to render the
+ * search-everything control twice — a 224px header field and a full-width hero
+ * box, 100px apart, in different words, doing exactly the same thing. The
+ * assertions below are the whole ticket: one *visible* search landmark on home
+ * at every width, and the two controls never wearing the same shape at once.
+ */
+
+/** `getByRole` skips `display:none`, which is what makes this the honest count. */
+test("home offers exactly one search, at every width", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "one project drives the explicit widths");
+  for (const width of [390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await expect(page.getByRole("search"), `${width}px`).toHaveCount(1);
+    await expect(page.getByTestId("hero-search-input")).toBeVisible();
+    // Below `md` the glyph stays: home is several screens tall and the hero is
+    // not sticky, so a reader who has scrolled needs *something* in the sticky
+    // bar. A 44px glyph beside the wordmark is not a second search bar. From
+    // `md` up the hero is always the search you can see, so it goes.
+    await expect(page.getByTestId("header-search-toggle")).toBeVisible({ visible: width < 768 });
+  }
+});
+
+test("the two search controls are never the same shape at the same width", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "one project drives the explicit widths");
+  const headerField = page.getByTestId("header-search-input");
+  const headerGlyph = page.getByTestId("header-search-toggle");
+  const filterField = page.getByTestId("filter-search-input");
+  const filterGlyph = page.getByTestId("filter-search-toggle");
+
+  // Below `md`: the header is the glyph, the page's own filter is the prose.
+  for (const width of [390, 640, 767]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/playing");
+    await expect(headerGlyph, `${width}px`).toBeVisible();
+    await expect(headerField, `${width}px`).toBeHidden();
+    await expect(filterField, `${width}px`).toBeVisible();
+    await expect(filterGlyph, `${width}px`).toBeHidden();
+  }
+
+  // From `md` up they swap. 768 is the tight case — four nav links, signed in.
+  for (const width of [768, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/playing");
+    await expect(headerField, `${width}px`).toBeVisible();
+    await expect(headerGlyph, `${width}px`).toBeHidden();
+    await expect(filterGlyph, `${width}px`).toBeVisible();
+    await expect(filterField, `${width}px`).toBeHidden();
+
+    // The header row it has to fit in: one line, 44px of it, nothing sticking out.
+    const row = page.locator("header > div").nth(1);
+    expect((await row.boundingBox())!.height, `the header row at ${width}px`).toBe(44);
+    const doc = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+    expect(doc.scrollWidth, `the header must not burst the row at ${width}px`).toBeLessThanOrEqual(doc.clientWidth);
+  }
+});
+
+test("the filter search narrows the page without ever leaving it", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "the collapsed presentation only exists from `md` up");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/playing");
+  await expect(page.getByTestId("filter-search-toggle")).toBeVisible();
+
+  // `history.length` is the assertion that proves `replaceState` rather than a
+  // navigation: `router.replace` would re-render the server page and re-send
+  // the whole collection on every keystroke, and `push` would bury the page
+  // the reader started on under one entry per letter.
+  const before = await page.evaluate(() => history.length);
+  await page.getByTestId("filter-search-toggle").click();
+  await expect(page.getByTestId("filter-search-input")).toBeFocused();
+  await page.getByTestId("filter-search-input").fill("contra");
+  await expect(page).toHaveURL(/\/playing\?q=contra/);
+  await expect(page.getByRole("heading", { name: /In progress/ })).toContainText(/·\s*\d+ of \d+/);
+  expect(await page.evaluate(() => history.length), "a filter change is not a navigation").toBe(before);
+
+  // Escape puts the field away and *keeps* the term — a native
+  // `<input type="search">` would have emptied it, which is a filter
+  // disappearing on a keystroke nobody asked to be destructive.
+  await page.getByTestId("filter-search-input").press("Escape");
+  const chip = page.getByTestId("filter-search-chip");
+  await expect(chip).toBeVisible();
+  await expect(chip).toContainText("contra");
+  await expect(chip).toBeFocused();
+  await expect(page).toHaveURL(/\/playing\?q=contra/);
+
+  // The ✕ is the only thing that clears, and focus comes back to the glyph
+  // that replaces the chip rather than falling to <body>.
+  await page.getByTestId("filter-search-clear").click();
+  await expect(page).toHaveURL(/\/playing$/);
+  await expect(page.getByTestId("filter-search-toggle")).toBeFocused();
+});
+
+test("a filtered link never hides its own filter", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "the collapsed presentation only exists from `md` up");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/playing?q=contra");
+  // The one hard rule of the control: arriving with a term in the URL must
+  // never render as an empty-looking glyph.
+  await expect(page.getByTestId("filter-search-chip")).toContainText("contra");
+  await expect(page.getByTestId("filter-search-toggle")).toBeHidden();
+  await expect(page.getByTestId("open-filters")).toContainText("· 1");
+});
+
+test("the shelf keeps its box, and calls it what it is", async ({ page }) => {
+  await page.goto("/shelf");
+  // One control, one dataset, one name: this is the box you land in from the
+  // hero, and it is the same matcher over the same games.
+  const box = page.getByPlaceholder("Search all games");
+  await expect(box).toBeVisible();
+  await expect(page.getByRole("search")).toHaveCount(1);
+
+  // Enter is a no-op here — the term is already in the URL — and must not
+  // submit the form, which would navigate and drop every other filter.
+  await page.goto("/shelf?platform=nes");
+  /*
+    Wait for hydration, not for pixels. `result-count` is server-rendered and
+    visible long before the shelf is listening, and a `fill` that lands in that
+    window goes into an input React is about to re-render from its own state —
+    the keystroke vanishes with no error anywhere, and the assertion below
+    fails on a `q` that was typed and thrown away. `shelf:last` is written by
+    `useFilters`' mount effect, so it appearing *is* the client having taken
+    over this URL.
+  */
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem("shelf:last"))).toContain("platform=nes");
+  await box.fill("mario");
+  await box.press("Enter");
+  await expect(page).toHaveURL(/platform=nes/);
+  await expect(page).toHaveURL(/q=mario/);
+});

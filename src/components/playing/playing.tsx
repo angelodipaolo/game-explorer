@@ -43,7 +43,7 @@ export function Playing({ inProgress, upNext, viewer }: { inProgress: InProgress
       <h1 className="mt-5 font-display text-2xl font-bold tracking-tight sm:text-3xl">Now playing</h1>
 
       <div className="mt-4">
-        <FilterBar filters={filters} set={set} reset={reset} facets={facets} viewer={viewer} confirmed={open.confirmed.length + queue.confirmed.length} maybe={open.maybe.length + queue.maybe.length} placeholder="Search what you're playing" />
+        <FilterBar filters={filters} set={set} reset={reset} facets={facets} viewer={viewer} confirmed={open.confirmed.length + queue.confirmed.length} maybe={open.maybe.length + queue.maybe.length} filterLabel="Filter what you're playing" />
       </div>
 
       <section className="mt-6">

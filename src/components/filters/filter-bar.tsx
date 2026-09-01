@@ -6,13 +6,17 @@ import { activeFilterCount, type Facets, type Filters } from "@/lib/filters";
 import type { Viewer } from "@/lib/viewer";
 import { Button, cx } from "@/components/ui";
 import { focusTrigger } from "@/components/overlay";
+import { FilterSearch } from "@/components/filters/filter-search";
 import { FilterSheet } from "@/components/shelf/filter-sheet";
-import { useDebouncedQuery } from "@/components/shelf/use-filters";
 
 /**
  * The reduced filter toolbar for surfaces that are not the shelf: a search
- * box, the `Filters · N` button that opens the shelf's own `<FilterSheet>`,
- * and a scrolling row of the top genres as one-tap chips.
+ * control, the `Filters · N` button that opens the shelf's own
+ * `<FilterSheet>`, and a scrolling row of the top genres as one-tap chips.
+ *
+ * The search control is `<FilterSearch>`, which changes shape with the width
+ * so that it and the header's collection search are never the same shape at
+ * the same time (GAMEEXPLOR-0033). Everything else in this row is unchanged.
  *
  * **This deliberately does not replace the shelf's toolbar, and the shelf was
  * deliberately not refactored onto it.** The shelf's carries three things that
@@ -35,7 +39,7 @@ export function FilterBar({
   viewer,
   confirmed,
   maybe,
-  placeholder = "Search",
+  filterLabel,
   children,
 }: {
   filters: Filters;
@@ -47,11 +51,17 @@ export function FilterBar({
   confirmed: number;
   /** Rows with no data either way, shown behind the confirmed ones. */
   maybe: number;
-  placeholder?: string;
+  /**
+   * What this control narrows, in the page's own words — "Filter what you're
+   * playing". One string, four places: the placeholder, the input's name, the
+   * collapsed glyph's name and the landmark's. It always says *Filter*, never
+   * *Search*: the header says *Search* and means everything, and neither ever
+   * borrows the other's verb.
+   */
+  filterLabel: string;
   /** Slot for one surface-specific control, beside the Filters button. */
   children?: ReactNode;
 }) {
-  const [query, setQuery] = useDebouncedQuery(filters.q, set);
   // Already trimmed: `parseFilters` does it on the way out of the URL.
   const term = filters.q;
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -61,17 +71,7 @@ export function FilterBar({
   return (
     <div className="-mx-4 px-4">
       <div className="flex items-center gap-2">
-        <label className="relative flex-1">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">⌕</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={placeholder}
-            aria-label="Search"
-            className="h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
-          />
-        </label>
+        <FilterSearch filters={filters} set={set} label={filterLabel} />
         <Button variant={active ? "primary" : "secondary"} onClick={(e) => {
             focusTrigger(e);
             setSheetOpen(true);

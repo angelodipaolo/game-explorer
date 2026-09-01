@@ -156,11 +156,27 @@ function jumpToTop(qs: string) {
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
-/** Local text that writes to the URL a beat after typing stops, so the input never waits on anything. */
-export function useDebouncedQuery(value: string, set: (patch: Partial<Filters>) => void, delay = 150): [string, (v: string) => void] {
+/**
+ * Local text that writes to the URL a beat after typing stops, so the input
+ * never waits on anything.
+ *
+ * The third member is `flush`: commit whatever is still in flight, now. A
+ * caller that only ever shows the input does not need it — the input is the
+ * text. GAMEEXPLOR-0033's filter search does, because it *collapses*: it
+ * renders the committed `filters.q` once the field goes away, so a blur inside
+ * the 150ms window would leave the collapsed chip advertising the term as it
+ * was one keystroke ago, while the rows below it are already filtered by the
+ * new one. Flushing on blur is what keeps the two telling the same story.
+ */
+export function useDebouncedQuery(value: string, set: (patch: Partial<Filters>) => void, delay = 150): [string, (v: string) => void, () => void] {
   const [text, setText] = useState(value);
   const timer = useRef<number | null>(null);
   const last = useRef(value);
+  // The value a pending timer is going to commit, or null when nothing is in
+  // flight. `text` cannot stand in for it: a flush fired from an event handler
+  // reads the render's stale closure, and re-committing an already-committed
+  // term would fight the effect below.
+  const pending = useRef<string | null>(null);
   // Follow external changes (Clear, presets) without clobbering in-flight typing.
   useEffect(() => {
     if (value !== last.current) {
@@ -168,16 +184,32 @@ export function useDebouncedQuery(value: string, set: (patch: Partial<Filters>) 
       setText(value);
     }
   }, [value]);
+  const commit = useCallback(
+    (v: string) => {
+      pending.current = null;
+      last.current = v;
+      set({ q: v });
+    },
+    [set],
+  );
   const update = useCallback(
     (v: string) => {
       setText(v);
+      pending.current = v;
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => {
-        last.current = v;
-        set({ q: v });
+        timer.current = null;
+        commit(v);
       }, delay);
     },
-    [set, delay],
+    [commit, delay],
   );
-  return [text, update];
+  const flush = useCallback(() => {
+    if (timer.current) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (pending.current !== null) commit(pending.current);
+  }, [commit]);
+  return [text, update, flush];
 }
