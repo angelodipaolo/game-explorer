@@ -164,19 +164,25 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
   -H 'content-type: application/json' -d '{ "outcome": "completed", "endedAt": "2026-08-30" }'
 ```
 
-- **`endedAt` is required to finish a run, and `gx play finish` enforces it.**
-  There is no "defaults to now" here, and believing there was is worse than a
-  missing default. `PATCH /api/sessions/:sessionId` runs `updateSession`, which
-  *keeps* the stored `endedAt` when none is sent — on an open run that is
-  `null`, so the run stays open and the outcome is forced back to `playing`.
-  A finish with no date is therefore a silent no-op that answers `200`: it
-  looks like it worked, the run is still in progress, and the only symptom is a
-  409 the next time anyone starts that copy. `gx play finish` makes the flag
-  required so the request cannot be built at all. Sending the PATCH by hand,
-  you are on your own — always include `endedAt`.
+- **`endedAt` is required to finish a run, and the route itself refuses to
+  guess it (GAMEEXPLOR-0038).** Sending `outcome: "completed"` or `"abandoned"`
+  in a patch that would otherwise leave the run open — no `endedAt`, or an
+  explicit `endedAt: null` reopening it in the same request — is a **400**:
+  `an outcome of "<outcome>" needs endedAt too — a run cannot be closed
+  without an end date`. The run is left exactly as it was; nothing is written.
+  This used to be a silent no-op instead: `PATCH /api/sessions/:sessionId`
+  runs `updateSession`, which *kept* the stored `endedAt` when none was sent —
+  on an open run that is `null`, so the run stayed open and the outcome was
+  forced back to `playing` a couple of lines later, discarding what was sent.
+  The request still answered `200`, so it looked like it worked; the only
+  symptom was a 409 the next time anyone started that copy. `gx play finish`
+  makes `--ended-at` a required flag so the CLI cannot build that request at
+  all, but the route no longer needs the CLI to save it — send `endedAt` by
+  hand and the PATCH still just works.
   It is the right rule on principle too: an end date nobody stated is one you
   invented, and inventing it is what "record, never infer" forbids. If the
-  owner did not say when, ask.
+  owner did not say when, ask — do not let the route pick "now" for you either;
+  it will refuse instead.
 - **A run cannot be finished before it started: 400.** This is the one that
   will bite you, because it looks like a bug and is not. If you started the run
   with `gx play start` just now, its `startedAt` is *today*, and closing it
@@ -258,7 +264,7 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
 | `GET /api/games/:id/sessions` | One copy's runs, newest first, undated last | none — an unknown copy is `200 []`, not a 404 |
 | `POST /api/games/:id/sessions` | Start a run, or log a past/undated one | 409 already open · 400 bad dates/outcome · 404 unknown copy |
 | `GET /api/sessions/open` | Every run in progress, newest first | — |
-| `PATCH /api/sessions/:sessionId` | Finish, reopen, correct dates/outcome/note | 409 reopen conflict · 400 contradictory dates · 404 |
+| `PATCH /api/sessions/:sessionId` | Finish, reopen, correct dates/outcome/note | 409 reopen conflict · 400 contradictory dates · 400 `completed`/`abandoned` without `endedAt` · 404 |
 | `DELETE /api/sessions/:sessionId` | Delete a run; journal entries survive | 404 |
 | `GET /api/queue` | The queue in order | — |
 | `POST /api/queue` | Add, or move an existing entry | 400 run in progress · 409 full at 50 · 404 unknown copy |

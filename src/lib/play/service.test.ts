@@ -7,7 +7,6 @@ import {
   dequeue,
   deleteSession,
   enqueue,
-  finishSession,
   listOpenSessions,
   loadQueue,
   logPastSession,
@@ -102,15 +101,15 @@ describe("play sessions", () => {
 
   it("400s when a run would end before it started", async () => {
     const run = await startSession(nes, { startedAt: at("2026-08-10") });
-    expect(await status(() => finishSession(run.id, { outcome: "completed", endedAt: at("2026-08-01") }))).toBe(400);
+    expect(await status(() => updateSession(run.id, { outcome: "completed", endedAt: at("2026-08-01") }))).toBe(400);
     expect(await status(() => logPastSession(nes, { startedAt: at("2020-05-05"), endedAt: at("2020-05-01") }))).toBe(400);
     expect(await status(() => updateSession(run.id, { endedAt: at("2026-08-01") }))).toBe(400);
-    expect(await status(() => finishSession("nope", { outcome: "completed" }))).toBe(404);
+    expect(await status(() => updateSession("nope", { outcome: "completed", endedAt: at("2026-08-01") }))).toBe(404);
   });
 
   it("finishes, reopens, and keeps outcome consistent with endedAt", async () => {
     const run = await startSession(nes, { startedAt: at("2026-08-01") });
-    const done = await finishSession(run.id, { outcome: "completed", endedAt: at("2026-08-20") });
+    const done = await updateSession(run.id, { outcome: "completed", endedAt: at("2026-08-20") });
     expect(done.endedAt).toEqual(at("2026-08-20"));
     expect(done.outcome).toBe("completed");
 
@@ -125,6 +124,40 @@ describe("play sessions", () => {
     expect(closed.outcome).toBe("completed");
     // And a closed run cannot claim to be "playing".
     expect(await status(() => updateSession(run.id, { outcome: "playing" }))).toBe(400);
+  });
+
+  it("refuses to close a run without an end date instead of silently leaving it open (GAMEEXPLOR-0038)", async () => {
+    // The bug this ticket exists for: `PATCH {"outcome":"completed"}` on an
+    // open run used to come back 200 having kept the stored `null` endedAt
+    // and forced the outcome straight back to "playing", discarding what was
+    // sent. It must now be a 400 that names the missing field, and the run
+    // must be provably untouched — not just rejected, but rejected before any
+    // write.
+    const run = await startSession(nes, { startedAt: at("2026-08-01") });
+    await expect(updateSession(run.id, { outcome: "completed" })).rejects.toMatchObject({ status: 400, message: expect.stringContaining("endedAt") });
+    const untouched = await sessionsFor(nes).then((rs) => rs.find((r) => r.id === run.id)!);
+    expect(untouched.endedAt).toBeNull();
+    expect(untouched.outcome).toBe("playing");
+
+    // The same contradiction from the abandoned side.
+    await expect(updateSession(run.id, { outcome: "abandoned" })).rejects.toMatchObject({ status: 400 });
+
+    // Sending endedAt alongside outcome closes it, exactly as before.
+    const closed = await updateSession(run.id, { outcome: "completed", endedAt: at("2026-08-30") });
+    expect(closed.endedAt).toEqual(at("2026-08-30"));
+    expect(closed.outcome).toBe("completed");
+
+    // A note-only patch on an open run is not an outcome and must not trip
+    // the new check.
+    const stillOpen = await startSession(snes, { startedAt: at("2026-08-01") });
+    const noted = await updateSession(stillOpen.id, { note: "co-op night" });
+    expect(noted.endedAt).toBeNull();
+    expect(noted.outcome).toBe("playing");
+    expect(noted.note).toBe("co-op night");
+
+    // Reopening while also claiming completed is the same contradiction from
+    // a closed run's side, and is refused the same way.
+    await expect(updateSession(closed.id, { endedAt: null, outcome: "completed" })).rejects.toMatchObject({ status: 400 });
   });
 
   it("refuses to reopen a run when another one is already open", async () => {

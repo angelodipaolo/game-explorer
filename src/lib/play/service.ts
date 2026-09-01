@@ -48,9 +48,6 @@ const when = whenSchema;
 export const startSessionSchema = z.object({ startedAt: when.optional(), note });
 export type StartSessionInput = z.infer<typeof startSessionSchema>;
 
-export const finishSessionSchema = z.object({ outcome: z.enum(["completed", "abandoned"]), endedAt: when.optional(), note });
-export type FinishSessionInput = z.infer<typeof finishSessionSchema>;
-
 const doneOutcome = z.enum(["completed", "abandoned"]).optional();
 
 /**
@@ -184,14 +181,6 @@ export async function startSession(ownedGameId: string, input: StartSessionInput
     .catch(asOpenRunConflict);
 }
 
-/** Close an open run. `endedAt` defaults to now; an end before the start is a 400. */
-export async function finishSession(sessionId: string, input: FinishSessionInput): Promise<PlaySession> {
-  const s = await requireSession(sessionId);
-  const endedAt = input.endedAt ?? new Date();
-  assertOrder(s.startedAt, endedAt);
-  return prisma.playSession.update({ where: { id: sessionId }, data: { endedAt, outcome: input.outcome, note: blank(input.note) } });
-}
-
 /**
  * Clear `endedAt` and go back to "playing" — how a mis-tapped Finish is undone.
  * Not available to an undated run: its `startedAt` is the day it was typed in,
@@ -234,9 +223,21 @@ export async function logPastSession(ownedGameId: string, input: PastSessionInpu
 }
 
 /**
- * Correct a run: dates, outcome, note. `endedAt: null` reopens it (and so
- * takes the one-open-run rule with it); an outcome is kept consistent with
- * `endedAt` — an open run is always "playing", a closed one never is.
+ * Correct a run — and finish one: this is also where `PATCH
+ * /api/sessions/:id` closes an open run, since a request that sets
+ * `outcome: "completed"` and sends a real `endedAt` is just a correction that
+ * happens to touch both fields at once. There is no separate "finish" entry
+ * point; `finishSession` used to be that entry point and had no caller
+ * outside its own test (GAMEEXPLOR-0038) — deciding whether a patch is
+ * "finishing" a run needs to know whether the run is currently open, which
+ * this function already has to work out to compute `endedAt` below, so a
+ * second function in front of it would have needed the same lookup a second
+ * time rather than actually replacing anything.
+ *
+ * `endedAt: null` reopens it (and so takes the one-open-run rule with it); an
+ * outcome is kept consistent with `endedAt` — an open run is always
+ * "playing", a closed one never is, and the two checks below refuse a patch
+ * that asks for both at once instead of picking one silently.
  */
 export async function updateSession(sessionId: string, patch: SessionPatch): Promise<PlaySession> {
   const s = await requireSession(sessionId);
@@ -268,6 +269,25 @@ export async function updateSession(sessionId: string, patch: SessionPatch): Pro
   const endedAt = undated ? (s.undated ? s.endedAt ?? s.startedAt : recordedAt) : patch.endedAt === undefined ? s.endedAt : patch.endedAt;
   assertOrder(startedAt, endedAt);
   if (endedAt && patch.outcome === "playing") throw new EnrichmentError('a finished run cannot have the outcome "playing" — clear endedAt to reopen it', 400);
+  // The twin of the check above, and the one this ticket exists for
+  // (GAMEEXPLOR-0038). `endedAt` is falsy here either because the patch never
+  // touched it (an open run's stored `null` survives `patch.endedAt ??
+  // s.endedAt` above) or because the patch explicitly reopened the run
+  // (`endedAt: null`). A caller who also sent `outcome: "completed"` or
+  // `"abandoned"` in that same patch is asking to close the run and to leave
+  // it open in one request. `PATCH /api/sessions/:id` used to resolve that
+  // silently in the open run's favour: the outcome two lines below would fall
+  // straight back to "playing", discarding what was sent, and the route would
+  // still answer 200 — the run stayed open, and the only symptom was a 409 on
+  // the copy's next `startSession`. Refuse it instead, and name the missing
+  // field rather than guessing it: defaulting `endedAt` to `now` would be the
+  // same invented date GAMEEXPLOR-0031's "record, never infer" forbids for a
+  // run's dates, only silent, because nothing here prints. A note-only patch
+  // (`patch.outcome` is `undefined`) never trips this — a note is not an
+  // outcome.
+  if (!endedAt && (patch.outcome === "completed" || patch.outcome === "abandoned")) {
+    throw new EnrichmentError(`an outcome of "${patch.outcome}" needs endedAt too — a run cannot be closed without an end date`, 400);
+  }
 
   // Outcome follows endedAt: open runs are always "playing", and closing one
   // without saying how it went means it was finished.

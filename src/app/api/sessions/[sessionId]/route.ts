@@ -11,7 +11,10 @@ type Ctx = { params: Promise<{ sessionId: string }> };
  * correct the dates. This is also the only way `undated` moves in either
  * direction: `undated: true` forgets a run's dates, and `undated: false` with
  * a real `startedAt` and `endedAt` is the "I remembered when that was" edit. The outcome is kept consistent with `endedAt` by the
- * service — an open run is always "playing".
+ * service — an open run is always "playing", and an `outcome` of `completed`
+ * or `abandoned` sent without an `endedAt` that actually closes the run is a
+ * `400` naming the missing field (GAMEEXPLOR-0038) rather than a `200` that
+ * quietly keeps the run open and throws the outcome away.
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   return handle(async () => ok(await updateSession((await ctx.params).sessionId, sessionPatchSchema.parse(await req.json()))));
