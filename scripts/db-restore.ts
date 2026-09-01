@@ -1,15 +1,36 @@
 /**
  * Rebuild the database from data/snapshot.json. Run `prisma migrate deploy`
  * first (npm run db:restore does both). Existing rows are replaced.
+ *
+ * A new table has to be added here *and* to scripts/db-snapshot.ts by hand.
+ * Order matters twice over: rows are deleted children-first and inserted
+ * parents-first, because SQLite checks the foreign keys as it goes.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { PrismaClient } from "@prisma/client";
 import { prisma } from "../src/lib/db";
 
-async function main() {
-  const file = path.resolve(__dirname, "../data/snapshot.json");
-  const snap = JSON.parse(fs.readFileSync(file, "utf8"));
-  await prisma.$transaction(async (tx) => {
+/**
+ * A snapshot as it comes back off disk.
+ *
+ * The element type is deliberately opaque (`never[]` is the one array type
+ * assignable to every `createMany` input): the Prisma model types do *not*
+ * describe this object, because JSON has no Date — every timestamp arrives as
+ * an ISO string, which `createMany` accepts and the model types do not.
+ */
+type SnapshotFile = Record<string, never[]>;
+
+/**
+ * Replace everything in `db` with the contents of `snap`, in one transaction.
+ *
+ * Exported (rather than inlined into `main`) so the GAMEEXPLOR-0034 round-trip
+ * regression test can restore a snapshot it just built into a real database
+ * and check that the rows survive — the failure it guards against was one this
+ * function raised, on a snapshot that looked perfectly fine on disk.
+ */
+export async function restoreSnapshot(db: PrismaClient, snap: SnapshotFile) {
+  await db.$transaction(async (tx) => {
     await tx.importEffect.deleteMany();
     await tx.mapMarker.deleteMany();
     await tx.gameMap.deleteMany();
@@ -56,7 +77,24 @@ async function main() {
     await tx.seriesEntry.createMany({ data: snap.seriesEntries ?? [] });
     await tx.enrichmentRun.createMany({ data: snap.enrichmentRuns ?? [] });
   });
-  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued, ${(snap.gameBookmarks ?? []).length} bookmarks, ${(snap.manualPages ?? []).length} manual pages, ${(snap.musicTracks ?? []).length} music tracks, ${(snap.series ?? []).length} series (${(snap.seriesEntries ?? []).length} entries) from ${snap.exportedAt}`);
 }
 
-main().finally(() => prisma.$disconnect());
+async function main() {
+  const file = path.resolve(__dirname, "../data/snapshot.json");
+  const snap = JSON.parse(fs.readFileSync(file, "utf8"));
+  await restoreSnapshot(prisma, snap);
+  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued, ${(snap.gameBookmarks ?? []).length} bookmarks, ${(snap.manualPages ?? []).length} manual pages, ${(snap.musicTracks ?? []).length} music tracks, ${(snap.series ?? []).length} series (${(snap.seriesEntries ?? []).length} entries), ${(snap.importSessions ?? []).length} import sessions (${(snap.importBatches ?? []).length} batches) from ${snap.exportedAt}`);
+}
+
+// Only when run as a script: the tests import restoreSnapshot directly.
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      // The whole error, stack included. Every way a restore fails here is a
+      // surprise — a foreign key the export should have caught, a bad path, a
+      // Prisma fault — and a surprise is worth a stack.
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}

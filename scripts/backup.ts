@@ -105,7 +105,23 @@ async function main() {
 
   // Refresh the portable JSON export first, so the archive carries both the
   // binary database and a snapshot that restores through `npm run db:restore`.
-  execFileSync("npx", ["tsx", path.join(ROOT, "scripts/db-snapshot.ts")], { cwd: ROOT, stdio: "inherit" });
+  //
+  // A failure here must NOT abort the backup (GAMEEXPLOR-0034). Since the
+  // snapshot script gained its self-consistency check it exits non-zero on a
+  // database whose foreign keys do not resolve — and `execFileSync` throws on
+  // that, which would have taken the whole archive down with it: the binary
+  // `dev.db` and every blob directory, none of which had anything wrong with
+  // them. A backup is worth most on exactly the day something is broken, so an
+  // unexportable database is a reason to warn and carry on with a stale JSON,
+  // never a reason to produce no archive at all. The `VACUUM INTO` copy below
+  // is the more complete artifact regardless.
+  let snapshotFresh = true;
+  try {
+    execFileSync("npx", ["tsx", path.join(ROOT, "scripts/db-snapshot.ts")], { cwd: ROOT, stdio: "inherit" });
+  } catch {
+    snapshotFresh = false;
+    console.warn("\n!! db:snapshot failed — see the error above. Continuing: the archive will carry the binary database and whatever data/snapshot.json already held, which may be older than the database beside it.\n");
+  }
 
   const stage = fs.mkdtempSync(path.join(os.tmpdir(), "game-explorer-backup-"));
   const root = path.join(stage, name);
@@ -121,6 +137,7 @@ async function main() {
 
     const snapshot = path.join(ROOT, "data/snapshot.json");
     if (fs.existsSync(snapshot)) fs.copyFileSync(snapshot, path.join(root, "data/snapshot.json"));
+    else if (!snapshotFresh) console.warn("!! no data/snapshot.json to carry: this archive is the binary database and the blobs only.");
 
     const counts: Record<string, number> = {};
     for (const dir of BLOB_DIRS) counts[dir] = copyDirIfPresent(path.join(ROOT, "data", dir), path.join(root, "data", dir));
