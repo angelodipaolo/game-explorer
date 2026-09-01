@@ -89,6 +89,23 @@ export async function addTrack(ownedGameId: string, input: TrackInput): Promise<
 }
 
 /**
+ * Retitle a track. Reuses `trackInputSchema` — the same "no charset
+ * restriction, but never blank or absurdly long" rule that governs a track's
+ * title at creation, so a typo or a placeholder ("New track") never needs a
+ * delete-and-recreate to fix, and so the two write paths can never disagree
+ * about what a valid title is.
+ *
+ * Deliberately the *only* PATCH this module offers. Reordering tracks is not:
+ * `MusicTrack` has no `position` column and the player (`src/lib/music/
+ * player.ts`) picks a track at random on every page load, so an API that
+ * accepted an order would be describing a feature the player does not have.
+ */
+export async function renameTrack(trackId: string, input: TrackInput): Promise<MusicTrack> {
+  await requireTrack(trackId);
+  return prisma.musicTrack.update({ where: { id: trackId }, data: { title: input.title } });
+}
+
+/**
  * Store the audio and record its size on the row.
  *
  * `sniffAudio` is the gate the content-type header is not: a PUT body is
