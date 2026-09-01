@@ -112,12 +112,22 @@ function routeFiles(dir: string, prefix = "/api", found = new Map<string, string
 /**
  * The verbs a route file exports. A regex, the way `boundary.test.ts` works:
  * parsing TypeScript to learn that a file exports `GET` would be a heavier
- * tool aimed at a smaller question, and Next only recognises these as
- * top-level named function exports anyway.
+ * tool aimed at a smaller question.
+ *
+ * **`const` is matched as well as `function`, and that matters more than it
+ * looks.** Next accepts `export const GET = async () => …` exactly as it
+ * accepts `export async function GET`. Every route in this repo happens to use
+ * the function form, so a regex that knew only that form passed green — but a
+ * route written the other way would export zero verbs *as far as this test
+ * could see*, and a route with zero verbs raises zero offenders. That is the
+ * one way assertion 1 goes quietly vacuous for a single route rather than
+ * failing, which is the failure mode this whole file exists to prevent.
+ * `src/lib/gx/registry.test.ts` carries the same widened regex for the same
+ * reason; if you touch one, touch both.
  */
 function methodsOf(file: string): string[] {
   const source = fs.readFileSync(file, "utf8");
-  return [...source.matchAll(/^export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/gm)].map((m) => m[1]);
+  return [...source.matchAll(/^export\s+(?:async\s+function\s+|function\s+|const\s+)(GET|POST|PUT|PATCH|DELETE)\b/gm)].map((m) => m[1]);
 }
 
 const ROUTES = routeFiles(API_DIR);
@@ -127,6 +137,13 @@ const ROUTES = routeFiles(API_DIR);
    All of it, concatenated, with the path each line came from kept so a failure
    can point at a file. */
 
+/**
+ * Every file under `dir`, skipping dot-entries — `.DS_Store` and friends are
+ * not instructions to anybody. Worth knowing that this means a hidden
+ * subdirectory inside a skill is invisible to the checks below; no skill has
+ * one, and a skill that needed one would be hiding its instructions from the
+ * agent as well as from this test.
+ */
 function walkFiles(dir: string, base = dir, found: string[] = []): string[] {
   if (!fs.existsSync(dir)) return found;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -179,7 +196,6 @@ function mentionedInSkill(route: string): boolean {
 /** The domain a route belongs to, so the failure can name the file to write in. */
 function referenceFileFor(route: string): string {
   const segments = route.split("/").filter(Boolean).slice(1);
-  const domain = segments.find((s) => !s.startsWith("[")) ?? "games";
   const known: Record<string, string> = {
     games: "games",
     facts: "facts",
@@ -197,6 +213,13 @@ function referenceFileFor(route: string): string {
     queue: "play",
     import: "games",
   };
+  // Last recognised segment wins, not the first. `/api/games/[id]/codes` is a
+  // codes route that happens to hang off a game, and pointing its author at
+  // `reference/games.md` sends them to the wrong file — which is most of the
+  // sub-resource routes in this app. Falling back to the first non-bracket
+  // segment keeps `/api/bookmarks/gaps` and `/api/queue/[ownedGameId]` right.
+  const named = segments.filter((s) => known[s]);
+  const domain = named.at(-1) ?? segments.find((s) => !s.startsWith("[")) ?? "games";
   return `reference/${known[domain] ?? "<domain>"}.md`;
 }
 
@@ -373,7 +396,8 @@ describe("skill coverage", () => {
       `The "Never write these" section no longer names ${missing.join(", ")}. These routes are on ALLOWLIST in ` +
         "src/lib/skills/coverage.test.ts, so nothing else in this file will complain about them — the section is the only place the " +
         "refusal is written down. Name them there (bracket spelling, as the route files spell them) or, if the decision has genuinely " +
-        "changed, remove them from ALLOWLIST and give them a gx command and a reference file like any other capability.",
+        "changed, remove them from ALLOWLIST *and from REFUSED_IN_SKILL above*, and give them a gx command and a reference file like " +
+        "any other capability — leaving them here would keep demanding a refusal you no longer mean.",
     ).toEqual([]);
   });
 });
