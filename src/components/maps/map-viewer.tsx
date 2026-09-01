@@ -69,7 +69,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
     const vp = vpRef.current;
     if (!vp) return;
     const r = vp.getBoundingClientRect();
-    const pad = 64; // room for the map switcher along the bottom
+    const pad = 76; // room for the map switcher along the bottom (44px tall + its padding)
     const s = Math.min(r.width / W, (r.height - pad) / H);
     view.current = { s, tx: (r.width - W * s) / 2, ty: (r.height - pad - H * s) / 2 };
     apply();
@@ -245,14 +245,29 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
               const on = m.id === selected;
               return (
                 <div key={m.id} className="absolute left-0 top-0 h-0 w-0 origin-top-left" style={{ transform: `translate(${m.x}px,${m.y}px) scale(var(--inv, 1))` }}>
+                  {/* The button is 44x44 and transparent; the dot inside it
+                      stays 28px. A marker sits at an image pixel and has to
+                      stay visually precise, so the target grows and the ink
+                      does not — the test measures this button's box, which IS
+                      the hit area. The inverse scale on the wrapper cancels
+                      the world scale, so 44 layout pixels are 44 screen
+                      pixels at every zoom. Two markers closer together than
+                      44px on screen do overlap; zooming in separates them, and
+                      the location list beside the map is the guaranteed
+                      non-overlapping way to reach every one of them. */}
                   <button
                     onClick={() => pick(m, "map")}
                     aria-label={m.name}
                     aria-pressed={on}
                     data-testid="map-marker"
-                    className={cx("absolute -left-3.5 -top-3.5 h-7 w-7 rounded-full border-[3px] border-white shadow-[0_2px_6px_rgba(0,0,0,.5)] transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent", on && "scale-[1.4] border-accent shadow-[0_0_0_6px_rgba(230,207,136,.35),0_2px_8px_rgba(0,0,0,.6)]")}
-                    style={{ background: kindColor(m.kind) }}
-                  />
+                    className="absolute -left-[22px] -top-[22px] grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <span
+                      aria-hidden
+                      className={cx("block h-7 w-7 rounded-full border-[3px] border-white shadow-[0_2px_6px_rgba(0,0,0,.5)] transition-transform", on && "scale-[1.4] border-accent shadow-[0_0_0_6px_rgba(230,207,136,.35),0_2px_8px_rgba(0,0,0,.6)]")}
+                      style={{ background: kindColor(m.kind) }}
+                    />
+                  </button>
                   <span className={cx("pointer-events-none absolute left-[18px] -top-2.5 whitespace-nowrap text-[13px] font-semibold leading-none text-white [text-shadow:0_1px_0_#000,0_0_4px_#000] transition-opacity", scale > LABEL_SCALE || on ? "opacity-100" : "opacity-0")}>{m.name}</span>
                 </div>
               );
@@ -284,7 +299,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
           </HudButton>
         </div>
         <div className="pointer-events-none absolute right-3 top-3 text-right">
-          <Link href={`/game/${gameId}`} className="pointer-events-auto inline-flex min-h-8 items-center rounded-full bg-black/55 px-3 text-xs text-white/90 backdrop-blur hover:bg-black/70" data-testid="map-back">
+          <Link href={`/game/${gameId}`} className="pointer-events-auto inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-black/55 px-3 text-xs text-white/90 backdrop-blur hover:bg-black/70" data-testid="map-back">
             ◂ {gameName}
           </Link>
           <div className="mt-1 text-[11px] font-medium uppercase tracking-[.12em] text-white/80 [text-shadow:0_1px_2px_#000]">
@@ -293,9 +308,13 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
           </div>
         </div>
         {maps.length > 1 ? (
-          <div className="absolute bottom-3.5 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-black/60 p-1" data-testid="map-tabs">
+          /* Scrollable, because a game with eight maps has a strip wider than a
+             phone and the tabs at either end were simply unreachable. The
+             viewport around it sets `touch-action: none` for the pan/pinch
+             gestures, so this row has to hand a horizontal drag back. */
+          <div className="scrollbar-none absolute bottom-3.5 left-1/2 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-1 overflow-x-auto rounded-full bg-black/60 p-1 [touch-action:pan-x]" data-testid="map-tabs">
             {maps.map((m) => (
-              <button key={m.id} onClick={() => switchMap(m.slug)} className={cx("min-h-8 rounded-full px-3.5 font-display text-sm font-bold text-white", m.id === active.id && "bg-accent text-accent-ink")} aria-current={m.id === active.id ? "page" : undefined}>
+              <button key={m.id} onClick={() => switchMap(m.slug)} className={cx("min-h-11 min-w-11 shrink-0 whitespace-nowrap rounded-full px-3.5 font-display text-sm font-bold text-white", m.id === active.id && "bg-accent text-accent-ink")} aria-current={m.id === active.id ? "page" : undefined} data-testid="map-tab">
                 {m.title}
               </button>
             ))}
@@ -304,13 +323,17 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
       </div>
 
       {/* List — side panel on desktop, bottom sheet on phones */}
-      <aside className={cx("flex min-h-0 min-w-0 flex-col border-border bg-surface transition-[height] max-md:rounded-t-2xl max-md:border-t md:border-l", sheet === "tall" && "max-md:h-[78dvh]", sheet === "mid" && "max-md:h-[42dvh]", sheet === "short" && "max-md:h-[112px]")} data-testid="map-list">
+      <aside className={cx("flex min-h-0 min-w-0 flex-col border-border bg-surface transition-[height] max-md:rounded-t-2xl max-md:border-t md:border-l", sheet === "tall" && "max-md:h-[78dvh]", sheet === "mid" && "max-md:h-[42dvh]", sheet === "short" && "max-md:h-[136px]")} data-testid="map-list">
+        {/* 44px tall, not 20: on a phone this is the only way to open the
+            location list, and it used to be a 20px strip. The grab bar itself
+            is unchanged — the button grew around it. */}
         <button
-          className="mx-auto mt-2 h-5 w-16 shrink-0 md:hidden"
+          className="mx-auto flex h-11 w-16 shrink-0 items-center justify-center md:hidden"
           aria-label={sheet === "tall" ? "Collapse list" : "Expand list"}
           onClick={() => setSheet((s) => (s === "short" ? "mid" : s === "mid" ? "tall" : "short"))}
+          data-testid="map-sheet-handle"
         >
-          <span className="mx-auto block h-1.5 w-11 rounded-full bg-border" />
+          <span className="block h-1.5 w-11 rounded-full bg-border" />
         </button>
         <header className="flex items-baseline justify-between border-b border-border px-4 py-2.5">
           <h2 className="font-display text-lg font-bold">Locations</h2>
@@ -333,7 +356,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
                       return next;
                     })
                   }
-                  className={cx("flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs transition", on ? "border-muted bg-surface-2 text-text" : "border-border text-faint opacity-60")}
+                  className={cx("flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs transition", on ? "border-muted bg-surface-2 text-text" : "border-border text-faint")}
                   aria-pressed={on}
                 >
                   <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: kindColor(k) }} />
@@ -369,7 +392,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
 
 function HudButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} aria-label={label} className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface font-display text-xl font-bold text-text shadow">
+    <button onClick={onClick} aria-label={label} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-surface font-display text-xl font-bold text-text shadow">
       {children}
     </button>
   );

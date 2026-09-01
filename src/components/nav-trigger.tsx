@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { cx } from "@/components/ui";
+import { focusTrigger } from "@/components/overlay";
 import { SiteNav } from "@/components/site-nav";
 import { useShelfFilters } from "@/components/shelf/filter-context";
 import type { PlatformCount } from "@/lib/collection";
@@ -24,7 +25,12 @@ export function NavTrigger({ platforms, totalGames, viewer }: { platforms: Platf
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        // `focusTrigger` first: Safari does not focus a button on click, and
+        // the drawer hands focus back to whatever had it when it opened.
+        onClick={(e) => {
+          focusTrigger(e);
+          setOpen(true);
+        }}
         className={cx("-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition", filtered ? "border-accent bg-accent text-accent-ink" : "border-transparent text-text hover:border-border hover:bg-surface-2")}
         aria-label="Open main menu"
         aria-expanded={open}

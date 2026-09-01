@@ -13,15 +13,24 @@
   --surface-2: #2a2a2d;
   --border: #3b3b3f;
   --text: #f4f4f4;
-  --muted: #a8a8ac;
-  --faint: #6e6e73;
+  /*
+    Three steps of hierarchy, and every one of them clears WCAG AA (4.5:1) on
+    every ground it is ever printed on — `--bg`, `--bg-elev`, `--surface` and
+    `--surface-2`. `--faint` used to be #6e6e73, which measured 3.90 / 3.63 /
+    3.36 / 2.82 and failed all four; lifting it alone would have collapsed it
+    into `--muted`, so `--muted` moved up with it. `src/lib/contrast.test.ts`
+    parses these values and holds the ratios, so the next palette tweak cannot
+    quietly drop below AA again.
+  */
+  --muted: #c2c2c6;
+  --faint: #929298;
   --accent: #e60012; /* Nintendo red */
   --accent-ink: #ffffff;
   --accent-2: #3cbcfc; /* NES palette light blue */
   --good: #58d854; /* NES palette green */
   --warn: #f8b800; /* NES palette yellow */
   --bad: #f83800; /* NES palette orange-red */
-  --nes-grey: #8f8f8f; /* cartridge plastic */
+  --nes-grey: #969696; /* cartridge plastic — lifted from #8f8f8f, which missed AA on --surface-2 */
 }
 
 @theme inline {
@@ -97,6 +106,32 @@ body {
   .pointer-only {
     display: inline-flex;
   }
+}
+
+/*
+  A 44x44 CSS-pixel tap target around a control whose ink has to stay small —
+  the compact "Edit" and "+ code" pills in a section header. The visual
+  box is untouched; the pseudo-element is a transparent child of the control,
+  so a tap anywhere in the 44x44 square lands on the control itself. Tests
+  verify these with `document.elementFromPoint` at the edge of the square
+  rather than with a bounding box, because the bounding box is the ink.
+
+  Only for controls that stand alone or sit in a row with enough gap that two
+  squares do not overlap: `gap-2` (8px) around a 32px pill leaves 40px between
+  centres and two 44px squares would fight. Where a control has room to grow,
+  grow it instead.
+*/
+.tap-44 {
+  position: relative;
+}
+.tap-44::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
 }
 
 /* Safe-area padding for phones with a home indicator. */

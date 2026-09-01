@@ -12,8 +12,19 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
+    // Desktop and phone run everything. The phone is WebKit (that is what the
+    // iPhone 13 descriptor selects), which is the closest proxy available here
+    // for the Safari this is actually read in.
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "phone", use: { ...devices["iPhone 13"] } },
+    // The two tablet projects run ONLY the adaptive spec (GAMEEXPLOR-0023).
+    // Running the whole suite four times over would double a green suite's
+    // runtime to re-drive the same flows at a third width; what a tablet
+    // actually needs checking for — overflow, target size, the modals — is
+    // exactly what that file asserts. `auth.spec.ts` in particular must not
+    // run here: it spawns a second server of its own.
+    { name: "tablet-portrait", testMatch: /adaptive\.spec\.ts/, use: { ...devices["iPad (gen 7)"] } },
+    { name: "tablet-landscape", testMatch: /adaptive\.spec\.ts/, use: { ...devices["iPad (gen 7) landscape"] } },
   ],
   webServer: {
     // `AUTH_OPEN=1` is what puts auth in open mode now that `NODE_ENV` no
