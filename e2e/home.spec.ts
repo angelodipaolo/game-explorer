@@ -118,11 +118,59 @@ test("the home hero search lands on a filtered shelf", async ({ page }) => {
     await expect(page.getByTestId("game-card").first()).toContainText(/mario/i);
 
     // An empty submit is a no-op: it must not dump you on the whole shelf.
+    // `toHaveURL` alone would pass at t=0 whatever happens next, so give the
+    // navigation that must not happen time to happen, and check the page we
+    // were on is still the page we are on.
     await page.goBack();
     await expect(page.getByTestId("hero-search-input")).toHaveValue("");
     await page.getByTestId("hero-search-submit").click();
+    await page.waitForTimeout(500);
     await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId("tonights-picks")).toBeVisible();
   });
+});
+
+test("the search survives characters a URL cares about", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("hero-search-input").fill("mario & luigi");
+  await page.getByTestId("hero-search-submit").click();
+  await expect(page).toHaveURL(/\/shelf\?q=/);
+  // Read the term back out of the URL rather than matching an encoding: what
+  // matters is that `&` arrived as part of the query and not as a separator.
+  expect(new URL(page.url()).searchParams.get("q")).toBe("mario & luigi");
+  await expect(page.getByTestId("game-card").first()).toContainText(/mario & luigi/i);
+});
+
+test("the phone search icon closes what it opened, and Escape hands focus back", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "the icon is the phone presentation; from `sm` up the field is inline");
+  await page.goto("/");
+  const toggle = page.getByTestId("header-search-toggle");
+  const input = page.getByTestId("header-search-input");
+
+  // Open, then close with the same icon. The blur the tap causes must not
+  // re-open it — the bug this locks down was three taps and still open.
+  await toggle.click();
+  await expect(input).toBeFocused();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
+  await expect(input).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
+  await toggle.click();
+  await expect(input).toBeVisible();
+
+  // Escape closes it and gives focus back to the icon, not to <body>: the next
+  // Tab has to carry on from here, not restart at the top of the document.
+  await input.press("Escape");
+  await expect(input).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
+
+  // And tapping the page closes it too.
+  await toggle.click();
+  await expect(input).toBeFocused();
+  await page.getByTestId("hero-search-input").click();
+  await expect(input).toBeHidden();
 });
 
 test("the header search opens the collection from anywhere", async ({ page, isMobile }) => {

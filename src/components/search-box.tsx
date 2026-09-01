@@ -27,6 +27,7 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
   const [term, setTerm] = useState("");
   const [open, setOpen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
 
   // The phone form is not in the layout until it is opened, so focus has to
   // follow it in — a search you have to tap twice is a search nobody uses.
@@ -34,12 +35,27 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
     if (open) input.current?.focus();
   }, [open]);
 
+  /**
+   * Close the phone panel and put focus back on the icon that opened it.
+   * Closing applies `display:none` to the element holding focus, and the
+   * browser's answer to that is `<body>` — a keyboard user who opens the
+   * search and presses Escape would restart their next Tab from the top of
+   * the document. `offsetParent` is the "is the icon actually on screen"
+   * test: from `sm` up the icon is `display:none` and there is nothing to
+   * hand focus back to, so the field just gives it up.
+   */
+  function collapse() {
+    setOpen(false);
+    const icon = toggle.current;
+    if (icon && icon.offsetParent !== null) icon.focus();
+    else input.current?.blur();
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault();
     const q = term.trim();
     if (!q) return; // an empty submit is a no-op, not a trip to an unfiltered shelf
-    setOpen(false);
-    input.current?.blur();
+    collapse();
     router.push(`/shelf?q=${encodeURIComponent(q)}`);
   }
 
@@ -49,7 +65,7 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
 
   if (variant === "hero") {
     return (
-      <form onSubmit={submit} role="search" className="mt-4 flex items-center gap-2" data-testid="hero-search">
+      <form onSubmit={submit} role="search" aria-label="Search the whole collection" className="mt-4 flex items-center gap-2" data-testid="hero-search">
         <label className="relative min-w-0 flex-1">
           <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-lg text-faint">⌕</span>
           <input
@@ -78,10 +94,18 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
           full width directly under the bar (the header is `sticky`, so it is
           the containing block for this absolute row). */}
       <button
+        ref={toggle}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        // Without this the icon can never close the panel: pointerdown on the
+        // button blurs the input first, the blur handler below has already set
+        // `open` to false, and the click that follows toggles it straight back
+        // open. Preventing the default keeps focus where it is, so no blur
+        // fires and the click is the only thing that decides.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => (open ? collapse() : setOpen(true))}
         aria-label="Search the whole collection"
         aria-expanded={open}
+        aria-controls="header-search-panel"
         className={cx("ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-lg transition sm:hidden", open ? "border-accent bg-surface-2 text-text" : "border-transparent text-muted hover:border-border hover:bg-surface-2")}
         data-testid="header-search-toggle"
       >
@@ -91,9 +115,13 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
           thing to focus. `max-sm:` is the phone dress: hidden until the icon
           is tapped, then a full-width row beneath the bar. */}
       <form
+        id="header-search-panel"
         onSubmit={submit}
         role="search"
-        className={cx("flex min-w-0 sm:ml-auto sm:max-w-56 sm:flex-1", "max-sm:absolute max-sm:inset-x-0 max-sm:top-full max-sm:border-b max-sm:border-border/70 max-sm:bg-bg/95 max-sm:px-4 max-sm:py-2 max-sm:backdrop-blur", open ? "" : "max-sm:hidden")}
+        // Named, because home renders two search landmarks and a landmark list
+        // that says "search, search" tells you nothing about either.
+        aria-label="Search the whole collection from any page"
+        className={cx("flex min-w-0 sm:ml-auto sm:max-w-56 sm:flex-1", "max-sm:absolute max-sm:inset-x-0 max-sm:top-full max-sm:border-b max-sm:border-border/70 max-sm:bg-bg max-sm:px-4 max-sm:py-3 max-sm:shadow-lg max-sm:shadow-black/40", open ? "" : "max-sm:hidden")}
         data-testid="header-search"
       >
         <label className="relative min-w-0 flex-1">
@@ -104,7 +132,7 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setOpen(false);
+              if (e.key === "Escape") collapse();
             }}
             onBlur={() => setOpen(false)}
             placeholder="Search all games"

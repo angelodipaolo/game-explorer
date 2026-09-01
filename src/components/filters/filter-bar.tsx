@@ -51,7 +51,8 @@ export function FilterBar({
   children?: ReactNode;
 }) {
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
-  const term = filters.q.trim();
+  // Already trimmed: `parseFilters` does it on the way out of the URL.
+  const term = filters.q;
   const [sheetOpen, setSheetOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const active = activeFilterCount(filters);
