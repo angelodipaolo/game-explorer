@@ -2,8 +2,8 @@ import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
 import { EnrichmentError } from "@/lib/enrichment/service";
-import { handle, ok } from "@/lib/enrichment/http";
-import { parseRange } from "@/lib/music/audio";
+import { handle, ok, readUploadBody } from "@/lib/enrichment/http";
+import { MAX_AUDIO_BYTES, parseRange } from "@/lib/music/audio";
 import { findTrackFile, setTrackAudio } from "@/lib/music/service";
 
 type Ctx = { params: Promise<{ trackId: string }> };
@@ -72,13 +72,13 @@ export async function GET(req: NextRequest, ctx: Ctx) {
  * is a write, and only `GET`/`HEAD` on this path are exempt from auth.
  *
  * The bytes are sniffed, not trusted: a `content-type` header proves nothing
- * about what was actually sent.
+ * about what was actually sent. `readUploadBody` is what makes the 32 MB cap
+ * real — an oversize upload is refused rather than silently trimmed to whatever
+ * the framework felt like buffering.
  */
 export async function PUT(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
     const { trackId } = await ctx.params;
-    const buf = Buffer.from(await req.arrayBuffer());
-    if (!buf.length) throw new EnrichmentError("empty body — send the audio bytes", 400);
-    return ok(await setTrackAudio(trackId, buf));
+    return ok(await setTrackAudio(trackId, await readUploadBody(req, MAX_AUDIO_BYTES, "audio")));
   });
 }

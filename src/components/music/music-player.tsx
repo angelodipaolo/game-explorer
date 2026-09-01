@@ -136,6 +136,11 @@ export function MusicPlayer() {
     fetch(`/api/games/${encodeURIComponent(gameId)}/music`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`music lookup failed: ${res.status}`))))
       .then((data: unknown) => {
+        // Belt to the abort's braces: a response that resolves for a game we
+        // have already navigated away from is dropped here rather than relying
+        // on the cleanup having run first. Correct by construction, not by
+        // argument about React's scheduling.
+        if (gameRef.current !== gameId) return;
         const raw = data && typeof data === "object" ? (data as { tracks?: unknown }).tracks : null;
         const tracks = Array.isArray(raw) ? raw.filter((t): t is PlayableTrack => !!t && typeof (t as PlayableTrack).id === "string") : [];
         tracksRef.current = tracks;

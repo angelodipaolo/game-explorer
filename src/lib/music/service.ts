@@ -52,7 +52,13 @@ async function requireTrack(trackId: string): Promise<MusicTrack> {
   return track;
 }
 
-/** Every track row for a copy, uploaded or not — the owner-facing listing. */
+/**
+ * Every track row for a copy, uploaded or not — the owner-facing listing behind
+ * `GET /api/games/:id/music/all`.
+ *
+ * The public listing hides rows with no audio, so this is the only way to see
+ * (and therefore delete) a row whose upload failed after its POST succeeded.
+ */
 export async function tracksFor(ownedGameId: string): Promise<MusicTrack[]> {
   return prisma.musicTrack.findMany({ where: { ownedGameId }, orderBy: { createdAt: "asc" } });
 }

@@ -56,6 +56,17 @@ describe("settings", () => {
   it("never throws when the browser refuses to store anything", () => {
     expect(readSettings(hostile)).toEqual(DEFAULT_MUSIC_SETTINGS);
     expect(() => writeSettings({ enabled: true, volume: 1 }, hostile)).not.toThrow();
+    // ...and it does not forget, either: with nowhere to write, the choice is
+    // held in memory so the toggle the reader just pressed stays pressed
+    // instead of snapping back to off on the very next render.
+    expect(readSettings(hostile)).toEqual({ enabled: true, volume: 1 });
+    expect(readSettings(null)).toEqual({ enabled: true, volume: 1 });
+
+    // A successful write hands ownership back to storage.
+    const s = store();
+    writeSettings({ enabled: false, volume: 0.35 }, s);
+    expect(readSettings(null)).toEqual(DEFAULT_MUSIC_SETTINGS);
+    expect(readSettings(s)).toEqual(DEFAULT_MUSIC_SETTINGS);
   });
 });
 

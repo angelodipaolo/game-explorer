@@ -73,12 +73,24 @@ export function browserStorage(): StorageLike | null {
   }
 }
 
+/**
+ * What this device chose when it cannot write it down.
+ *
+ * A private window can refuse `localStorage` outright, and without somewhere to
+ * put the choice the toggle would snap straight back to off — `getSnapshot`
+ * re-reads on every render, so a write that went nowhere is a control that does
+ * nothing. Module state lives as long as the tab's app does, which makes the
+ * setting last for the visit and vanish on reload. That is the honest
+ * behaviour, and it is what /settings tells the reader.
+ */
+let memorySettings: MusicSettings | null = null;
+
 export function readSettings(storage: StorageLike | null = browserStorage()): MusicSettings {
-  if (!storage) return DEFAULT_MUSIC_SETTINGS;
+  if (!storage) return memorySettings ?? DEFAULT_MUSIC_SETTINGS;
   try {
     return parseSettings(storage.getItem(MUSIC_SETTINGS_KEY));
   } catch {
-    return DEFAULT_MUSIC_SETTINGS;
+    return memorySettings ?? DEFAULT_MUSIC_SETTINGS;
   }
 }
 
@@ -91,9 +103,16 @@ export function readSettings(storage: StorageLike | null = browserStorage()): Mu
  */
 export function writeSettings(settings: MusicSettings, storage: StorageLike | null = browserStorage()): void {
   const value: MusicSettings = { enabled: settings.enabled, volume: clampVolume(settings.volume) };
+  let stored = false;
   try {
-    storage?.setItem(MUSIC_SETTINGS_KEY, JSON.stringify(value));
+    if (storage) {
+      storage.setItem(MUSIC_SETTINGS_KEY, JSON.stringify(value));
+      stored = true;
+    }
   } catch {}
+  // Nowhere to write it: keep it in memory so the control the reader just used
+  // holds its position for the rest of the visit.
+  memorySettings = stored ? null : value;
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent<MusicSettings>(MUSIC_SETTINGS_EVENT, { detail: value }));
 }
 
@@ -114,9 +133,13 @@ let snapshotValue: MusicSettings = DEFAULT_MUSIC_SETTINGS;
 export function settingsSnapshot(): MusicSettings {
   let raw: string | null = null;
   try {
-    raw = browserStorage()?.getItem(MUSIC_SETTINGS_KEY) ?? null;
+    const storage = browserStorage();
+    // No storage at all, or a read that threw: the in-memory choice stands in,
+    // and it is already a stable reference, which is what React needs here.
+    if (!storage) return memorySettings ?? DEFAULT_MUSIC_SETTINGS;
+    raw = storage.getItem(MUSIC_SETTINGS_KEY);
   } catch {
-    raw = null;
+    return memorySettings ?? DEFAULT_MUSIC_SETTINGS;
   }
   if (raw !== snapshotRaw) {
     snapshotRaw = raw;

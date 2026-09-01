@@ -73,6 +73,9 @@ unset `GAME_EXPLORER_URL` means stop, never localhost.
   `{ "tracks": [{ "id", "title" }] }`. Tracks with no audio uploaded yet are
   deliberately absent. Public, like the map and manual image routes — the
   player fetches it on every game page.
+- `GET /api/games/:id/music/all` — **every** track row, uploaded or not, with
+  `bytes` and `contentType`. Owner only. This is the one that finds a row whose
+  POST landed and whose PUT did not.
 - `POST /api/games/:id/music { title }` — create the row.
 - `PUT /api/music/:trackId/audio` — upload the bytes.
 - `GET /api/music/:trackId/audio` — the audio itself (public; supports
@@ -87,26 +90,35 @@ unset `GAME_EXPLORER_URL` means stop, never localhost.
   there is no research: a track has to be a file the owner gives you. Work
   from what they hand you or name.
 - **A track is never upserted.** POSTing the same title twice makes two rows
-  and the game plays both. Before adding, `GET /api/games/:id/music` and check
-  what is already there.
+  and the game plays both. Before adding, `GET /api/games/:id/music/all` and
+  check what is already there.
+- **An upload is all-or-nothing.** Over 32 MB comes back `413` before a byte is
+  read; a body that arrives shorter than its `content-length` comes back `400`
+  and nothing is stored. A `200` means the whole file landed — if you see
+  either error, the track row still exists with `bytes: 0` and you should retry
+  the PUT rather than POST a second row.
 - **The audio is not in `db:snapshot`.** The `MusicTrack` rows are; the files
   live beside maps, journal photos and manual scans and travel in
   `npm run backup`. Never suggest restoring a snapshot as a way to move music.
-- A track whose audio you never uploaded is invisible to the player. If a game
-  is unexpectedly silent, list its tracks first — a row with no bytes is the
-  usual reason.
+- A track whose audio you never uploaded is invisible to the player but still
+  counts toward the 60. If a game is unexpectedly silent, list its tracks with
+  `GET /api/games/:id/music/all` — a row with `bytes: 0` is the usual reason.
+  Either PUT its audio or `DELETE /api/music/:trackId` it.
 
 ## Verify
 
 ```bash
-# The player's own view of this copy, and the bytes behind one track.
+# Everything registered on this copy (owner only), the player's own view of it,
+# and the bytes behind one track.
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/games/<ownedGameId>/music/all"
 curl -s "$GAME_EXPLORER_URL/api/games/<ownedGameId>/music"
 curl -s -o /dev/null -w '%{http_code} %{content_type} %{size_download}\n' \
   "$GAME_EXPLORER_URL/api/music/<trackId>/audio"
 # → 200 audio/mpeg <the file size>
 ```
 
-Both reads are public, so no token is needed for those two. Then, in a
+The last two reads are public, so no token is needed for them; `/music/all` is
+owner-only like every other listing in this API. Then, in a
 browser: Settings → Background music on, open the game, and it should start
 within a second. If a "Play music" button appears instead, that is the
 browser's autoplay policy asking for a tap on a page that was opened without

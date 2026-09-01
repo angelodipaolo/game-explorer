@@ -395,6 +395,24 @@ model GameBookmark {
 /// in db:snapshot) and are served by /api/manual-pages/:id/image.
 ///
 /// No `source`, no precedence, like GameCode and GameMap.
+model GameManual {
+  id          String       @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame    @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  /// "Manual" for the usual case; "Poster map", "Nintendo Power insert" otherwise.
+  title       String       @default("Manual")
+  /// Where the scan came from, when whoever added it had a link.
+  sourceUrl   String?
+  note        String?
+  /// Display order among a game's manuals.
+  position    Int          @default(0)
+  pages       ManualPage[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([ownedGameId])
+}
+
 /// One soundtrack track for an owned copy (GAMEEXPLOR-0025): a row here, the
 /// audio itself on disk under data/music/<id>.mp3, served by
 /// /api/music/:trackId/audio.
@@ -421,24 +439,6 @@ model MusicTrack {
   bytes       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
-  @@index([ownedGameId])
-}
-
-model GameManual {
-  id          String       @id @default(cuid())
-  ownedGameId String
-  ownedGame   OwnedGame    @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
-  /// "Manual" for the usual case; "Poster map", "Nintendo Power insert" otherwise.
-  title       String       @default("Manual")
-  /// Where the scan came from, when whoever added it had a link.
-  sourceUrl   String?
-  note        String?
-  /// Display order among a game's manuals.
-  position    Int          @default(0)
-  pages       ManualPage[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
 
   @@index([ownedGameId])
 }

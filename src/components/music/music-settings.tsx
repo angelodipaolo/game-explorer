@@ -49,7 +49,7 @@ export function MusicSettingsPanel() {
 
       {storable ? null : (
         <p className="mt-3 text-xs text-warn">
-          This browser will not let the page store anything (a private window, usually), so the choice lasts until you close the tab. The key, when it can be stored, is <code>{MUSIC_SETTINGS_KEY}</code>.
+          This browser will not let the page store anything (a private window, usually), so the choice holds for this visit and is forgotten when you reload. The key, when it can be stored, is <code>{MUSIC_SETTINGS_KEY}</code>.
         </p>
       )}
     </section>

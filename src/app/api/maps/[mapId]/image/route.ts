@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EnrichmentError } from "@/lib/enrichment/service";
-import { handle, ok } from "@/lib/enrichment/http";
+import { handle, ok, readUploadBody } from "@/lib/enrichment/http";
 import { readImage } from "@/lib/maps/image";
-import { isSafeImageId } from "@/lib/media/image-store";
+import { MAX_IMAGE_BYTES, isSafeImageId } from "@/lib/media/image-store";
 import { setMapImage } from "@/lib/maps/service";
 
 type Ctx = { params: Promise<{ mapId: string }> };
@@ -34,8 +34,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   return handle(async () => {
     const { mapId } = await ctx.params;
     if (!isSafeImageId(mapId)) throw new EnrichmentError("no such map", 404);
-    const buf = Buffer.from(await req.arrayBuffer());
-    if (!buf.length) throw new EnrichmentError("empty body — send the image bytes", 400);
+    // `readUploadBody`, not a bare `arrayBuffer()`: a body over the framework's
+    // proxy buffer used to arrive truncated with no error at all, and a PNG
+    // header at the front is enough for `sniffImage` to wave half a file
+    // through. See src/lib/enrichment/http.ts.
+    const buf = await readUploadBody(req, MAX_IMAGE_BYTES, "image");
     return ok(await setMapImage(mapId, buf));
   });
 }

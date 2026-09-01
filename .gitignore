@@ -63,7 +63,7 @@ npm-debug.log*
 # manual page scans
 /data/manuals/
 
-# the owner's own soundtrack files + data/music/index.json (GAMEEXPLOR-0025).
+# the owner's own soundtrack files, one per MusicTrack id (GAMEEXPLOR-0025).
 # Never committed, never under public/ — they are personal files, served only
-# through /api/music/tracks/:trackId.
+# through /api/music/:trackId/audio.
 /data/music/

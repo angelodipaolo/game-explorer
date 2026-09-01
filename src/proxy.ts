@@ -90,6 +90,16 @@ export function isOwnerPage(pathname: string): boolean {
  *   maps, manuals, journal, sessions) stays behind auth, and so does `POST`
  *   here.
  *
+ * One thing to know before adding an exemption: these patterns are matched
+ * against `nextUrl.pathname`, which is **not** percent-decoded. `[^/]+`
+ * therefore matches an encoded slash, so `/api/games/..%2F..%2Ftags/music` is
+ * public — it answers `{"tracks":[]}` because the decoded value reaches only a
+ * Prisma `where` and never a path, and `/api/tags` itself still needs the
+ * owner. That is fine for a route whose id is only ever a database lookup; it
+ * would not be fine for one that lets a segment reach a filesystem, a redirect,
+ * or another service. Match on the shape of the route, and never assume the
+ * segment you captured is a single decoded path component.
+ *
  * Every other `/api/*` request — including GETs like `/api/tags`,
  * `/api/codes/gaps` and `/api/enrichment/gaps` — needs the owner: those are
  * agent-facing endpoints that enumerate the collection, not page data.
