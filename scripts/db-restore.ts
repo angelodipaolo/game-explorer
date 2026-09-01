@@ -90,7 +90,10 @@ async function main() {
 if (require.main === module) {
   main()
     .catch((e) => {
-      console.error(e instanceof Error ? e.message : e);
+      // The whole error, stack included. Every way a restore fails here is a
+      // surprise — a foreign key the export should have caught, a bad path, a
+      // Prisma fault — and a surprise is worth a stack.
+      console.error(e);
       process.exitCode = 1;
     })
     .finally(() => prisma.$disconnect());

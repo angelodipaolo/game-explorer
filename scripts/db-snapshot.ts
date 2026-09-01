@@ -18,7 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "../src/lib/db";
-import { assertRestorable, selectImportRows, selectImportSessions } from "./lib/snapshot";
+import { UnrestorableSnapshotError, assertRestorable, selectImportRows, selectImportSessions } from "./lib/snapshot";
 
 /**
  * Read the whole database into one plain object.
@@ -84,7 +84,11 @@ async function main() {
 if (require.main === module) {
   main()
     .catch((e) => {
-      console.error(e instanceof Error ? e.message : e);
+      // An UnrestorableSnapshotError has already said everything useful in its
+      // message and a stack would only bury it. Anything else — a Prisma
+      // failure, a bad path — is a surprise, and for a surprise the stack is
+      // the most useful thing there is.
+      console.error(e instanceof UnrestorableSnapshotError ? e.message : e);
       process.exitCode = 1;
     })
     .finally(() => prisma.$disconnect());

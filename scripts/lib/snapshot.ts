@@ -133,6 +133,16 @@ export const REFERENCES: readonly Reference[] = [
   { from: "seriesEntries", field: "seriesId", to: "series" },
 ];
 
+/*
+ * Deliberately NOT in the list above: `ImportRow.dedupeTargetId`. It looks
+ * exactly like a foreign key and is not one — it points at an `OwnedGame` on
+ * some rows and at another `ImportRow` on others, with nothing in the row
+ * saying which. Adding it here is the single edit that would turn this check
+ * from a safety net into a false-failure generator, blocking every export on a
+ * database that is perfectly restorable. If a future relation is genuinely
+ * polymorphic, leave it out and say so here, the way this paragraph does.
+ */
+
 /** A child row pointing at a parent the snapshot does not contain. */
 export type DanglingReference = {
   readonly table: string;
