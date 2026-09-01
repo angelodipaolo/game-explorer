@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { ShelfGame } from "@/lib/collection";
 import type { Viewer } from "@/lib/viewer";
 import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilters, type Filters } from "@/lib/filters";
-import { Button, cx } from "@/components/ui";
+import { Button, SearchIcon, cx } from "@/components/ui";
 import { focusTrigger } from "@/components/overlay";
 import { FilterSheet, PresetRow } from "./filter-sheet";
 import { GameCard, GameRow } from "./game-card";
@@ -33,17 +33,37 @@ export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer })
       {/* Toolbar */}
       <div className="sticky top-12 z-20 -mx-4 bg-bg/85 px-4 py-3 backdrop-blur">
         <div className="flex items-center gap-2">
-          <label className="relative flex-1">
-            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">⌕</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search the shelf"
-              aria-label="Search"
-              className="h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
-            />
-          </label>
+          {/* The shelf's box does not collapse, and it is not an exception to
+              GAMEEXPLOR-0033's rule — it is the case where the rule has only
+              one control to apply to. The big box is always the
+              search-everything box; on the shelf that box happens to do the
+              narrowing as well, which is why the header hides its own. The
+              owner's "the big one should be small *since it becomes a filter
+              thing*" is conditional, and here the condition is false. Collapse
+              it and the one page whose entire job is finding something to play
+              would open on a phone with no search field on it at all.
+
+              It says "Search all games" for the same reason: it is the same
+              control, the same matcher and the same `q` key you land on from
+              the hero, and one control with two names is the thing this ticket
+              exists to remove. Enter is a no-op — the term is in the URL a beat
+              after it is typed — but the form has to say so, or the browser
+              would navigate and drop every other filter. */}
+          <form role="search" aria-label="Search all games" onSubmit={(e) => e.preventDefault()} className="min-w-0 flex-1">
+            <label className="relative block">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">
+                <SearchIcon />
+              </span>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search all games"
+                aria-label="Search all games"
+                className="h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
+              />
+            </label>
+          </form>
           <Button variant={active ? "primary" : "secondary"} onClick={(e) => {
             focusTrigger(e);
             setSheetOpen(true);

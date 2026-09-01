@@ -229,6 +229,38 @@ test.describe("adaptive", () => {
     await expectTapTarget(page.getByTestId("flip-surprise"), "flip surprise");
 
     await page.goto("/playing");
+    /*
+      The header's own search field, which is where the 36px/14px defect lived
+      until GAMEEXPLOR-0033 — on both iPads, the two projects that exist
+      precisely to catch this, and which never measured it. 16px is the second
+      half: below it, iPadOS zooms the whole page on focus.
+    */
+    await expect(page.getByTestId("open-filters")).toBeVisible();
+    const headerSearch = page.getByTestId("header-search-input");
+    if (await headerSearch.isVisible()) {
+      await expectTapTarget(headerSearch, "the header search field");
+      expect(await headerSearch.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)), "the header search's text").toBeGreaterThanOrEqual(16);
+    }
+
+    /*
+      And the page's own filter search, in whichever shape this width gives it:
+      a glyph from `md` up, the field itself below. `:visible` rather than a
+      width branch, because which one is on screen is the thing being asserted
+      and either answer is a control a thumb has to be able to hit.
+    */
+    await expectTapTarget(page.locator('[data-testid="filter-search-toggle"]:visible, [data-testid="filter-search-input"]:visible').first(), "the filter search");
+    await page.goto("/playing?q=contra");
+    await expect(page.getByTestId("search-all-games")).toBeVisible();
+    // Below `md` the field never collapses, so there is no chip to measure.
+    const chip = page.getByTestId("filter-search-chip");
+    if (await chip.isVisible()) {
+      await expectTapTarget(chip, "the filter search's chip");
+      await expectTapTarget(page.getByTestId("filter-search-clear"), "the filter search's clear");
+    }
+    await expectNoHorizontalOverflow(page, "playing, filtered");
+    await page.goto("/playing");
+    await expect(page.getByTestId("open-filters")).toBeVisible();
+
     const queueUp = page.getByTestId("queue-up").first();
     if (await queueUp.isVisible().catch(() => false)) {
       await expectTapTarget(queueUp, "the queue's move-up");

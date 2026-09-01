@@ -116,7 +116,7 @@ export function SeriesGrid({ slug, owned, total, missing, sections, viewer }: { 
 
       {entries.length ? (
         <div className="mt-4">
-          <FilterBar filters={filters} set={set} reset={reset} facets={facets} viewer={viewer} confirmed={shown - maybe} maybe={maybe} placeholder="Search this series" />
+          <FilterBar filters={filters} set={set} reset={reset} facets={facets} viewer={viewer} confirmed={shown - maybe} maybe={maybe} filterLabel="Filter this series" />
         </div>
       ) : null}
 
