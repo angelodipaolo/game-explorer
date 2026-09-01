@@ -5,10 +5,11 @@ import { useMemo } from "react";
 import type { InProgressRow, QueuedRow } from "@/lib/collection";
 import type { Viewer } from "@/lib/viewer";
 import { activeFilterCount, facets as buildFacets, splitInOrder } from "@/lib/filters";
-import { Button, cx, day } from "@/components/ui";
-import { Cover } from "@/components/shelf/cover";
+import { Button } from "@/components/ui";
 import { FilterBar } from "@/components/filters/filter-bar";
+import { shelfGrid } from "@/components/shelf/grid";
 import { useFilters } from "@/components/shelf/use-filters";
+import { PlayingCard, RunCaption } from "./playing-card";
 import { QueueList } from "./queue-list";
 
 /**
@@ -20,6 +21,10 @@ import { QueueList } from "./queue-list";
  * `useFilters` is used without `scrollTopOnChange`: that is the shelf's
  * behaviour, where a filter change is a screenful of different games. This
  * page is a handful of rows and jumping it would just feel like a glitch.
+ *
+ * Both lists are grids of the shelf's `GameCard` (GAMEEXPLOR-0026) — same
+ * width as the shelf, same card — with the run context as a caption under
+ * each. See `playing-card.tsx`.
  */
 export function Playing({ inProgress, upNext, viewer }: { inProgress: InProgressRow[]; upNext: QueuedRow[]; viewer: Viewer }) {
   const [filters, set, reset] = useFilters();
@@ -34,7 +39,7 @@ export function Playing({ inProgress, upNext, viewer }: { inProgress: InProgress
   const queue = useMemo(() => shown(splitInOrder(upNext, filters)), [upNext, filters]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-16">
+    <main className="mx-auto max-w-7xl px-4 pb-16">
       <h1 className="mt-5 font-display text-2xl font-bold tracking-tight sm:text-3xl">Now playing</h1>
 
       <div className="mt-4">
@@ -44,26 +49,13 @@ export function Playing({ inProgress, upNext, viewer }: { inProgress: InProgress
       <section className="mt-6">
         <SectionHeading label="In progress" shown={open.shown} total={inProgress.length} active={active} />
         {open.shown ? (
-          <ul className="flex flex-col gap-2" data-testid="in-progress">
-            {open.kept.map((r) => (
-              <li key={r.sessionId} className={cx(open.dim.has(r.ownedGameId) && "opacity-60")}>
-                <Link href={`/game/${r.ownedGameId}`} className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/5 p-2 transition hover:border-accent" prefetch={false} data-testid="playing-row">
-                  <Cover imageId={r.cover} title={r.name} size="small" className="w-12 shrink-0 rounded-md" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{r.name}</span>
-                    <span className="block truncate text-xs text-muted">
-                      {r.platformLabel} · since {day(r.startedAt)}
-                    </span>
-                    {/* Where you left off: the last thing written during this run, else the run's own note. */}
-                    {r.lastEntry || r.note ? <span className="mt-0.5 block truncate text-xs text-faint">{r.lastEntry ? (r.lastEntry.body ?? r.lastEntry.title ?? "") : r.note}</span> : null}
-                  </span>
-                  <span className="shrink-0 text-xs text-accent" aria-hidden>
-                    ▶
-                  </span>
-                </Link>
-              </li>
+          <div className={shelfGrid} role="list" data-testid="in-progress">
+            {open.kept.map((r, i) => (
+              // `RunCaption` with `leftOff`: the last thing written during this
+              // run, else the run's own note. The ▶ Playing badge is the card's.
+              <PlayingCard key={r.sessionId} row={r} dim={open.dim.has(r.ownedGameId)} priority={i < 6} testId="playing-row" caption={<RunCaption row={r} leftOff />} />
             ))}
-          </ul>
+          </div>
         ) : inProgress.length ? (
           // Hidden by the filter, not absent. Saying "nothing on the go" here
           // would be a lie about the shelf rather than a fact about the filter.

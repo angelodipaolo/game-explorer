@@ -59,6 +59,20 @@ export function day(d: Date | string): string {
   return `${x.getDate()} ${MONTHS[x.getMonth()]} ${x.getFullYear()}`;
 }
 
+/**
+ * `12 Aug`, or `12 Aug 2025` once the year stops being obvious — for a caption
+ * too narrow to spend four characters on this year (home's three-across card).
+ *
+ * Built from the same parts as `day` rather than by trimming its output: a
+ * regex over a formatted date silently stops matching the day the format
+ * changes, and quietly renders the year again.
+ */
+export function shortDay(d: Date | string): string {
+  const x = new Date(d);
+  const dm = `${x.getDate()} ${MONTHS[x.getMonth()]}`;
+  return x.getFullYear() === new Date().getFullYear() ? dm : `${dm} ${x.getFullYear()}`;
+}
+
 /** The local calendar day as `YYYY-MM-DD`: what a date input holds, and what `parseWhen` reads back as local midnight. */
 export function dateInput(d: Date | string = new Date()): string {
   const x = new Date(d);
