@@ -64,22 +64,74 @@ to mark it finished you close that run. Do not go looking for a field.
 **A run and a queue entry are per copy**, keyed on `ownedGameId`, exactly like
 codes, maps and music. Playing the NES Contra says nothing about the SNES one.
 
-## Dates: send bare `YYYY-MM-DD` and do no timezone maths
+## Dates: a ladder of three rungs, and no timezone maths
 
-`src/lib/dates.ts` parses a bare `2026-08-30` as **local midnight on that
-calendar day**, not UTC midnight. That is deliberate: `new Date("2026-08-30")`
-is UTC midnight, which is the *previous day* everywhere west of Greenwich, so a
-run backdated to "yesterday" would render as the day before that.
+A run's dates carry **the precision they were claimed at**, and the app renders
+exactly that and never rounds in either direction. Pick the rung that matches
+what the owner actually said:
 
-- Send `"2026-08-30"`. The server does the right thing with it.
-- Do **not** convert to UTC, do **not** append `T00:00:00Z`, do **not** add an
-  offset "to be safe". Every one of those re-introduces the off-by-one.
+| Rung | Send | Means | Renders |
+| --- | --- | --- | --- |
+| a day | `"2026-08-30"` | 30 August 2026 | `30 Aug 2026` |
+| a month | `"2026-08"` | sometime in August 2026 | `Aug 2026` |
+| nothing | `"undated": true` | not even the year is known | `Date unknown` |
+
+**A month is a first-class answer, and it is the right answer more often than a
+day.** "I played Chrono Trigger last March" is a complete claim: send
+`--started-at 2026-03` and it is recorded as what was said. There is no
+`precision` field and no `--precision` flag — **the shape of the value is the
+claim**, so there is nothing to send twice and nothing to contradict.
+
+The two ends are independent. A run may start on a day and end in a month
+(`--started-at 2026-08-12 --ended-at 2026-10`); the app does this by itself
+every time a backdated run is closed with the game page's Finished button.
+
+- **Never send `2026-08-01` when the owner said "August."** It will not error.
+  It is a claim about the *1st*, the page will render "1 Aug 2026", and a year
+  from now nobody can tell it from a day the owner actually named. This is the
+  new quiet way to record something that was never said, and it sits right
+  beside the timezone trap below.
+- A month must be a real month: `2026-13`, `2026-00` and `2026-1` are **400s**,
+  not silently rolled into the following January.
+- **Do no timezone maths.** `src/lib/dates.ts` parses a bare `2026-08-30` as
+  **local midnight on that calendar day**, not UTC midnight — `new
+  Date("2026-08-30")` is UTC midnight, which is the *previous day* everywhere
+  west of Greenwich, so a run backdated to "yesterday" would render as the day
+  before that. `2026-08` is the same rule one rung up: the first instant of
+  August, locally.
+- So: send `"2026-08-30"` or `"2026-08"` and stop. Do **not** convert to UTC,
+  do **not** append `T00:00:00Z`, do **not** add an offset "to be safe". Every
+  one of those re-introduces the off-by-one.
 - A full ISO timestamp with an offset (`2026-08-30T21:15:00-07:00`) is passed
-  through untouched. Use one only when the owner gave you a time of day.
-- An **undated** run is the honest answer when nobody remembers. Its stored
-  timestamps are the moment it was typed in and mean nothing; the `undated`
-  flag is what tells every reader to ignore them, and the UI sorts those runs
-  last.
+  through untouched, at day precision. Use one only when the owner gave you a
+  time of day.
+- An **undated** run is the honest answer when nobody remembers *the year* —
+  "I played Super Metroid a bunch in the nineties". It is narrower than it used
+  to be: a run the owner can place in a month is no longer undated, it is a
+  month. Its stored timestamps are the moment it was typed in and mean nothing;
+  the `undated` flag is what tells every reader to ignore them, and the UI
+  sorts those runs last.
+- `gx play list --json` reports `startedPrecision` and `endedPrecision` beside
+  the timestamps. Read them before you report a date back to the owner: a
+  `month` row's day is scaffolding, and quoting the 1st at them is putting a
+  day in their mouth.
+
+### Why this makes "record, never infer" easier, not harder
+
+The rule's failure mode has never been agents that want to lie. It is agents
+handed a partial truth with nowhere to put it. Before month precision, "I
+played Chrono Trigger last March" left two legal moves: ask for a day the owner
+does not have and will not produce, or record it `undated` — which discards the
+year *and* the month you were just told, sorts the run to the bottom of the
+list, and drops it out of "last played" entirely. Both are bad, and the second
+is bad in the way that punishes honesty: the faithful record was *less useful*
+than the invented one. That is exactly the gradient that produces a
+plausible-looking `2026-03-15` in someone's play log a year from now.
+
+The honest answer and the informative answer are now the same answer. The rule
+itself has not moved an inch — you still may not derive a date from a bookmark,
+a habit or a completion percentage — but the honest path is finally wide enough
+to walk down.
 
 ## Runs
 
@@ -88,6 +140,7 @@ run backdated to "yesterday" would render as the day before that.
 ```bash
 npm run gx -- play start <ownedGameId>                       # from now
 npm run gx -- play start <ownedGameId> --started-at 2026-08-29 --note "second playthrough"
+npm run gx -- play start <ownedGameId> --started-at 2026-08    # "I have been playing this since August"
 ```
 
 ```bash
@@ -97,7 +150,14 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
 ```
 
 An empty body is legal and means "now" — the game page's Start button sends
-exactly that.
+exactly that, and a run started that way is recorded at day precision, because
+the day is known for free.
+
+**`--started-at` with no end date opens a *backdated* run**, still in progress.
+That is a feature and not an accident: it is what the game page's third
+outcome, "Still playing", posts. It is also the trap two sections down — a body
+carrying only a start is indistinguishable from "start playing now, from this
+date", so if the run is over you must send `--ended-at` too.
 
 Two things happen that you should not try to do yourself:
 
@@ -119,6 +179,7 @@ Same route; the presence of an end date is what makes it a past run.
 
 ```bash
 npm run gx -- play log <ownedGameId> --started-at 2026-07-04 --ended-at 2026-07-19 --outcome completed
+npm run gx -- play log <ownedGameId> --started-at 2019-05 --ended-at 2019-06   # "spring of 2019, I think"
 npm run gx -- play log <ownedGameId> --undated --outcome abandoned --note "sometime in the nineties"
 ```
 
@@ -135,7 +196,13 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
 - `outcome: "playing"` with an end date is a **400**. A finished run is not in
   progress; leave `endedAt` out if you meant to start one.
 - `undated: true` together with either date is a **400** — send it on its own.
-- An end before the start is a **400** (`a run cannot end before it started`).
+- An end before the start is a **400** (`a run cannot end before it started`),
+  compared **between periods** rather than between the two stored instants. So
+  `--started-at 2026-08-12 --ended-at 2026-08` is fine — the run ended
+  somewhere in the rest of August — and `--started-at 2026-08-12 --ended-at
+  2026-07` is still a 400. This also means a run finished on the day it started
+  is accepted; it used to be refused whenever the start carried a time of day,
+  which was a bug.
 - `note` is trimmed and capped at **500 characters**; longer is a **400**.
 - An unknown `ownedGameId` is a **404**.
 
@@ -155,6 +222,7 @@ which you meant, they do not make the API check. **A past run needs
 npm run gx -- play open                                   # every run in progress
 npm run gx -- play list <ownedGameId>                     # one copy's runs
 npm run gx -- play finish <sessionId> --outcome completed --ended-at 2026-08-30
+npm run gx -- play finish <sessionId> --outcome abandoned --ended-at 2026-08    # "I gave up on it in August"
 npm run gx -- play edit <sessionId> --ended-at null       # reopen a mis-tapped finish
 npm run gx -- play remove <sessionId>
 ```
@@ -183,6 +251,12 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
   invented, and inventing it is what "record, never infer" forbids. If the
   owner did not say when, ask — do not let the route pick "now" for you either;
   it will refuse instead.
+- **Precision moves with the date, and only when you send that date.** A patch
+  that restates `startedAt` restates how precisely the start was known; one
+  that does not, leaves it alone. `gx play edit <id> --note "…"` on a run
+  recorded as "Aug 2026" leaves it "Aug 2026". Sending a coarser shape is how
+  you *remove* a day nobody actually knew (`--started-at 2026-08` on a run
+  wrongly recorded as `2026-08-01`).
 - **A run cannot be finished before it started: 400.** This is the one that
   will bite you, because it looks like a bug and is not. If you started the run
   with `gx play start` just now, its `startedAt` is *today*, and closing it
@@ -283,7 +357,13 @@ there is no public read here, unlike the image routes.
   explicitly out of scope.
 - **No timers, no durations, no automatic detection.** A run has a start and an
   end and nothing in between; nothing in this app watches a console or a
-  library to decide you are playing something. Do not simulate it.
+  library to decide you are playing something. Do not simulate it. Month
+  precision makes a duration meaningless anyway, which is a feature.
+- **No `year` rung, and no overlap validation.** "The nineties" is a decade and
+  usually several runs, so a year would not have caught it either — `undated`
+  plus a note is still its honest home. And two runs on one copy may overlap:
+  the log is a log, not a calendar, and corrections routinely produce transient
+  overlaps.
 - **`PlaySession` and `QueueEntry` are in `db:snapshot`**, so they travel with
   a restore — unlike the map, manual, journal and music files, which are bytes
   on disk.

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { JournalEntry, PlaySession } from "@prisma/client";
 import { apiError, cx, day, dateInput } from "@/components/ui";
+import { runDates, runSince } from "@/lib/play/format";
 import { Overlay, focusTrigger } from "@/components/overlay";
 import { Section, openSection } from "@/components/game/section";
 
@@ -233,7 +234,7 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {onRun ? (
                   <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent/15 px-3 text-xs text-accent" data-testid="journal-run-chip">
-                    on this run · since {day(openRun.startedAt)}
+                    on this run · since {runSince(openRun)}
                     <button type="button" onClick={() => setOnRun(false)} className="ml-1 rounded-full px-1 leading-none hover:bg-bg/40" aria-label="Not part of this run" data-testid="journal-clear-run">
                       ×
                     </button>
@@ -394,7 +395,11 @@ function groupByRun(entries: JournalEntry[], sessions: PlaySession[]) {
     // An undated run's timestamps are the moment it was recorded, not dates —
     // heading its entries with them would contradict the play history two
     // sections up, which says "date unknown" for the same run.
-    if (s) push(s.id, s.undated ? "Date unknown" : `${day(s.startedAt)} — ${s.endedAt ? day(s.endedAt) : "playing now"}`, e);
+    // Through `runDates`, so a note written during a month-precision run is
+    // filed under exactly the words the play history two sections up uses for
+    // the same run. Keeping a second copy of that string here is how the two
+    // drifted apart before (GAMEEXPLOR-0037).
+    if (s) push(s.id, runDates(s), e);
     else push("loose", "Not part of a run", e);
   }
   return groups;

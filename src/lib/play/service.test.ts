@@ -258,6 +258,126 @@ describe("play sessions", () => {
     expect(await prisma.playSession.count({ where: { ownedGameId: nes, endedAt: null } })).toBe(0);
   });
 
+  /* ---------------------------------------------- date precision (0037) */
+
+  it("records the precision a date was claimed at, from the shape of the value alone", async () => {
+    // No `precision` field anywhere in the input: "2026-08" is a month,
+    // "2026-08-12" is a day, and that is the entire interface.
+    const month = await logPastSession(nes, { startedAt: "2026-08", endedAt: "2026-10" });
+    expect([month.startedPrecision, month.endedPrecision]).toEqual(["month", "month"]);
+    // Stored as the *first* instant of the claimed period, always — a
+    // month-precision end stored as 31 Aug 23:59 would put lastPlayedAt in the
+    // future for a run finished this month.
+    expect([month.startedAt.getFullYear(), month.startedAt.getMonth(), month.startedAt.getDate()]).toEqual([2026, 7, 1]);
+
+    const day = await logPastSession(snes, { startedAt: "2019-05-02", endedAt: "2019-06-14" });
+    expect([day.startedPrecision, day.endedPrecision]).toEqual(["day", "day"]);
+
+    // Mixed, which is what the game page produces by default: a backdated
+    // start plus a Finished button that stamps a full timestamp.
+    const mixed = await logPastSession(nes, { startedAt: "2026-08", endedAt: "2026-08-30T21:15:00.000Z" });
+    expect([mixed.startedPrecision, mixed.endedPrecision]).toEqual(["month", "day"]);
+  });
+
+  it("opens a backdated run at month precision, and still dequeues the copy", async () => {
+    // The ticket's literal ask, and it needed no API change: a body with a
+    // start and no end falls past the past-run branch into startSession.
+    await enqueue(nes);
+    const run = await startSession(nes, { startedAt: "2026-08" });
+    expect(run.endedAt).toBeNull();
+    expect(run.startedPrecision).toBe("month");
+    expect(run.startedAt.getDate()).toBe(1);
+    expect(await loadQueue()).toHaveLength(0);
+  });
+
+  it("defaults a run started with no date to now, at day precision", async () => {
+    // The one-tap path knows the day for free; recording a month for something
+    // that began this afternoon would throw away precision nobody worked for.
+    const run = await startSession(nes);
+    expect(run.startedPrecision).toBe("day");
+    expect(run.startedAt.getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it("refuses a month that is not a month rather than rolling it into next year", async () => {
+    // /^\d{4}-\d{2}$/ matches 2026-13, and `new Date(2026, 12, 1)` is January
+    // 2027. A typo has to be a 400, not a confident date five months away.
+    for (const bad of ["2026-13", "2026-00", "2026-1"]) {
+      expect(startSessionSchema.safeParse({ startedAt: bad }).success, bad).toBe(false);
+      expect(pastSessionSchema.safeParse({ startedAt: bad, endedAt: "2026-12" }).success, bad).toBe(false);
+    }
+    expect(startSessionSchema.safeParse({ startedAt: "2026-12" }).success).toBe(true);
+  });
+
+  it("compares periods, not instants, when checking that a run ends after it starts", async () => {
+    // Started on the 12th, finished "sometime in August" — the end is stored
+    // as 1 Aug, and the naive comparison made this an everyday 400.
+    const ok = await logPastSession(nes, { startedAt: "2026-08-12", endedAt: "2026-08" });
+    expect(ok.endedPrecision).toBe("month");
+    // And the same-day close, which the old check also refused: a run started
+    // at 14:00 and finished with today's bare date (local midnight).
+    const sameDay = await logPastSession(snes, { startedAt: new Date(2026, 7, 12, 14, 0), endedAt: "2026-08-12" });
+    expect(sameDay.endedAt).not.toBeNull();
+    // Still a 400 where it should be: no reading of July reaches 12 August.
+    expect(await status(() => logPastSession(nes, { startedAt: "2026-08-12", endedAt: "2026-07" }))).toBe(400);
+  });
+
+  it("moves a date's precision with the date, and leaves an untouched one alone", async () => {
+    const run = await logPastSession(nes, { startedAt: "2026-08-12", endedAt: "2026-09-14" });
+
+    // A patch that restates only the start restates only its precision.
+    const coarser = await updateSession(run.id, { startedAt: "2026-08" });
+    expect([coarser.startedPrecision, coarser.endedPrecision]).toEqual(["month", "day"]);
+    expect(coarser.startedAt.getDate()).toBe(1);
+
+    // A note-only patch must not promote a month back to a day.
+    const noted = await updateSession(run.id, { note: "second playthrough" });
+    expect([noted.startedPrecision, noted.endedPrecision]).toEqual(["month", "day"]);
+    expect(noted.startedAt.getTime()).toBe(coarser.startedAt.getTime());
+
+    // And back the other way.
+    const finer = await updateSession(run.id, { startedAt: "2026-08-12" });
+    expect(finer.startedPrecision).toBe("day");
+    expect(finer.startedAt.getDate()).toBe(12);
+  });
+
+  it("keeps the precisions a run had while it is undated, and after it is dated again", async () => {
+    const run = await logPastSession(nes, { startedAt: "2026-08", endedAt: "2026-09" });
+    // `undated` says the columns are placeholders — no precision value can
+    // express that, so nothing here special-cases them.
+    const forgotten = await updateSession(run.id, { undated: true });
+    expect([forgotten.startedPrecision, forgotten.endedPrecision]).toEqual(["month", "month"]);
+    const remembered = await updateSession(run.id, { undated: false, startedAt: "1994-06-01", endedAt: "1994-08-01" });
+    expect([remembered.startedPrecision, remembered.endedPrecision]).toEqual(["day", "day"]);
+  });
+
+  it("closes a backdated open run and keeps each end at its own precision", async () => {
+    // The full primary flow: backdate the start to a month, then tap Finished,
+    // which sends a full ISO timestamp. Both claims survive.
+    const open = await startSession(nes, { startedAt: "2026-08" });
+    const done = await updateSession(open.id, { outcome: "completed", endedAt: new Date(2026, 8, 20, 21, 15).toISOString() });
+    expect(done.outcome).toBe("completed");
+    expect([done.startedPrecision, done.endedPrecision]).toEqual(["month", "day"]);
+    expect(done.startedAt.getDate()).toBe(1);
+  });
+
+  it("still allows one open run per copy when the second start is backdated", async () => {
+    // Check 4 of the migration's index-survival checks, and the only one that
+    // fails on a database whose partial unique index was recreated *without*
+    // its WHERE clause. A raw insert bypasses `assertNoOpenRun` entirely, so
+    // the 409 here can only come from the index, through `asOpenRunConflict`.
+    await startSession(nes, { startedAt: "2019-01" });
+    expect(await status(() => startSession(nes, { startedAt: "1997-03" }))).toBe(409);
+    await expect(
+      prisma.$executeRawUnsafe(`insert into PlaySession (id, ownedGameId, startedAt, startedPrecision, endedPrecision, outcome, createdAt, updatedAt) values ('raw2', '${nes}', 0, 'day', 'day', 'playing', 0, 0)`),
+    ).rejects.toThrow(/UNIQUE constraint/i);
+    // …and the WHERE clause is still there, so a *second closed* run on the
+    // same copy is fine. An unfiltered unique index would refuse this, which
+    // is worse than having no index at all.
+    await logPastSession(nes, { startedAt: "2022-01", endedAt: "2022-03" });
+    await logPastSession(nes, { startedAt: "2023-01", endedAt: "2023-03" });
+    expect(await prisma.playSession.count({ where: { ownedGameId: nes } })).toBe(3);
+  });
+
   it("deletes an undated run and leaves its journal entries behind", async () => {
     const run = await logPastSession(nes, { undated: true });
     const entry = await addEntry(nes, { kind: "note", body: "borrowed it from my cousin", sessionId: run.id });
@@ -368,7 +488,14 @@ describe("play queue", () => {
     // the transaction lets a double-tap through. Asserted on the source
     // because that is exactly the property an innocent refactor breaks.
     const src = await fs.readFile(new URL("./service.ts", import.meta.url), "utf8");
-    const body = src.slice(src.indexOf("export async function startSession"), src.indexOf("/** Close an open run."));
+    // Sliced to the *next* export rather than to a sentence in the next
+    // docstring: that sentence has already been reworded once
+    // (GAMEEXPLOR-0038 rewrote reopenSession's comment), `indexOf` returned
+    // -1, and `slice(start, -1)` quietly widened the assertion to the whole
+    // rest of the file.
+    const from = src.indexOf("export async function startSession");
+    const body = src.slice(from, src.indexOf("export async function", from + 1));
+    expect(body.length).toBeGreaterThan(0);
     const tx = body.indexOf("$transaction");
     expect(tx).toBeGreaterThan(-1);
     for (const inside of ["assertNoOpenRun(tx,", "tx.playSession.create", "tx.queueEntry.deleteMany"]) {

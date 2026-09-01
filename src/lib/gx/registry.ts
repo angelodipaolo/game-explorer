@@ -1091,7 +1091,9 @@ export const COMMANDS: Command[] = [
     method: "GET",
     args: [OWNED()],
     flags: [],
-    detail: "`endedAt: null` is the one definition of a run in progress — there is no status column anywhere in this app. An `undated` run's two timestamps are the moment it was typed in, not when it was played: read them as nothing at all.",
+    detail:
+      "`endedAt: null` is the one definition of a run in progress — there is no status column anywhere in this app. An `undated` run's two timestamps are the moment it was typed in, not when it was played: read them as nothing at all. " +
+      "`startedPrecision` / `endedPrecision` say how precisely each end was claimed: `month` means the stored day is scaffolding and the app renders \"Aug 2026\", so do not report the 1st back to the owner as though they said it.",
   },
   {
     group: "play",
@@ -1111,10 +1113,12 @@ export const COMMANDS: Command[] = [
     method: "POST",
     args: [OWNED("The copy being played. Runs are per copy: playing the NES Contra says nothing about the SNES one.")],
     flags: [
-      b("started-at", "string", "When it started: `YYYY-MM-DD` (read as local midnight) or a full ISO timestamp. Defaults to now."),
+      b("started-at", "string", "When it started: `YYYY-MM` for a month, `YYYY-MM-DD` for a day (read as local midnight), or a full ISO timestamp. Defaults to now. The shape is the claim — if the owner said \"August\", send `2026-08`, not `2026-08-01`."),
       b("note", "string", "One line about the run, trimmed, ≤ 500 characters."),
     ],
-    detail: "409 when this copy already has a run in progress — finish that one, do not retry. The queue entry for the copy is deleted in the same transaction, so a game is never both up next and in progress.",
+    detail:
+      "409 when this copy already has a run in progress — finish that one, do not retry. The queue entry for the copy is deleted in the same transaction, so a game is never both up next and in progress. " +
+      "`--started-at` backdates the run and leaves it open, which is the shape behind the game page's \"Still playing\" outcome: a run that began in the past and has not ended.",
   },
   {
     group: "play",
@@ -1124,13 +1128,15 @@ export const COMMANDS: Command[] = [
     method: "POST",
     args: [OWNED("The copy that was played.")],
     flags: [
-      b("started-at", "string", "When it started, `YYYY-MM-DD` or ISO. Defaults to the end date — one sitting."),
-      b("ended-at", "string", "When it ended, `YYYY-MM-DD` or ISO. This is what makes it a past run rather than an open one."),
+      b("started-at", "string", "When it started: `YYYY-MM` (a month), `YYYY-MM-DD` (a day) or ISO. Defaults to the end date — one sitting."),
+      b("ended-at", "string", "When it ended: `YYYY-MM`, `YYYY-MM-DD` or ISO. This is what makes it a past run rather than an open one. The two ends are independent — a run may start on a day and end in a month."),
       b("undated", "bool", 'For "I played this at some point": no dates at all. Sending it together with a date is a 400.'),
       b("outcome", "string", "How it went. Defaults to completed.", { choices: ["completed", "abandoned"] }),
       b("note", "string", "One line about the run, ≤ 500 characters."),
     ],
-    detail: "Only ever what the owner said. No date given means ask for one or use --undated — never reason a date out of a journal entry, a habit or a completion percentage. An end before the start is a 400.",
+    detail:
+      "Only ever what the owner said. No date given means ask for one or use --undated — never reason a date out of a journal entry, a habit or a completion percentage. An end before the start is a 400. " +
+      "**A month is a first-class answer and it is the right answer more often than a day**: \"last March\" is `--started-at 2026-03`, not a day you picked out of March. `2026-03-01` is a claim about the 1st and the app will render it as one.",
   },
   {
     group: "play",
@@ -1158,7 +1164,7 @@ export const COMMANDS: Command[] = [
       // date is a date the agent invented, which is the one thing "record,
       // never infer" forbids. If the owner did not say when, ask; do not let a
       // default answer for them.
-      b("ended-at", "string", "The day it ended, `YYYY-MM-DD` or ISO. There is no default: a finish with no stated end date is a date you invented, so if the owner did not say when, ask.", { required: true }),
+      b("ended-at", "string", "When it ended: `YYYY-MM` if the owner named a month, `YYYY-MM-DD` or ISO if they named a day. There is no default: a finish with no stated end date is a date you invented, so if the owner did not say when, ask.", { required: true }),
       b("note", "string", "One line about the run, ≤ 500 characters."),
     ],
     detail: "The service keeps the outcome consistent with the dates: a closed run is never \"playing\". Ending a run before it started is a 400.",
@@ -1171,15 +1177,16 @@ export const COMMANDS: Command[] = [
     method: "PATCH",
     args: [id("sessionId", "sessionId", "The run's id.")],
     flags: [
-      b("started-at", "string", "A corrected start, `YYYY-MM-DD` or ISO."),
-      b("ended-at", "json", 'JSON here, not a bare date: `null` reopens the run, a quoted `"2026-08-30"` moves its end. For the everyday close use `gx play finish`.'),
+      b("started-at", "string", "A corrected start: `YYYY-MM`, `YYYY-MM-DD` or ISO. Sending a coarser shape is how you *remove* a day nobody actually knew."),
+      b("ended-at", "json", 'JSON here, not a bare date: `null` reopens the run, a quoted `"2026-08-30"` or `"2026-08"` moves its end. For the everyday close use `gx play finish`.'),
       b("undated", "bool", '`--undated` forgets a run\'s dates; `--no-undated` is the "I remembered when that was" edit and must arrive with both real dates.'),
       b("outcome", "string", "How it went.", { choices: ["playing", "completed", "abandoned"] }),
       b("note", "string", "One line about the run, ≤ 500 characters."),
     ],
     detail:
       "Reopening obeys the one-open-run rule (409) and is refused outright on an undated run (400): its timestamps are the day it was typed in, so there is no moment to resume from. " +
-      "Setting --outcome completed or abandoned on a run this edit leaves open is a 400 as well: closing a run needs an end date, and the API will not pick one for you.",
+      "Setting --outcome completed or abandoned on a run this edit leaves open is a 400 as well: closing a run needs an end date, and the API will not pick one for you. " +
+      "Each date carries its own precision, and only a date you actually send is re-read: `--note` on a run recorded as a month leaves it a month.",
   },
   {
     group: "play",
