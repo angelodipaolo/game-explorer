@@ -73,7 +73,7 @@ export default async function ImportPage() {
         <p>
           Agents: <code className="text-muted">POST /api/import/sessions</code> with structured rows, then{" "}
           <code className="text-muted">POST /api/import/sessions/:id/commit</code>. Undo with <code className="text-muted">POST /api/import/batches/:id/rollback</code>. The skill
-          in <code className="text-muted">.claude/skills/import-collection</code> has the whole path.
+          in <code className="text-muted">.claude/skills/curate-collection</code> (<code className="text-muted">reference/games.md</code>) has the whole path.
         </p>
       </section>
     </>

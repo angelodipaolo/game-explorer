@@ -41,13 +41,15 @@ silently dropped; "Only games with confirmed data" hides them.
 
 ## Agents
 
-Two skills under `.claude/skills/` drive the two write paths:
+One skill, `.claude/skills/curate-collection/`, drives every write path:
+importing games, enrichment facts, tags, codes, maps, bookmarks, manuals and
+series, each documented in its own `reference/*.md` file.
 
-- **`import-collection`** — parse anything (CSV, list, photo) into rows,
-  stage a session through `POST /api/import/sessions`, resolve what is
-  unambiguous, ask about the rest, commit. Undo: `POST /api/import/batches/:id/rollback`.
-- **`enrich-collection`** — list gaps (`GET /api/enrichment/gaps`), research
-  each game, write facts with a citation (`POST /api/enrichment/runs/:id/facts`).
+- **Importing** — parse anything (CSV, list, photo) into rows, stage a session
+  through `POST /api/import/sessions`, resolve what is unambiguous, ask about
+  the rest, commit. Undo: `POST /api/import/batches/:id/rollback`.
+- **Enrichment facts** — list gaps (`GET /api/enrichment/gaps`), research each
+  game, write facts with a citation (`POST /api/enrichment/runs/:id/facts`).
   Agent facts never overwrite hand-set ones (`PUT /api/games/:id/facts`).
 
 Full endpoint list: `src/app/api/**/route.ts`, each with a comment on its shape.
