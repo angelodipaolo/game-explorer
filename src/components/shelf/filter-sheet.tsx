@@ -4,12 +4,13 @@ import { useEffect } from "react";
 import type { Facets, Filters } from "@/lib/filters";
 import type { Viewer } from "@/lib/viewer";
 import { AuthMenu } from "@/components/auth-menu";
+import { MODE_LABELS } from "@/lib/players";
 import { Button, cx } from "@/components/ui";
 import { FilterControls } from "./filter-controls";
 
 /** One-tap ways in. The first is the flagship. Shared by the shelf and Flip. */
 export const PRESETS: { label: string; hint: string; patch: Partial<Filters> }[] = [
-  { label: "2 of us, co-op", hint: "NES", patch: { platforms: ["nes"], players: 2, mode: "coop" } },
+  { label: `2 of us, ${MODE_LABELS.coop.toLowerCase()}`, hint: "NES", patch: { platforms: ["nes"], players: 2, mode: "coop" } },
   // The reason the play filter exists: a shelf this size hides the games you
   // have never actually put in the machine.
   { label: "Never played", hint: "not yet", patch: { play: "never" } },

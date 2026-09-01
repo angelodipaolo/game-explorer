@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Cover } from "@/components/shelf/cover";
 import { GameCard } from "@/components/shelf/game-card";
-import { day } from "@/components/ui";
+import { PlayingCard, QueueCaption, RunCaption } from "@/components/playing/playing-card";
+import { shelfGridThreeUp } from "@/components/shelf/grid";
 import type { InProgressRow, QueuedRow, ShelfGame } from "@/lib/collection";
 import type { HomeRow } from "@/lib/home";
 import { Carousel } from "./carousel";
@@ -54,10 +54,18 @@ export function PicksRow({ games }: { games: ShelfGame[] }) {
 }
 
 /**
- * What is in progress and what is up next — a short vertical list, not a
- * carousel: these are the rows you act on rather than browse, and there are
- * never many. Rendered only when there is something in it, so a collection
- * with no play log yet simply does not show it.
+ * What is in progress and what is up next — cover art, like everything else on
+ * this page (GAMEEXPLOR-0026): a game looks the same wherever you meet it, so
+ * these are the shelf's own cards with the run context captioned underneath.
+ *
+ * A grid rather than a carousel, unlike the rows above it. This section is
+ * short and capped, and it is acted on rather than browsed — hiding half of it
+ * behind a sideways scroll would bury the one game you came back to finish.
+ * Covers cost height: a full panel of seven is about twice the old list's, and
+ * the cap and the three-across grid are what hold that to one screenful.
+ *
+ * Rendered only when there is something in it, so a collection with no play
+ * log yet simply does not show it.
  */
 export function PlayingPanel({ inProgress, upNext }: { inProgress: InProgressRow[]; upNext: QueuedRow[] }) {
   return (
@@ -68,40 +76,21 @@ export function PlayingPanel({ inProgress, upNext }: { inProgress: InProgressRow
           Now playing <span aria-hidden>›</span>
         </Link>
       </div>
-      <ul className="flex flex-col gap-2">
+      {/* Three across on a phone rather than the shelf's two. A full panel is
+          still taller than the list it replaced — seven cards are three rows,
+          roughly twice the height — so the cap matters: three across is what
+          keeps the day's rows within a scroll of it rather than a page. */}
+      <div className={shelfGridThreeUp} role="list">
         {inProgress.slice(0, 4).map((r) => (
-          <li key={r.sessionId}>
-            <Link href={`/game/${r.ownedGameId}`} prefetch={false} className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/5 p-2 transition hover:border-accent" data-testid="home-in-progress">
-              <Cover imageId={r.cover} title={r.name} size="small" className="w-10 shrink-0 rounded-md" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{r.name}</span>
-                <span className="block truncate text-xs text-muted">
-                  {r.platformLabel} · since {day(r.startedAt)}
-                </span>
-              </span>
-              <span className="shrink-0 text-xs text-accent" aria-hidden>
-                ▶
-              </span>
-            </Link>
-          </li>
+          <PlayingCard key={r.sessionId} row={r} testId="home-in-progress" caption={<RunCaption row={r} compact />} />
         ))}
+        {/* `compact`: "Up next", not "#2". This section's only heading is
+            "Where you left off", and a bare position under a game nobody has
+            started would read as a run. */}
         {upNext.slice(0, 3).map((r) => (
-          <li key={r.ownedGameId}>
-            <Link href={`/game/${r.ownedGameId}`} prefetch={false} className="flex items-center gap-3 rounded-xl border border-border bg-surface p-2 transition hover:border-muted" data-testid="home-up-next">
-              <Cover imageId={r.cover} title={r.name} size="small" className="w-10 shrink-0 rounded-md" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{r.name}</span>
-                <span className="block truncate text-xs text-muted">
-                  Up next · {r.platformLabel}
-                </span>
-              </span>
-              <span className="shrink-0 text-xs text-faint tabular-nums" aria-hidden>
-                {r.position + 1}
-              </span>
-            </Link>
-          </li>
+          <PlayingCard key={r.ownedGameId} row={r} testId="home-up-next" caption={<QueueCaption row={r} compact />} />
         ))}
-      </ul>
+      </div>
     </section>
   );
 }

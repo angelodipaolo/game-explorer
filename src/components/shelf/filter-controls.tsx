@@ -1,6 +1,7 @@
 "use client";
 
 import type { Facets, Filters } from "@/lib/filters";
+import { MODE_LABELS } from "@/lib/players";
 import { cx } from "@/components/ui";
 
 /** The filter controls, laid out for thumbs. Used inline on desktop and inside the sheet on phones. */
@@ -10,14 +11,19 @@ export function FilterControls({ filters, facets, set }: { filters: Filters; fac
       <Group label="How many of us?">
         <Segmented value={filters.players} onChange={(v) => set({ players: v })} options={[[1, "Just me"], [2, "2"], [3, "3"], [4, "4+"]]} />
       </Group>
+      {/* The words come from `src/lib/players.ts`, the same module the cards
+          and the game page label a game with. The URL values are NOT its to
+          choose — `mode=coop|versus|together` is what every saved link and
+          preset carries. `coop` matches co-op of any kind, which is why the
+          button says "Co-op" and not "Local co-op". */}
       <Group label="Playing how?">
         <Segmented
           value={filters.mode}
           onChange={(v) => set({ mode: v })}
           options={[
-            ["coop", "Co-op"],
-            ["versus", "Versus"],
-            ["together", "At the same time"],
+            ["coop", MODE_LABELS.coop],
+            ["versus", MODE_LABELS.versus],
+            ["together", MODE_LABELS.together],
           ]}
         />
       </Group>

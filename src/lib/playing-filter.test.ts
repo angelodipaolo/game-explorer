@@ -31,7 +31,7 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
     perspectives: [],
     rating: null,
     playtime: null,
-    players: { label: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
+    players: { label: "", brief: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
     hasScreenshots: false,
     tags: [],
     similar: [],
@@ -43,11 +43,11 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
   };
 }
 
-const contra = game({ title: "Contra", genres: ["Shooter"], players: { label: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false } });
-const zelda = game({ title: "Zelda", genres: ["Adventure"], players: { label: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false } });
-const chrono = game({ title: "Chrono Trigger", platform: "snes", platformLabel: "SNES", genres: ["Adventure"], players: { label: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false } });
+const contra = game({ title: "Contra", genres: ["Shooter"], players: { label: "", brief: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false } });
+const zelda = game({ title: "Zelda", genres: ["Adventure"], players: { label: "", brief: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false } });
+const chrono = game({ title: "Chrono Trigger", platform: "snes", platformLabel: "SNES", genres: ["Adventure"], players: { label: "", brief: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false } });
 const mystery = game({ title: "Mystery", platform: "snes", platformLabel: "SNES", year: null });
-const tecmo = game({ title: "Tecmo Bowl", genres: ["Sport"], players: { label: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false } });
+const tecmo = game({ title: "Tecmo Bowl", genres: ["Sport"], players: { label: "", brief: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false } });
 
 /** Open runs come back most-recent-first; the fixture order IS that order. */
 const inProgress: InProgressRow[] = [contra, chrono].map((g, i) => ({

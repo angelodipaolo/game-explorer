@@ -5,7 +5,7 @@ import { normalizeTitle } from "@/lib/catalog/normalize";
 import { prisma } from "@/lib/db";
 import { EnrichmentError } from "@/lib/enrichment/service";
 import { groupShelf, loadOwnedRows, profileToShelfPlayers, type ShelfGame } from "@/lib/collection";
-import { resolvePlayerProfile } from "@/lib/facts";
+import { CATALOG_PLAYER_COLUMNS, catalogPlayerData, resolvePlayerProfile } from "@/lib/facts";
 import { matchSimilarToOwned } from "@/lib/owned-match";
 import { platformBySlug, platformLabel, resolvePlatform } from "@/lib/platforms";
 import { playStateFor } from "@/lib/play/service";
@@ -270,13 +270,7 @@ const GAME_COLUMNS = {
   playerPerspectives: true,
   platformNames: true,
   rating: true,
-  gameModes: true,
-  mpOfflineMax: true,
-  mpOfflineCoopMax: true,
-  mpOfflineCoop: true,
-  mpSplitscreen: true,
-  mpCampaignCoop: true,
-  ttbNormally: true,
+  ...CATALOG_PLAYER_COLUMNS,
 } as const;
 type CatalogGameRow = Awaited<ReturnType<typeof catalogGamesFor>> extends Map<number, infer V> ? V : never;
 
@@ -324,7 +318,7 @@ function catalogShelfGame(entry: SeriesEntryBase, c: CatalogGameRow | undefined)
   const themes = c ? arr(c.themes) : [];
   const perspectives = c ? arr(c.playerPerspectives) : [];
   const profile = resolvePlayerProfile(
-    c ? { gameModes: JSON.parse(c.gameModes) as number[], mpOfflineMax: c.mpOfflineMax, mpOfflineCoopMax: c.mpOfflineCoopMax, mpOfflineCoop: c.mpOfflineCoop, mpSplitscreen: c.mpSplitscreen, mpCampaignCoop: c.mpCampaignCoop, ttbNormally: c.ttbNormally } : null,
+    catalogPlayerData(c),
     [],
   );
   // `resolvePlatform`, not `platformBySlug`: platformNames holds IGDB's own
