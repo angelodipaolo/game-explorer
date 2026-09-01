@@ -98,10 +98,12 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 - Migration `20260831032612_one_open_run_per_copy` is **hand-written SQL** — a
   partial unique index Prisma's schema language cannot express, so
   `prisma migrate diff` will not regenerate it. Never squash or rewrite it away.
-- `data/journal/` (journal photos) and `data/manuals/` (manual page scans,
-  keyed by `ManualPage` id) hold bytes that, like `data/maps/`, are **not** in
-  `db:snapshot`. `npm run backup` is what captures all three — a new blob
-  directory must be added to `BLOB_DIRS` in `scripts/backup.ts`.
+- `data/journal/` (journal photos), `data/manuals/` (manual page scans, keyed
+  by `ManualPage` id) and `data/music/` (the owner's own soundtrack MP3s, keyed
+  by `MusicTrack` id) hold bytes that, like `data/maps/`, are **not** in
+  `db:snapshot`. `npm run backup` is what captures all four — a new blob
+  directory must be added to `BLOB_DIRS` in `scripts/backup.ts`, and the table
+  behind it to both snapshot scripts.
 - Any source database (e.g. `game-manage`) is read read-only; never write to it.
 
 ## Secrets

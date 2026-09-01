@@ -49,6 +49,7 @@ model OwnedGame {
   maps          GameMap[]
   bookmarks     GameBookmark[]
   manuals       GameManual[]
+  music         MusicTrack[]
   sessions      PlaySession[]
   journal       JournalEntry[]
   queueEntry    QueueEntry?
@@ -412,6 +413,36 @@ model GameManual {
   @@index([ownedGameId])
 }
 
+/// One soundtrack track for an owned copy (GAMEEXPLOR-0025): a row here, the
+/// audio itself on disk under data/music/<id>.mp3, served by
+/// /api/music/:trackId/audio.
+///
+/// Keyed on the owned copy, cascading on delete, exactly like GameMap and
+/// GameManual — and deliberately not on the catalog game: the NES and the SNES
+/// version of a title have genuinely different soundtracks, and every other
+/// blob domain in this app already hangs off the copy.
+///
+/// No `position`: the player picks a track at random, so there is no order to
+/// keep. No `source` and no precedence either — a track a skill registered and
+/// a track the owner added are one kind of row, the same stance codes, maps,
+/// bookmarks and manuals take.
+model MusicTrack {
+  id          String    @id @default(cuid())
+  ownedGameId String
+  ownedGame   OwnedGame @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
+  /// The piece as a human reads it: "Vampire Killer", not a filename.
+  title       String
+  /// Sniffed from the uploaded bytes. "audio/mpeg" is the only value today.
+  contentType String    @default("audio/mpeg")
+  /// Size of the stored file; 0 until the audio has been uploaded, which is a
+  /// real state — the row is created first and the bytes are PUT after.
+  bytes       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([ownedGameId])
+}
+
 /// One page of a scanned manual. `position` is dense 0..n-1 and renumbered on
 /// every insert, reorder and delete, so "page 4 of 12" is always true.
 model ManualPage {
@@ -520,17 +551,17 @@ model QueueEntry {
 /// precedence. A series is a public fact about games, so the owner and a
 /// research skill write through one API and neither outranks the other.
 model Series {
-  id     String  @id @default(cuid())
-  name   String
+  id           String  @id @default(cuid())
+  name         String
   /// URL handle — /series/<slug>.
-  slug   String  @unique
+  slug         String  @unique
   /// One line. Agents source and cite; they do not author prose.
-  blurb  String?
+  blurb        String?
   /// Cover override: an IGDB image id. Normally null — the card derives its
   /// cover from the first entry that has art. There is no upload path.
   coverImageId String?
   /// Order on /series; ties break on name.
-  position Int @default(0)
+  position     Int     @default(0)
 
   /// The IGDB collection this was seeded from, so "check for new entries" can
   /// diff it later. Null when the series was typed by hand.
@@ -561,19 +592,19 @@ model Series {
 /// is in Mario Party and arguably Mario), so there is NO unique constraint on
 /// igdbId across series — only one per series.
 model SeriesEntry {
-  id       String @id @default(cuid())
-  seriesId String
-  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  seriesId  String
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   /// The catalog game. Null only when `title` carries the name instead.
-  igdbId   Int?
+  igdbId    Int?
   /// Free text when igdbId is null; an override label when it is set.
-  title    String?
+  title     String?
   /// Dense 0..n-1 within the series, renumbered on every insert, reorder and
   /// remove, so the order the owner curated is exactly what renders.
-  position Int
+  position  Int
   /// "Mainline", "Spin-offs", "Remakes". Null groups under no heading.
-  section  String?
-  note     String?
+  section   String?
+  note      String?
   sourceUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

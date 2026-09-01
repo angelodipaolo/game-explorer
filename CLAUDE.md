@@ -80,21 +80,23 @@ reuses the one on port 3000.
 | `src/lib/tags.ts`, `src/lib/tags/` | Tags: IGDB genres/perspectives/themes ∪ manual ∪ agent − hidden. Manual beats agent; IGDB tags hide, never delete. |
 | `src/lib/play/` | Play history and the one ordered "up next" queue. `PlaySession` rows are the log play state is derived from; `startSession` dequeues in the same transaction. No agent write path. |
 | `src/lib/journal/` | Dated notes and photos per owned copy (`kind: note \| photo`), optionally tied to the run they were written during. Photos live in `data/journal/`, served by `/api/journal/:entryId/image`. No agent write path. |
-| `src/lib/media/` | `createImageStore(dir)` + `sniffImage` — the on-disk blob store behind `data/maps/`, `data/journal/` and `data/manuals/`. Reuse it; never add a fourth. |
+| `src/lib/music/` | Background music while you browse a game (GAMEEXPLOR-0025). `MusicTrack` rows per **owned copy** + one MP3 each on disk, exactly like maps and manuals: `service.ts` is the DB half, `audio.ts` the disk half (`MUSIC_DIR`, the store, `Range` parsing), `player.ts` the browser half (per-device `localStorage` setting, pathname → game, random pick). Owner-supplied MP3s only — nothing here fetches, converts or generates audio. |
+| `src/lib/media/` | `createFileStore(dir, formats)` — the one on-disk blob store, behind `data/maps/`, `data/journal/`, `data/manuals/` and `data/music/`. `image-store.ts` (`createImageStore` + `sniffImage`) and `audio-store.ts` (`createAudioStore` + `sniffAudio`) are thin wrappers over it. Reuse them; never hand-roll a path. |
 | `src/lib/auth.ts`, `src/proxy.ts` | One owner password + named bearer tokens; the gate in front of every `/api/*` route and the `noindex` header. `src/lib/viewer.ts` turns the cookie into `canEdit` for pages. |
 | `ops/` | Hosting: the LaunchAgent and `cloudflared` templates, and the runbook for the Mac mini. |
 | `src/lib/collection.ts` | Shelf/game view models. `groupShelf` collapses one game on several platforms into one entry (and rolls play state up across copies). `loadPlaying` is the `/playing` view model. |
 | `src/lib/home.ts` | Home's rows: a pool of candidate filters (tag×platform, tag, players, era, platform, never-played, series), a fixed 6–8 drawn per day by `daySeed`, quality-gated. Pure — components stay thin. |
 | `src/lib/filters.ts` | URL ⇄ filter state; three-valued verdicts (yes / no / unknown). `play` is the one two-valued filter — it reads your own log, not IGDB, so "never played" is a fact and not a gap. |
 | `src/lib/platforms.ts` | Platform slugs, aliases, IGDB ids. Add new consoles here. |
-| `src/app/` | `/` home (carousels, tonight's picks, what you're playing), `/shelf` the grid + filters, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`, `/api/games/[id]/bookmarks`, `/api/bookmarks/*`, `/game/[id]/manual`, `/api/games/[id]/manuals`, `/api/manuals/*`, `/api/manual-pages/*`, `/series`, `/series/[slug]` (owned by default, `?missing=1` reveals the rest), `/series/new`, `/api/series/*`, `/api/series-entries/*`. |
+| `src/app/` | `/` home (carousels, tonight's picks, what you're playing), `/shelf` the grid + filters, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`, `/api/games/[id]/bookmarks`, `/api/bookmarks/*`, `/game/[id]/manual`, `/api/games/[id]/manuals`, `/api/manuals/*`, `/api/manual-pages/*`, `/series`, `/series/[slug]` (owned by default, `?missing=1` reveals the rest), `/series/new`, `/api/series/*`, `/api/series-entries/*`, `/settings` (per-device preferences), `/api/games/[id]/music` (+ `/all`, owner-only), `/api/music/[trackId]`, `/api/music/[trackId]/audio`. |
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
 | `src/components/game/play-history.tsx`, `journal.tsx` | The two write surfaces on the game page: runs (start / finish / past runs / queue) and the journal feed with its client-side photo downscale. |
-| `.claude/skills/` | `curate-collection` — the one agent playbook for every write path (games, facts, tags, codes, maps, bookmarks, manuals, series), with a `reference/*.md` file per domain. |
+| `.claude/skills/` | `curate-collection` — the one agent playbook for every write path (games, facts, tags, codes, maps, bookmarks, manuals, series, music), with a `reference/*.md` file per domain. |
 | `scripts/` | Baseline/import/snapshot tooling. `scratch/` is gitignored throwaway. |
 | `data/snapshot.json` | Your collection export — gitignored, private. See `data/README.md`. |
 | `data/maps/` | Map images, one file per `GameMap` id. Gitignored, **not in the snapshot** — back it up with it. |
 | `data/manuals/` | Manual page scans, one file per `ManualPage` id (`MANUALS_DIR` overrides). Gitignored, **not in the snapshot** — same stance as `data/maps/`. |
+| `data/music/` | The owner's own soundtrack MP3s, one file per `MusicTrack` id (`MUSIC_DIR` overrides). Gitignored, **not in the snapshot** (the rows are; the audio is not), never under `public/`, never committed. |
 
 ## Invariants (the ones that bite silently)
 
@@ -156,13 +158,23 @@ reuses the one on port 3000.
   represent playing a game twice. `endedAt is null` is the only definition of
   "playing now", and the `play` filter is two-valued because of it: no rows
   means never played, which is a fact and not a gap.
-- **`data/journal/` and `data/manuals/` are outside the snapshot**, like
-  `data/maps/`: the snapshot carries the rows, the files carry the pixels.
-  `npm run backup` archives all three. Journal photos are downscaled in the
-  browser (2400px, JPEG q0.85) before upload. Note the one gap all three share:
-  the service delete paths unlink the files, but a **SQL cascade does not** — an
-  import rollback that removes an `OwnedGame` takes the rows and leaves the
-  bytes. Orphaned files are harmless, just never reclaimed.
+- **`data/journal/`, `data/manuals/` and `data/music/` are outside the
+  snapshot**, like `data/maps/`: the snapshot carries the rows, the files carry
+  the pixels (and, for music, the sound). `npm run backup` archives all four.
+  Journal photos are downscaled in the browser (2400px, JPEG q0.85) before
+  upload. Note the one gap all four share: the service delete paths unlink the
+  files, but a **SQL cascade does not** — an import rollback that removes an
+  `OwnedGame` takes the rows and leaves the bytes. Orphaned files are harmless, just never reclaimed.
+- **Music is owner-supplied, off by default, and served only by id.** The
+  files in `data/music/` are the owner's own; `curate-collection` registers
+  them through the API and never downloads, converts or generates any.
+  `GET /api/music/:trackId/audio` and `GET /api/games/:id/music` are public
+  reads like the image routes — every other verb on them is not — and they take
+  a row id, never a path: the id must be a bare cuid, must name a `MusicTrack`,
+  and the resolved file is re-checked against `data/music/` through
+  `fs.realpath`, so a symlink out of the directory is refused too. The toggle
+  lives in `localStorage` per device (`/settings`), and `play()` is never
+  called before a real (`isTrusted`) user gesture.
 - **Agents research and source reference material; they never author it.**
   `curate-collection` links the real guide and writes one line saying why — a
   bookmark is its own citation. An agent-written prose walkthrough has no
@@ -176,9 +188,9 @@ reuses the one on port 3000.
   and every row of it vanishes on the next `npm run db:restore`. The list today:
   catalog, import session/row/batch/effect, `OwnedGame`, `GameFact`, `GameTag`,
   `GameCode`, `GameMap`, `MapMarker`, `GameBookmark`, `GameManual`,
-  `ManualPage`, `PlaySession`, `JournalEntry`, `QueueEntry`, `EnrichmentRun`.
-  A table holding blobs also needs its directory in `BLOB_DIRS` in
-  `scripts/backup.ts`.
+  `ManualPage`, `MusicTrack`, `PlaySession`, `JournalEntry`, `QueueEntry`,
+  `EnrichmentRun`. A table holding blobs also needs its directory in
+  `BLOB_DIRS` in `scripts/backup.ts`.
 - Quantities are per copy; when a source export repeats rows (test runs,
   re-exports), import at quantity 1 rather than counting rows.
 

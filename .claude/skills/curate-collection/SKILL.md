@@ -1,13 +1,13 @@
 ---
 name: curate-collection
-description: Curate and enrich Game Explorer's collection through its write API — the one skill for every research and data-entry task on the shelf. Use when asked to import or add games (a CSV, spreadsheet, list, or shelf photo), tag or categorise games ("Metroidvania", "roguelike", "couch co-op"), fill in player counts / co-op / simultaneous-play / playtime facts, find or add Game Genie / Action Replay / password / cheat codes, build interactive maps with markers, find or add reference links (guides, wikis, longplays, articles), scan or organize manuals, or seed/prune/edit a series. Also covers "work through the gaps", "enrich the collection", "fill in what's missing", and single-game edits like "add a code to this game" or "bookmark a guide for this game".
+description: Curate and enrich Game Explorer's collection through its write API — the one skill for every research and data-entry task on the shelf. Use when asked to import or add games (a CSV, spreadsheet, list, or shelf photo), tag or categorise games ("Metroidvania", "roguelike", "couch co-op"), fill in player counts / co-op / simultaneous-play / playtime facts, find or add Game Genie / Action Replay / password / cheat codes, build interactive maps with markers, find or add reference links (guides, wikis, longplays, articles), scan or organize manuals, register the owner's own soundtrack files as background music for a game, or seed/prune/edit a series. Also covers "work through the gaps", "enrich the collection", "fill in what's missing", and single-game edits like "add a code to this game", "bookmark a guide for this game" or "add music for this game".
 ---
 
 # Curate the collection
 
 Game Explorer has one write API behind every curation task: importing games,
-enrichment facts, tags, codes, maps, bookmarks, manuals, and series. This
-skill is the entry point for all of it. Read the routing table below, then
+enrichment facts, tags, codes, maps, bookmarks, manuals, series, and music.
+This skill is the entry point for all of it. Read the routing table below, then
 open the one reference file that covers the task at hand — each reference
 file is self-contained on payload shapes and gotchas for its domain.
 
@@ -75,12 +75,17 @@ or "blurb" field anywhere in this API on purpose: a prose guide has no citation
 granularity, and this project refuses to produce one. Link the real guide, cite
 the real page, write the fact with its source — never summarize or narrate.
 
+**Music is the one domain where you do not even source.** The files are the
+owner's own, handed to you in the conversation; you never download, rip,
+convert or generate audio, and you never go looking through their music
+library. See `reference/music.md`.
+
 **Precedence, once, for the whole app:** manual facts and hand-set tags are
 never overwritten by IGDB sync or by an agent — the API enforces this and
 skips the write rather than erroring, so read `skipped` to see it happen.
-Codes, maps, bookmarks, manuals and series are the deliberate exception: they
-are lists, not contested values, so none of those tables has a `source` column
-or any precedence at all. What you write there and what the owner types by
+Codes, maps, bookmarks, manuals, series and music tracks are the deliberate
+exception: they are lists, not contested values, so none of those tables has a
+`source` column or any precedence at all. What you write there and what the owner types by
 hand are the same kind of row, rendered identically, editable by either side —
 so the only thing keeping any of those sections useful is your judgement about
 what belongs in it.
@@ -97,6 +102,7 @@ what belongs in it.
 | Reference links: guides, wikis, videos, longplays, articles | `reference/bookmarks.md` |
 | Scanned manuals: pages, reordering, page images | `reference/manuals.md` |
 | Series: seeding from an IGDB collection, pruning, editing | `reference/series.md` |
+| Background music: registering owner-supplied soundtrack tracks | `reference/music.md` |
 
 ## Never write these
 

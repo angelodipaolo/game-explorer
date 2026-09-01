@@ -23,6 +23,7 @@ const PAGES = [
   { href: "/shelf", label: "Shelf", icon: "▦", testId: "sidebar-shelf", accent: false, ownerOnly: false },
   { href: "/playing", label: "Now playing", icon: "▶", testId: "sidebar-playing", accent: true, ownerOnly: false },
   { href: "/series", label: "Series", icon: "▤", testId: "sidebar-series", accent: false, ownerOnly: false },
+  { href: "/settings", label: "Settings", icon: "⚙", testId: "sidebar-settings", accent: false, ownerOnly: false },
   { href: "/import", label: "Import", icon: "⇪", testId: "sidebar-import", accent: false, ownerOnly: true },
 ];
 

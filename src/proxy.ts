@@ -53,8 +53,8 @@ export function isOwnerPage(pathname: string): boolean {
 }
 
 /**
- * The API allowlist — the *only* exemptions from auth, and both halves of it
- * are pixels the public pages need.
+ * The API allowlist — the *only* exemptions from auth, and every one of them is
+ * something a public page is literally made of: its pixels, and now its sound.
  *
  * - `/api/auth/*`: the login and logout endpoints. A gate you must already be
  *   through to reach makes signing in impossible.
@@ -71,6 +71,34 @@ export function isOwnerPage(pathname: string): boolean {
  *   The `:id` in those three is attacker-chosen and reaches a file path, which
  *   is why `isSafeImageId` (src/lib/media/image-store.ts) refuses anything but
  *   a bare row id — a `%2F..%2F` in there used to read files off the disk.
+ * - `GET`/`HEAD` on `/api/music/:trackId/audio` (GAMEEXPLOR-0025): the same
+ *   argument again, for the `<audio>` element the root layout mounts. A public
+ *   game page that plays no music for a visitor would be a login prompt hidden
+ *   inside a background sound. Writes stay behind auth — `PUT` on this exact
+ *   path uploads an MP3 and is not exempt, because the exemption is by verb,
+ *   not by route. The `:trackId` reaches a file path, so it goes through the
+ *   same `isSafeMediaId` allowlist as the image routes and the resolved file is
+ *   re-checked against `data/music/` (src/lib/media/file-store.ts).
+ * - `GET`/`HEAD` on `/api/games/:id/music`, and *only* that one subpath of
+ *   `/api/games/*`: the list of track ids and titles for one copy. This one
+ *   needs its own justification, because unlike the map and manual pages —
+ *   server components that receive their data as props — the player is a client
+ *   component mounted in the root layout, so it has no server render to be
+ *   handed anything by; it can only fetch. What it discloses is one game's
+ *   track ids and titles, for a game page that same visitor can already read,
+ *   and nothing about the disk. Every other `/api/games/:id/*` route (facts,
+ *   maps, manuals, journal, sessions) stays behind auth, and so does `POST`
+ *   here.
+ *
+ * One thing to know before adding an exemption: these patterns are matched
+ * against `nextUrl.pathname`, which is **not** percent-decoded. `[^/]+`
+ * therefore matches an encoded slash, so `/api/games/..%2F..%2Ftags/music` is
+ * public — it answers `{"tracks":[]}` because the decoded value reaches only a
+ * Prisma `where` and never a path, and `/api/tags` itself still needs the
+ * owner. That is fine for a route whose id is only ever a database lookup; it
+ * would not be fine for one that lets a segment reach a filesystem, a redirect,
+ * or another service. Match on the shape of the route, and never assume the
+ * segment you captured is a single decoded path component.
  *
  * Every other `/api/*` request — including GETs like `/api/tags`,
  * `/api/codes/gaps` and `/api/enrichment/gaps` — needs the owner: those are
@@ -80,7 +108,7 @@ function isPublicApi(pathname: string, method: string): boolean {
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname.startsWith("/api/img/")) return true;
   if (method !== "GET" && method !== "HEAD") return false;
-  return /^\/api\/maps\/[^/]+\/image$/.test(pathname) || /^\/api\/journal\/[^/]+\/image$/.test(pathname) || /^\/api\/manual-pages\/[^/]+\/image$/.test(pathname);
+  return /^\/api\/maps\/[^/]+\/image$/.test(pathname) || /^\/api\/journal\/[^/]+\/image$/.test(pathname) || /^\/api\/manual-pages\/[^/]+\/image$/.test(pathname) || /^\/api\/music\/[^/]+\/audio$/.test(pathname) || /^\/api\/games\/[^/]+\/music$/.test(pathname);
 }
 
 async function gate(request: NextRequest, pathname: string): Promise<NextResponse> {

@@ -3,7 +3,7 @@
  * `backups/game-explorer-<ISO8601>.tar.gz`, holding a consistent copy of
  * `prisma/dev.db`, the portable `data/snapshot.json` export, and the blob
  * directories the snapshot deliberately leaves out (`data/maps/`,
- * `data/journal/`, `data/manuals/`).
+ * `data/journal/`, `data/manuals/`, `data/music/`).
  *
  * The database is copied with SQLite's `VACUUM INTO`, never `fs.copyFile`:
  * the dev server may be mid-write and a byte copy of a live WAL database is a
@@ -25,7 +25,7 @@ import { prisma } from "../src/lib/db";
 const ROOT = path.resolve(__dirname, "..");
 
 /** Directories whose bytes are NOT in snapshot.json and must be archived as files. */
-const BLOB_DIRS = ["maps", "journal", "manuals"] as const;
+const BLOB_DIRS = ["maps", "journal", "manuals", "music"] as const;
 
 function parseArgs(argv: string[]) {
   let out = path.join(ROOT, "backups");
@@ -76,7 +76,9 @@ function copyDirIfPresent(from: string, to: string) {
  * than writing a quietly incomplete archive.
  */
 async function warnOnMissingBlobs(counts: Record<string, number>) {
-  const rows = {
+  // Keyed by blob directory. A directory with no entry here has no database
+  // rows to compare against and is skipped; every one of them has rows today.
+  const rows: Partial<Record<(typeof BLOB_DIRS)[number], number>> = {
     maps: await prisma.gameMap.count(),
     // Only photos that actually have bytes: a row POSTed but not yet PUT is
     // not a missing file, and warning about it would train you to ignore this.
@@ -84,10 +86,15 @@ async function warnOnMissingBlobs(counts: Record<string, number>) {
     // Same rule for manual pages: a page row POSTed but not yet PUT has no
     // file to miss, so only pages that recorded a pixel size count.
     manuals: await prisma.manualPage.count({ where: { width: { gt: 0 } } }),
+    // Same again for music: a track row POSTed but not yet PUT has no audio
+    // to miss, so only tracks that recorded a size count.
+    music: await prisma.musicTrack.count({ where: { bytes: { gt: 0 } } }),
   };
   for (const dir of BLOB_DIRS) {
-    if (rows[dir] > 0 && (counts[dir] ?? 0) === 0) {
-      console.warn(`WARNING: data/${dir}/ is empty but the database has ${rows[dir]} row(s) that expect files there.`);
+    const expected = rows[dir];
+    if (expected === undefined) continue;
+    if (expected > 0 && (counts[dir] ?? 0) === 0) {
+      console.warn(`WARNING: data/${dir}/ is empty but the database has ${expected} row(s) that expect files there.`);
     }
   }
 }

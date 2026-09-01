@@ -28,6 +28,13 @@ or `.png`), written by `PUT /api/journal/:entryId/image`. Same stance as
 entries, the files carry the pixels. Play sessions, journal entries, bookmarks
 and the play queue *are* in the snapshot.
 
+`music/` holds the audio behind each background-music track (`<MusicTrack
+id>.mp3`), written by `PUT /api/music/:trackId/audio`. Same stance again:
+gitignored and **not part of the snapshot** — the snapshot carries the track
+rows, the files carry the sound. A restore without it leaves every game silent
+even though its tracks are listed. These are the owner's own soundtrack files
+and nothing in this app ever fetches, converts or generates one.
+
 ## These files are private on disk, public on the web
 
 Gitignored is not the same as protected. Once the site is served through the
@@ -42,7 +49,8 @@ a public post: do not put anything in one you would not make public.
 command that captures everything personal at once. It refreshes
 `data/snapshot.json`, copies `prisma/dev.db` with SQLite's `VACUUM INTO` (safe
 to run while `npm run dev` is serving; a plain file copy of a live database is
-not), and archives them alongside `data/maps/`, `data/journal/` and `data/manuals/`.
+not), and archives them alongside `data/maps/`, `data/journal/`, `data/manuals/` and
+`data/music/`.
 
 `npm run backup -- --out ~/Documents/backups` puts the archive somewhere that
 is not this machine. `backups/` is gitignored — an archive is never committed.
@@ -53,11 +61,11 @@ Restoring from one:
    `game-explorer-<stamp>/` directory holding `dev.db` and `data/`.
 2. Copy `dev.db` to `prisma/dev.db`.
 3. Copy `data/` over this repo's `data/` (snapshot.json, `maps/`, `journal/`,
-   `manuals/`).
+   `manuals/`, `music/`).
 4. `npx prisma migrate deploy` to bring the restored database up to the current
    schema. Not `npm run db:migrate` — that is `migrate dev`, which is
    interactive and can offer to reset the database you are trying to restore.
 
 If only `data/` survived, skip steps 2–3 and run `npm run db:restore`, which
-rebuilds `prisma/dev.db` from `snapshot.json`; the `maps/`, `journal/` and
-`manuals/` files come back from the archive.
+rebuilds `prisma/dev.db` from `snapshot.json`; the `maps/`, `journal/`,
+`manuals/` and `music/` files come back from the archive.

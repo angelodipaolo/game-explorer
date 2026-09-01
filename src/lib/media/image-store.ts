@@ -1,59 +1,34 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import { createFileStore, isSafeMediaId, MediaIdError, type FileStore } from "./file-store";
 
 /**
  * On-disk image storage, shared by every feature that keeps pixels outside
- * SQLite: `data/maps/<GameMap id>.png` and `data/journal/<JournalEntry id>.jpg`
- * today. The directories are private like the snapshot (see data/README.md)
- * and are *not* part of db:snapshot — back them up alongside snapshot.json,
- * or use `npm run backup`, which archives both.
+ * SQLite: `data/maps/<GameMap id>.png`, `data/journal/<JournalEntry id>.jpg`
+ * and `data/manuals/<ManualPage id>.jpg`. The directories are private like the
+ * snapshot (see data/README.md) and are *not* part of db:snapshot — back them
+ * up alongside snapshot.json, or use `npm run backup`, which archives them all.
  *
  * Extracted from src/lib/maps/image.ts when journal photos became its second
- * user. Everything here except the directory was already generic.
+ * user. The id rules and the directory plumbing moved down again into
+ * file-store.ts when music became the first non-image user; what is left here
+ * is the image-shaped part — two formats, and a sniffer that reads a picture's
+ * dimensions out of its header.
  */
 
 export type ImageInfo = { format: "png" | "jpeg"; width: number; height: number };
 
-/**
- * A row id that was refused before it ever reached the filesystem. Typed so the
- * routes can answer `404` — an id that cannot name a file cannot name a stored
- * image either — instead of letting it fall through to `handle()`'s 500.
- */
-export class ImageIdError extends Error {
-  constructor(id: string) {
-    super(`invalid image id ${JSON.stringify(id.slice(0, 64))}`);
-    this.name = "ImageIdError";
-  }
-}
-
-/**
- * The one rule that keeps `data/maps`, `data/journal` and `data/manuals` shut.
- *
- * Every id here arrives from a URL segment (`/api/maps/:mapId/image`), and
- * `path.join(dir, id + ext)` happily resolves `..` and `/` — `%2F..%2Fetc%2F`
- * decoded is a read of any file the server process can open. So the id is
- * matched against an allowlist rather than scanned for bad shapes: these are
- * Prisma `cuid()` values (`@default(cuid())` on every row that owns an image),
- * so letters, digits, `-` and `_` cover them with room to spare, and **no**
- * `.`, `/`, `\`, NUL, or anything else that can mean a directory.
- *
- * The same rigor as `isImageId` in src/lib/images/sizes.ts, for the same
- * reason: a URL segment is about to become a path.
- */
-const SAFE_ID = /^[A-Za-z0-9_-]+$/;
-
-export function isSafeImageId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= 128 && SAFE_ID.test(value);
-}
-
-/** Every entry point runs through this before touching `dir`. */
-function requireSafeId(id: string): string {
-  if (!isSafeImageId(id)) throw new ImageIdError(String(id));
-  return id;
-}
+/** The id guard and its error, under their original names — the routes catch these. */
+export { isSafeMediaId as isSafeImageId, MediaIdError as ImageIdError };
 
 /** Upload cap, bytes. A 4096² palette PNG is well under 1 MB; a phone photo is a few MB. */
 export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
+
+/** PNG first, then JPEG: the order `read` tries, unchanged from before the extraction. */
+const IMAGE_FORMATS = [
+  { ext: "png", contentType: "image/png" },
+  { ext: "jpg", contentType: "image/jpeg" },
+] as const;
+
+const extFor = (format: ImageInfo["format"]) => (format === "png" ? "png" : "jpg");
 
 /**
  * Read the pixel size out of the file header, so an upload records its own
@@ -90,44 +65,22 @@ export type ImageStore = {
   write: (id: string, buf: Buffer, info: ImageInfo) => Promise<void>;
   read: (id: string) => Promise<{ buf: Buffer; contentType: string } | null>;
   delete: (id: string) => Promise<void>;
+  /** The underlying store, for callers that need a size without the bytes. */
+  files: FileStore;
 };
 
 /**
- * One directory of images keyed by row id. Two stores over two directories
- * never collide even when the ids match, which is the whole reason this is a
- * closure over `dir` rather than a module-level constant.
+ * One directory of images keyed by row id. The API is unchanged from before
+ * file-store.ts existed — callers pass an `ImageInfo`, not an extension.
  */
 export function createImageStore(dir: string): ImageStore {
-  // `requireSafeId` is on the *inside* of the one function that builds a path,
-  // so no store method can reach the disk with an id that skipped the check.
-  const filePath = (id: string, format: ImageInfo["format"]) => path.join(dir, `${requireSafeId(id)}.${format === "png" ? "png" : "jpg"}`);
-
+  const files = createFileStore(dir, IMAGE_FORMATS);
   return {
     dir,
-    path: filePath,
-    async write(id, buf, info) {
-      requireSafeId(id);
-      await fs.mkdir(dir, { recursive: true });
-      // One image per row: drop the other format if it is re-uploaded.
-      await Promise.all([fs.rm(filePath(id, "png"), { force: true }), fs.rm(filePath(id, "jpeg"), { force: true })]);
-      await fs.writeFile(filePath(id, info.format), buf);
-    },
-    /** The stored image, or null when none has been uploaded yet. Throws `ImageIdError` on an id that is not a bare row id. */
-    async read(id) {
-      requireSafeId(id);
-      for (const [format, type] of [
-        ["png", "image/png"],
-        ["jpeg", "image/jpeg"],
-      ] as const) {
-        try {
-          return { buf: await fs.readFile(filePath(id, format)), contentType: type };
-        } catch {}
-      }
-      return null;
-    },
-    async delete(id) {
-      requireSafeId(id);
-      await Promise.all([fs.rm(filePath(id, "png"), { force: true }), fs.rm(filePath(id, "jpeg"), { force: true })]);
-    },
+    files,
+    path: (id, format) => files.path(id, extFor(format)),
+    write: (id, buf, info) => files.write(id, buf, extFor(info.format)),
+    read: (id) => files.read(id),
+    delete: (id) => files.delete(id),
   };
 }
