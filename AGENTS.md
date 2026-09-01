@@ -49,7 +49,8 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 - **No live LLM on any browse-time path.** Similarity comes from IGDB; AI is
   confined to batch enrichment via skills under `.claude/skills/`.
 - **No column-mapping import wizard.** Import is an API driven by an agent
-  (`.claude/skills/import-collection/`) or a CSV drop that creates a session.
+  (`.claude/skills/curate-collection/`, `reference/games.md`) or a CSV drop
+  that creates a session.
 - **No ratings, and no user-created named playlists.** Still out, deliberately.
   One ordered play queue ("up next") is in, per GAMEEXPLOR-0009 — a decision
   about what to play next, not a filing system.
@@ -58,8 +59,8 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   `PlaySession` rows — there is no status column on `OwnedGame` and there must
   never be one, or replaying a game becomes unrepresentable.
 - **Agents do not write game guides.** They research and source material and
-  record it with a citation, the way `find-maps`, `find-codes` and
-  `find-references` do. A prose walkthrough authored by an agent has no
+  record it with a citation, the way `curate-collection` (maps, codes,
+  bookmarks) does. A prose walkthrough authored by an agent has no
   citation granularity, which is the one thing every write path here refuses to
   produce. A structured walkthrough would have to be an ordered list of steps
   with a source per step. Bookmarks (GAMEEXPLOR-0010) are the sanctioned shape:

@@ -90,7 +90,7 @@ reuses the one on port 3000.
 | `src/app/` | `/` home (carousels, tonight's picks, what you're playing), `/shelf` the grid + filters, `/flip` room mode, `/game/[id]`, `/playing` (in progress + up next), `/import`, `/api/import/*`, `/api/enrichment/*`, `/api/games/[id]/facts`, `/api/codes/*`, `/game/[id]/map`, `/api/games/[id]/maps`, `/api/maps/*`, `/api/games/[id]/sessions`, `/api/sessions/*`, `/api/queue*`, `/api/games/[id]/journal`, `/api/journal/*`, `/api/games/[id]/bookmarks`, `/api/bookmarks/*`, `/game/[id]/manual`, `/api/games/[id]/manuals`, `/api/manuals/*`, `/api/manual-pages/*`, `/series`, `/series/[slug]` (owned by default, `?missing=1` reveals the rest), `/series/new`, `/api/series/*`, `/api/series-entries/*`, `/settings` (per-device preferences), `/api/music/games/[ownedGameId]`, `/api/music/tracks/[trackId]`. |
 | `src/components/shelf/` | Toolbar, presets, genre row, filter sheet, cards, `use-filters.ts`. |
 | `src/components/game/play-history.tsx`, `journal.tsx` | The two write surfaces on the game page: runs (start / finish / past runs / queue) and the journal feed with its client-side photo downscale. |
-| `.claude/skills/` | `import-collection`, `enrich-collection`, `tag-collection`, `find-codes`, `find-maps`, `find-references`, `add-music` — the agent playbooks for the write paths. |
+| `.claude/skills/` | `curate-collection` — the one agent playbook for every write path (games, facts, tags, codes, maps, bookmarks, manuals, series, music), with a `reference/*.md` file per domain. |
 | `scripts/` | Baseline/import/snapshot tooling. `scratch/` is gitignored throwaway. |
 | `data/snapshot.json` | Your collection export — gitignored, private. See `data/README.md`. |
 | `data/maps/` | Map images, one file per `GameMap` id. Gitignored, **not in the snapshot** — back it up with it. |
@@ -160,7 +160,7 @@ reuses the one on port 3000.
   included. The toggle lives in `localStorage` per device (`/settings`), and
   `play()` is never called before a user gesture.
 - **Agents research and source reference material; they never author it.**
-  `find-references` links the real guide and writes one line saying why — a
+  `curate-collection` links the real guide and writes one line saying why — a
   bookmark is its own citation. An agent-written prose walkthrough has no
   citation granularity and stays out; see AGENTS.md.
 - **Migration `20260831032612_one_open_run_per_copy` is hand-written SQL.** It

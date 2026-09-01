@@ -8,7 +8,7 @@ lives only on your machine. Back it up somewhere private.
 - `npm run db:restore` rebuilds `prisma/dev.db` from it.
 
 Starting fresh (no snapshot): `npm run db:migrate`, then import games via
-`/import` (CSV drop) or the `import-collection` skill.
+`/import` (CSV drop) or the `curate-collection` skill (`reference/games.md`).
 
 `maps/` holds the image behind each interactive map (`<GameMap id>.png` or
 `.jpg`), written by `PUT /api/maps/:id/image`. It is gitignored and **not part
