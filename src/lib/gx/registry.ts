@@ -35,11 +35,22 @@ import { MARKER_KINDS } from "@/lib/maps/kinds";
  *   what someone reads instead of opening the route.
  *
  * What is deliberately absent: `/api/auth/*` (a browser session, not a
- * curation endpoint), `/api/img/*` (the shelf's pixels), the journal routes,
- * and the play-session and queue routes. The last three have no agent write
- * path *by design* — see the "Never write these" section of the
- * `curate-collection` skill. `gx queue` and `gx play` belong to
- * GAMEEXPLOR-0031, which will decide what, if anything, an agent may do there.
+ * curation endpoint), `/api/img/*` (the shelf's pixels), and the journal
+ * routes. The journal has no agent write path *by design* — notes and photos
+ * are prose about the owner's life, and an agent drafting one is the same
+ * failure as an agent-written walkthrough, which every write path in this
+ * project refuses. Its absence from `--help` is that refusal, in code; the
+ * reasoning lives in "Never write these" in the `curate-collection` skill.
+ *
+ * `gx play` and `gx queue` were absent for the same reason until
+ * GAMEEXPLOR-0031, which opened both under one rule: **record, never infer.**
+ * An agent may write down a run the owner described, and may plan what to play
+ * next; it may never derive a run from a habit, a journal entry or a
+ * completion percentage. A command table cannot enforce that — only the agent
+ * reading `reference/play.md` can — so the table's job here is the narrower
+ * one it can actually do: make the legal moves obvious, and split `start` from
+ * `log` so "I am playing this now" and "I played this in 1997" can never be
+ * typed by accident for one another.
  */
 
 /** How a value gets from the command line into the request. */
@@ -124,6 +135,15 @@ const id = (name: string, param: string, summary: string): Arg => ({ name, summa
 /** A positional that becomes a query parameter — only `gx games search <query>` uses it. */
 const positionalQuery = (name: string, param: string, summary: string, required = false): Arg => ({ name, summary, required, type: "string", into: { kind: "query", param } });
 
+/**
+ * A required positional that becomes a JSON body field rather than a path
+ * segment. Exactly one route needs it: `POST /api/queue` takes the copy's id
+ * in the body, because the queue is one global list and has no `[id]` of its
+ * own — but `gx queue add <ownedGameId>` should still read like every other
+ * command that starts with an id.
+ */
+const bodyArg = (name: string, fieldName: string, summary: string): Arg => ({ name, summary, required: true, type: "string", into: { kind: "body", field: fieldName } });
+
 /** The local file a `PUT` streams. */
 const fileArg = (summary: string): Arg => ({ name: "file", summary, required: true, type: "string", into: { kind: "file" } });
 
@@ -157,6 +177,8 @@ export const GROUPS: Group[] = [
   { name: "import", summary: "The staged import — the only way a new game reaches the shelf, and one undoable batch." },
   { name: "enrichment", summary: "Runs: the unit of work a batch of cited facts and tags is written inside." },
   { name: "music", summary: "The owner's own soundtrack files, registered against an owned copy. Never sourced, only registered." },
+  { name: "play", summary: "Runs the owner actually played: start one, finish it, write down one that already happened." },
+  { name: "queue", summary: 'The one ordered "up next" list: add a game, set the order, take one back out.' },
 ];
 
 /* ------------------------------------------------------------------ commands */
@@ -1036,6 +1058,178 @@ export const COMMANDS: Command[] = [
     route: "/api/music/[trackId]",
     method: "DELETE",
     args: [id("trackId", "trackId", "The track's id.")],
+    flags: [],
+  },
+
+  /* -- play ----------------------------------------------------------------
+     The owner's own record of having played a game, opened to agents by
+     GAMEEXPLOR-0031 under one rule: **record, never infer.** Dictation is
+     fine — "I finished Contra last night" is the owner telling you a fact
+     about their evening. Deduction is not: a run reasoned out of a habit, a
+     journal entry or a completion percentage is a fabricated memory, and
+     unlike a wrong tag it is undetectable on the page afterwards. If a date
+     was not stated, ask.
+
+     `start` and `log` are two commands over one route because `POST
+     /api/games/[id]/sessions` branches on whether an end date is present, and
+     the mistake that branch invites is silent: with no `--ended-at` and no
+     `--undated` the API opens a run claiming the owner is playing the game
+     right now, which then blocks the next real one with a 409.
+
+     Be precise about what the split buys, because it is less than it looks.
+     It *names* the two intentions, so `gx play log` reads as a claim about the
+     past and `gx play start` as a claim about the present; it does not
+     *enforce* them. `gx play log <id> --started-at 1997-01-01` with neither an
+     end date nor `--undated` still falls through to `startSession` and opens a
+     live run, because the route sees a body indistinguishable from a start.
+     Two named intentions and one honest warning, not a guard rail. */
+  {
+    group: "play",
+    name: "list",
+    summary: "One copy's runs, newest first, with the undated ones last.",
+    route: "/api/games/[id]/sessions",
+    method: "GET",
+    args: [OWNED()],
+    flags: [],
+    detail: "`endedAt: null` is the one definition of a run in progress — there is no status column anywhere in this app. An `undated` run's two timestamps are the moment it was typed in, not when it was played: read them as nothing at all.",
+  },
+  {
+    group: "play",
+    name: "open",
+    summary: "Every run in progress across the whole shelf, most recently started first.",
+    route: "/api/sessions/open",
+    method: "GET",
+    args: [],
+    flags: [],
+    detail: "What the `/playing` page reads. Worth checking before you start a run: a copy that already has one open answers 409 rather than opening a second.",
+  },
+  {
+    group: "play",
+    name: "start",
+    summary: "Start a run on a copy, now or from a stated date. Drops it out of the queue.",
+    route: "/api/games/[id]/sessions",
+    method: "POST",
+    args: [OWNED("The copy being played. Runs are per copy: playing the NES Contra says nothing about the SNES one.")],
+    flags: [
+      b("started-at", "string", "When it started: `YYYY-MM-DD` (read as local midnight) or a full ISO timestamp. Defaults to now."),
+      b("note", "string", "One line about the run, trimmed, ≤ 500 characters."),
+    ],
+    detail: "409 when this copy already has a run in progress — finish that one, do not retry. The queue entry for the copy is deleted in the same transaction, so a game is never both up next and in progress.",
+  },
+  {
+    group: "play",
+    name: "log",
+    summary: "Write down a run that already happened. Wants an end date, or --undated.",
+    route: "/api/games/[id]/sessions",
+    method: "POST",
+    args: [OWNED("The copy that was played.")],
+    flags: [
+      b("started-at", "string", "When it started, `YYYY-MM-DD` or ISO. Defaults to the end date — one sitting."),
+      b("ended-at", "string", "When it ended, `YYYY-MM-DD` or ISO. This is what makes it a past run rather than an open one."),
+      b("undated", "bool", 'For "I played this at some point": no dates at all. Sending it together with a date is a 400.'),
+      b("outcome", "string", "How it went. Defaults to completed.", { choices: ["completed", "abandoned"] }),
+      b("note", "string", "One line about the run, ≤ 500 characters."),
+    ],
+    detail: "Only ever what the owner said. No date given means ask for one or use --undated — never reason a date out of a journal entry, a habit or a completion percentage. An end before the start is a 400.",
+  },
+  {
+    group: "play",
+    name: "finish",
+    summary: "Close an open run: how it went, and the day it ended.",
+    route: "/api/sessions/[sessionId]",
+    method: "PATCH",
+    args: [id("sessionId", "sessionId", "The run's id, from `gx play list` or `gx play open`.")],
+    flags: [
+      b("outcome", "string", "How it went. A run closed without one is recorded as completed.", { choices: ["completed", "abandoned"] }),
+      // Required, and not because the API demands it — because of what the API
+      // does when it is missing. `PATCH /api/sessions/:id` runs
+      // `updateSession`, which keeps the stored `endedAt` when none is sent;
+      // on an open run that is null, and an outcome is then forced back to
+      // "playing". So `gx play finish --outcome completed` with no date used
+      // to exit 0, leave the run open, and reset the outcome — a silent no-op
+      // whose only visible consequence is a 409 on the next real start.
+      //
+      // Requiring the flag is also the right answer on principle: a finish
+      // with no stated end date is a date the agent invented, which is the one
+      // thing "record, never infer" forbids. If the owner did not say when,
+      // ask; do not let a default answer for them.
+      b("ended-at", "string", "The day it ended, `YYYY-MM-DD` or ISO. There is no default: a finish with no stated end date is a date you invented, so if the owner did not say when, ask.", { required: true }),
+      b("note", "string", "One line about the run, ≤ 500 characters."),
+    ],
+    detail: "The service keeps the outcome consistent with the dates: a closed run is never \"playing\". Ending a run before it started is a 400.",
+  },
+  {
+    group: "play",
+    name: "edit",
+    summary: "Correct a run — its dates, its outcome, its note — or reopen it.",
+    route: "/api/sessions/[sessionId]",
+    method: "PATCH",
+    args: [id("sessionId", "sessionId", "The run's id.")],
+    flags: [
+      b("started-at", "string", "A corrected start, `YYYY-MM-DD` or ISO."),
+      b("ended-at", "json", 'JSON here, not a bare date: `null` reopens the run, a quoted `"2026-08-30"` moves its end. For the everyday close use `gx play finish`.'),
+      b("undated", "bool", '`--undated` forgets a run\'s dates; `--no-undated` is the "I remembered when that was" edit and must arrive with both real dates.'),
+      b("outcome", "string", "How it went.", { choices: ["playing", "completed", "abandoned"] }),
+      b("note", "string", "One line about the run, ≤ 500 characters."),
+    ],
+    detail: "Reopening obeys the one-open-run rule (409) and is refused outright on an undated run (400): its timestamps are the day it was typed in, so there is no moment to resume from.",
+  },
+  {
+    group: "play",
+    name: "remove",
+    summary: "Delete a run. Its journal entries survive, detached from it.",
+    route: "/api/sessions/[sessionId]",
+    method: "DELETE",
+    args: [id("sessionId", "sessionId", "The run's id.")],
+    flags: [],
+    detail: "For a run that should never have been recorded — yours by mistake, or one the owner says did not happen. Not for tidying somebody's history.",
+  },
+
+  /* -- queue ---------------------------------------------------------------
+     "What should I play next" is a plan, not a memory: nothing here is
+     invented, and a wrong entry is one tap to remove on `/playing`. That is
+     the whole reason the queue opened to agents alongside runs while the
+     journal did not. */
+  {
+    group: "queue",
+    name: "list",
+    summary: "The one ordered up-next list, in order, with each game's details.",
+    route: "/api/queue",
+    method: "GET",
+    args: [],
+    flags: [],
+    detail: "Positions are dense 0..n-1 and the server renumbers after every write, so read the list back rather than assuming an index you saw earlier survived.",
+  },
+  {
+    group: "queue",
+    name: "add",
+    summary: "Queue a copy, or move the one already queued. Appends by default.",
+    route: "/api/queue",
+    method: "POST",
+    args: [bodyArg("ownedGameId", "ownedGameId", "The copy to queue — `ownedGameId` from `gx games search`. The queue is one global list, so this goes in the body, not the path.")],
+    flags: [
+      b("position", "int", "0-based slot to splice it into. Omit to append; on a game that is already queued this is the move."),
+      b("note", "string", "One line on why it is next, ≤ 500 characters."),
+    ],
+    detail: "400 when that copy has a run in progress — it is already being played, so \"up next\" means nothing for it. 409 when the queue is full at 50.",
+  },
+  {
+    group: "queue",
+    name: "reorder",
+    summary: "Set the whole order at once. A permutation: every queued game, exactly once.",
+    route: "/api/queue",
+    method: "PATCH",
+    args: [],
+    flags: [b("game", "string", "An ownedGameId, in the order you want it played — list every game currently queued.", { repeat: true, into: { kind: "body", field: "orderedIds" } }), BODY('`{ "orderedIds": [...] }`, if you would rather send the list as JSON.')],
+    detail: "A game left out is a 400 carrying the current queue in `details.queued`, never a deletion — which is the point: a stale list cannot drop an entry by omission. Run `gx queue list --json` first, every time.",
+  },
+  {
+    group: "queue",
+    name: "remove",
+    summary: "Take a game back out of the queue. The rest close up behind it.",
+    route: "/api/queue/[ownedGameId]",
+    method: "DELETE",
+    args: [id("ownedGameId", "ownedGameId", "The queued copy's id. 404 when it was not in the queue.")],
     flags: [],
   },
 ];

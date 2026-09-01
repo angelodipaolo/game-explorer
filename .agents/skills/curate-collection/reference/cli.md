@@ -130,7 +130,10 @@ npm run gx -- enrichment finish "$RUN"
 ## What has no command
 
 `gx` deliberately has no command for `/api/auth/*` (the owner's browser
-session), `/api/img/*` (the shelf's pixels), the journal routes, the play
-sessions or the queue. The last three have **no agent write path by design** —
-see "Never write these" in `SKILL.md`. Their absence from `--help` is the
-refusal, in code.
+session), `/api/img/*` (the shelf's pixels), or the journal routes. The journal
+has **no agent write path by design** — see "Never write these" in `SKILL.md`.
+Its absence from `--help` is that refusal, in code.
+
+`gx play` and `gx queue` were absent for the same reason until
+GAMEEXPLOR-0031. They exist now, under "record, never infer" — read
+`reference/play.md` before using either.

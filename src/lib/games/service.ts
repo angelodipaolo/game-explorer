@@ -82,8 +82,14 @@ export type GameRow = {
  * `music` is not in the ticket's list because the music domain landed
  * (GAMEEXPLOR-0025) after it was written. It is counted here for exactly the
  * reason the other five are: it is a sub-resource with an agent write path.
- * Play sessions and journal entries are deliberately *not* counted — they have
- * no agent write path at all, and a count is the first step towards one.
+ * Play sessions and journal entries are deliberately *not* counted. For the
+ * journal the old reason still holds exactly: no agent write path, and a count
+ * is the first step towards one. Play sessions do have a write path now
+ * (GAMEEXPLOR-0031, under "record, never infer"), but a count is still the
+ * wrong thing to hand an agent — "this copy has two runs" is an invitation to
+ * reason about the shelf's play history, and every run must come from the
+ * owner saying so. `gx play list` reads one copy's runs when the owner has
+ * asked about that copy; a shelf-wide gap count is what there must not be.
  */
 export type GameDetail = GameRow & {
   counts: { codes: number; maps: number; bookmarks: number; manuals: number; tags: number; music: number };
