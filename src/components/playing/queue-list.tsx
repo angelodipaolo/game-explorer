@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { QueuedRow } from "@/lib/collection";
-import { Cover } from "@/components/shelf/cover";
-import { apiError, cx } from "@/components/ui";
+import { apiError } from "@/components/ui";
+import { PlayingCard, QueueCaption, playingGrid } from "./playing-card";
 
 /**
- * "Up next", in order, with the controls you can work one-handed at 390px:
+ * "Up next", in order, as a grid of the shelf's cards (GAMEEXPLOR-0026) with
+ * the controls you can work one-handed at 375px under each one:
  * ▲ / ▼ to move a game, Play now to start it, × to drop it.
  *
  * Move buttons rather than drag-and-drop on purpose — touch dragging with
@@ -58,47 +58,38 @@ export function QueueList({ rows, canEdit, locked = false, dim, onClearFilters }
     void call("PATCH", "/api/queue", { orderedIds: order });
   };
 
-  // Each row wraps at 390px: four controls and a game title cannot share one
-  // line there without truncating the title to "1-2-…", so the name gets its
-  // own line and the controls sit under it. One row again from `sm` up.
+  // Two cards across at 375px leaves ~165px under each one, which four 44px
+  // targets and a "Play now" cannot share. So the cluster wraps: the two
+  // arrows pair up on the first line and Play now (flexing) sits beside × on
+  // the second. `flex-wrap` does it at every width without a breakpoint.
   return (
     <>
-      <ul className="flex flex-col gap-2" data-testid="queue-list">
+      <div className={playingGrid} data-testid="queue-list">
         {rows.map((r, i) => (
-          <li key={r.ownedGameId} className={cx("flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-2", dim?.has(r.ownedGameId) && "opacity-60")} data-testid="queue-row">
-            <Link href={`/game/${r.ownedGameId}`} className="flex min-w-0 basis-full items-center gap-3 sm:basis-0 sm:flex-1" prefetch={false}>
-              <Cover imageId={r.cover} title={r.name} size="small" className="w-10 shrink-0 rounded-md" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{r.name}</span>
-                <span className="block truncate text-xs text-muted">
-                  {r.platformLabel}
-                  {r.note ? ` · ${r.note}` : ""}
-                </span>
-              </span>
-            </Link>
+          <PlayingCard key={r.ownedGameId} row={r} dim={dim?.has(r.ownedGameId)} priority={i < 6} testId="queue-row" caption={<QueueCaption row={r} />}>
             {/* Read-only for a visitor: the order is the interesting part, the
                 four controls that change it are the owner's. */}
             {canEdit ? (
-              <div className="ml-auto flex shrink-0 items-center gap-1">
-                <button onClick={() => move(i, -1)} disabled={busy || locked || i === 0} className="h-11 w-11 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} up`} data-testid="queue-up">
+              <div className="flex flex-wrap items-center gap-1">
+                <button onClick={() => move(i, -1)} disabled={busy || locked || i === 0} className="h-11 w-11 shrink-0 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} up`} data-testid="queue-up">
                   ▲
                 </button>
-                <button onClick={() => move(i, 1)} disabled={busy || locked || i === rows.length - 1} className="h-11 w-11 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} down`} data-testid="queue-down">
+                <button onClick={() => move(i, 1)} disabled={busy || locked || i === rows.length - 1} className="h-11 w-11 shrink-0 rounded-lg border border-border text-sm text-muted hover:border-muted hover:text-text disabled:opacity-30" aria-label={`Move ${r.name} down`} data-testid="queue-down">
                   ▼
                 </button>
                 {/* Starting a run dequeues the copy in the same transaction, so this
-                    row lands in "In progress" on the very next refresh. */}
-                <button onClick={() => call("POST", `/api/games/${r.ownedGameId}/sessions`, {})} disabled={busy} className="min-h-11 rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink disabled:opacity-40" aria-label={`Play ${r.name} now`} data-testid="queue-play-now">
+                    card lands in "In progress" on the very next refresh. */}
+                <button onClick={() => call("POST", `/api/games/${r.ownedGameId}/sessions`, {})} disabled={busy} className="min-h-11 flex-1 basis-24 rounded-lg bg-accent px-2 text-sm font-semibold text-accent-ink disabled:opacity-40" aria-label={`Play ${r.name} now`} data-testid="queue-play-now">
                   Play now
                 </button>
-                <button onClick={() => call("DELETE", `/api/queue/${r.ownedGameId}`)} disabled={busy} className="h-11 w-11 rounded-lg border border-border text-lg text-muted hover:border-muted hover:text-text disabled:opacity-40" aria-label={`Remove ${r.name} from the queue`} data-testid="queue-remove-row">
+                <button onClick={() => call("DELETE", `/api/queue/${r.ownedGameId}`)} disabled={busy} className="h-11 w-11 shrink-0 rounded-lg border border-border text-lg text-muted hover:border-muted hover:text-text disabled:opacity-40" aria-label={`Remove ${r.name} from the queue`} data-testid="queue-remove-row">
                   ×
                 </button>
               </div>
             ) : null}
-          </li>
+          </PlayingCard>
         ))}
-      </ul>
+      </div>
       {canEdit && locked ? (
         <p className="mt-2 text-xs text-muted" data-testid="queue-reorder-locked">
           The order is the whole queue&rsquo;s, so moving a game needs every game on screen.{" "}
