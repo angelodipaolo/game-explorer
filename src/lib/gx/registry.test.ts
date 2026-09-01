@@ -32,11 +32,17 @@ function routeFiles(dir: string, prefix = "/api"): Map<string, string> {
   return found;
 }
 
-/** The verbs a route file exports. */
+/**
+ * The verbs a route file exports. Matches `const` as well as `function` — Next
+ * accepts `export const GET = …` too, and a verb this regex cannot see is a
+ * verb neither this test nor `src/lib/skills/coverage.test.ts` can hold anyone
+ * to. The two files carry the same regex on purpose; if you touch one, touch
+ * both.
+ */
 function methodsOf(file: string): Set<string> {
   const source = fs.readFileSync(file, "utf8");
   const found = new Set<string>();
-  for (const m of source.matchAll(/^export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/gm)) found.add(m[1]);
+  for (const m of source.matchAll(/^export\s+(?:async\s+function\s+|function\s+|const\s+)(GET|POST|PUT|PATCH|DELETE)\b/gm)) found.add(m[1]);
   return found;
 }
 

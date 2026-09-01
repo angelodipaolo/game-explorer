@@ -104,8 +104,9 @@ Which layer is missing, at a glance. Routes are relative to `/api/`; skill
 references are `.claude/skills/curate-collection/reference/` (mirrored into
 `.agents/skills/`). Every route below **that an agent may drive** has a `gx`
 command (`npm run gx -- <group> --help`) — the journal row is the exception, and
-deliberately so. GAMEEXPLOR-0030 will assert that pairing in code, which is why
-the column is left out here rather than duplicated and left to rot.
+deliberately so. `src/lib/skills/coverage.test.ts` asserts that pairing in code
+(GAMEEXPLOR-0030), which is why the column is left out here rather than
+duplicated and left to rot.
 
 | Data | Prisma model | Routes | Skill reference | Agent write path |
 | --- | --- | --- | --- | --- |
