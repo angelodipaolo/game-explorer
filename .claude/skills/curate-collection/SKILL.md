@@ -94,6 +94,7 @@ what belongs in it.
 
 | Task | Reference file |
 | --- | --- |
+| **Driving any of these from the command line** — `npm run gx -- --help` | `reference/cli.md` |
 | Import games from a CSV, spreadsheet, list, or shelf photo | `reference/games.md` |
 | Player counts, co-op, simultaneous play, splitscreen, playtime | `reference/facts.md` |
 | Tags / genres like "Metroidvania", "roguelike", "couch co-op" | `reference/tags.md` |
