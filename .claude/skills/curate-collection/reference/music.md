@@ -80,7 +80,22 @@ unset `GAME_EXPLORER_URL` means stop, never localhost.
 - `PUT /api/music/:trackId/audio` — upload the bytes.
 - `GET /api/music/:trackId/audio` — the audio itself (public; supports
   `Range`). Takes the **id**, never a path.
+- `PATCH /api/music/:trackId { title }` — retitle a track. Same title rules as
+  creation (non-blank, ≤ 120 chars, any charset); everything else about the
+  row — its audio, its id, which copy it belongs to — is untouched.
 - `DELETE /api/music/:trackId` — removes the row and unlinks the file.
+
+There is no reorder route, and there will not be one: `MusicTrack` has no
+`position` column and playback always picks a track at random
+(`src/lib/music/player.ts`), so an API that let you order tracks would be
+documenting a feature the player does not have.
+
+```bash
+# Fix a typo without touching the audio.
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER_URL/api/music/<trackId>" \
+  -H 'content-type: application/json' \
+  -d '{ "title": "Vampire Killer (Stage 1)" }'
+```
 
 ## Caps and gotchas
 

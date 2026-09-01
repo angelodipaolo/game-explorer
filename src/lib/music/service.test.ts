@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 const dir = path.join(os.tmpdir(), `music-test-${process.pid}`);
 process.env.MUSIC_DIR = dir;
 
-const { MAX_AUDIO_BYTES, MAX_TRACKS_PER_GAME, addTrack, findTrackFile, playableTracksFor, removeTrack, setTrackAudio, tracksFor } = await import("./service");
+const { MAX_AUDIO_BYTES, MAX_TRACKS_PER_GAME, addTrack, findTrackFile, playableTracksFor, removeTrack, renameTrack, setTrackAudio, trackInputSchema, tracksFor } = await import("./service");
 
 /** A synthetic MP3: an ID3 tag and filler. The owner's own files are never touched by tests. */
 const mp3 = (size = 2048) => {
@@ -132,6 +132,31 @@ describe("music tracks", () => {
   it("is silent for a track whose audio was never uploaded", async () => {
     const track = await addTrack(nes, { title: "Stalker" });
     expect(await findTrackFile(track.id)).toBeNull();
+  });
+
+  it("retitles a track", async () => {
+    const track = await addTrack(nes, { title: "Vampire Killer" });
+    const renamed = await renameTrack(track.id, { title: "Vampire Killer (Stage 1)" });
+    expect(renamed.title).toBe("Vampire Killer (Stage 1)");
+    expect((await tracksFor(nes))[0].title).toBe("Vampire Killer (Stage 1)");
+    // Nothing else about the row moves for a retitle.
+    expect(renamed.id).toBe(track.id);
+    expect(renamed.bytes).toBe(track.bytes);
+  });
+
+  it("404s retitling a track that does not exist", async () => {
+    expect(await status(() => renameTrack("nope", { title: "x" }))).toBe(404);
+  });
+
+  it("rejects a blank or oversize title", () => {
+    // trackInputSchema is shared by POST (addTrack) and PATCH (renameTrack); a
+    // route parses a request body with it before either function is called, and
+    // `handle()` turns the resulting ZodError into a 400 — so the schema
+    // rejecting the value here is what makes the API answer 400.
+    expect(trackInputSchema.safeParse({ title: "" }).success).toBe(false);
+    expect(trackInputSchema.safeParse({ title: "   " }).success).toBe(false);
+    expect(trackInputSchema.safeParse({ title: "x".repeat(121) }).success).toBe(false);
+    expect(trackInputSchema.safeParse({ title: "x".repeat(120) }).success).toBe(true);
   });
 
   it("goes away with the copy it belongs to", async () => {
