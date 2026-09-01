@@ -124,21 +124,18 @@ them and GAMEEXPLOR-0030 tests that every row's routes have one.
 
 GAMEEXPLOR-0031 opens the queue and play sessions to agents under "record,
 never infer" — an agent may write down a run the owner reports, never one it
-deduced. Until it lands, both are a refusal. The journal never opens: notes and
-photos are the owner's memory of an evening, and nobody else can produce one. `/api/auth/*` and `/api/img/*` are not in the table because they
-are not collection data.
+deduced. Until it lands, both are a refusal. The journal never opens.
+`/api/auth/*` and `/api/img/*` are not in the table because they are not
+collection data.
 
 ### When the skill applies
 
-Any operation on collection data — reading it to decide, or writing it — goes
-through `curate-collection` against `$GAME_EXPLORER_URL`, whether or not you
-invoked the skill: open
+The rule in "Where the collection lives" applies **whether or not you invoked
+the skill**, and to reads as well as writes: open
 `.claude/skills/curate-collection/reference/<domain>.md`, use the routes it
-documents, and follow its payload rules. There is no second, quicker path.
-`prisma/dev.db` and direct Prisma access exist to build and test *the app* —
-migrations, unit tests, a throwaway seed row. The moment the thing you are
-changing is something the owner would recognise on their shelf, it belongs to
-the mini and to this skill.
+documents, follow its payload rules. There is no second, quicker path. The
+moment the thing you are changing is something the owner would recognise on
+their shelf, it belongs to the mini and to this skill.
 
 ## Invariants (the ones that bite silently)
 
@@ -152,17 +149,17 @@ the mini and to this skill.
   order.** State is a Prisma model with a migration — not a JSON file, a
   directory listing or an env var; it is reached through `src/app/api/` behind
   `src/proxy.ts`; every route an agent may drive gets a `gx` command
-  (`npm run gx -- …`, GAMEEXPLOR-0036 — decided, landing; `curl` stays legal);
-  and `curate-collection` documents it. Reads are part of the rule, not a
+  (`npm run gx -- …`, GAMEEXPLOR-0036 — decided but **not yet built**; `curl`
+  is the path until it lands, and stays legal after); and
+  `curate-collection` documents it. Reads are part of the rule, not a
   nicety: an agent that cannot list a thing cannot act on it, which is what
   `GET /api/games?q=` fixed (GAMEEXPLOR-0028). Blobs are the carve-out — bytes
   go on disk through `src/lib/media/`, the row that names them is a table. Stop
   at the database and the feature is invisible to agents; stop at the API and it
-  is reachable but undiscoverable. Music was first built as a hand-edited
-  `data/music/index.json` with read-only routes — unwritable from the phone,
-  unreachable from a laptop — and was rebuilt onto this shape before it shipped
-  (GAMEEXPLOR-0025 / GAMEEXPLOR-0032). Recognise that shape; it is no longer in
-  the tree.
+  is reachable but undiscoverable. Music was briefly built as a hand-edited JSON
+  manifest with read-only routes and was rebuilt onto this shape before it
+  shipped — the worked example of what not to do, told in full in `AGENTS.md`.
+  It is no longer in the tree.
 - **Every IGDB game query carries a `game_type` filter.** Default is
   `(0,3,8,9,10,11)`; mod/DLC/pack types throw. See `decisions.md` for why
   `= 0` alone was wrong.
@@ -269,8 +266,9 @@ Collection-size assertions live in `e2e/shelf.spec.ts` and `e2e/smoke.spec.ts`
   (`GAMEEXPLOR-0001: …`); never commit a red state.
 - Keep durable findings in the notes directory (Sabin) when one exists, not in chat.
 - **Definition of done for anything that adds or changes state**: the table
-  exists, the API can create/read/update/delete it, it has a `gx` command, and
-  the `curate-collection` reference file describes it. A branch that stops
+  exists, the API can create/read/update/delete it, it has a `gx` command
+  (once GAMEEXPLOR-0036 lands), and the `curate-collection` reference file
+  describes it. A branch that stops
   earlier is not finished, it is half a feature with the agent-facing half
   missing — and that half never gets added later, because nothing is broken.
 - Don't add: RAWG, a provider abstraction, hosting, auth, fetched/stored/shown
