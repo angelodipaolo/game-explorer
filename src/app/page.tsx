@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SearchBox } from "@/components/search-box";
 import { SiteHeader } from "@/components/site-header";
 import { HomeRowSection, PicksRow, PlayingPanel } from "@/components/home/row";
 import { loadPlaying, loadShelf } from "@/lib/collection";
@@ -67,6 +68,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             ) : null}
           </div>
         </div>
+
+        {/* The ticket's literal ask (GAMEEXPLOR-0027), and the top of the page
+            is where a phone thumb starts. It searches the whole collection by
+            going to /shelf?q=… — nothing here indexes anything. Off when the
+            shelf is empty, where the import prompt below is the only useful
+            thing to offer. */}
+        {games.length ? <SearchBox variant="hero" /> : null}
 
         {games.length === 0 ? (
           <p className="mt-8 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted" data-testid="home-empty">

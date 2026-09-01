@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useState, type ReactNode } from "react";
 import { activeFilterCount, type Facets, type Filters } from "@/lib/filters";
 import type { Viewer } from "@/lib/viewer";
@@ -50,6 +51,7 @@ export function FilterBar({
   children?: ReactNode;
 }) {
   const [query, setQuery] = useDebouncedQuery(filters.q, set);
+  const term = filters.q.trim();
   const [sheetOpen, setSheetOpen] = useState(false);
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const active = activeFilterCount(filters);
@@ -73,6 +75,20 @@ export function FilterBar({
         </Button>
         {children}
       </div>
+      {/* The escape hatch, and the whole answer to "which search is this?"
+          (GAMEEXPLOR-0027). The box above filters *this page* — the placeholder
+          says which page — and the moment you type something, this line offers
+          the same words against the whole collection. A scope toggle was the
+          obvious alternative and is the thing that would make both boxes
+          ambiguous: a mode you can leave switched on is a mode you forget is
+          on. A link is not a mode. */}
+      {term ? (
+        <div className="mt-2 text-sm">
+          <Link href={`/shelf?q=${encodeURIComponent(term)}`} prefetch={false} className="text-accent-2 hover:underline" data-testid="search-all-games">
+            Search all games for “{term}” <span aria-hidden>→</span>
+          </Link>
+        </div>
+      ) : null}
       {/* Plays like: the top genres as one-tap toggles; the sheet has the rest.
           Same chips as the shelf's, so the gesture is the same everywhere. */}
       {facets.genres.length ? (

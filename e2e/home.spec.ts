@@ -99,3 +99,70 @@ test("the rows scroll sideways; the page never does", async ({ page }) => {
   const after = await page.evaluate(() => window.scrollX);
   expect(after).toBe(0);
 });
+
+/**
+ * Search (GAMEEXPLOR-0027). Every collection search is a navigation to
+ * `/shelf?q=…` — there is no index and no overlay to test, only that the
+ * boxes land you on a filtered, linkable shelf.
+ */
+
+test("the home hero search lands on a filtered shelf", async ({ page }) => {
+  await expectNoConsoleErrors(page, async () => {
+    await page.goto("/");
+    await page.getByTestId("hero-search-input").fill("mario");
+    await page.getByTestId("hero-search-submit").click();
+
+    await expect(page).toHaveURL(/\/shelf\?q=mario/);
+    // Filtered, not the whole shelf, and the matches are the ones asked for.
+    await expect(page.getByTestId("result-count")).toContainText(/^\d+ games?/);
+    await expect(page.getByTestId("game-card").first()).toContainText(/mario/i);
+
+    // An empty submit is a no-op: it must not dump you on the whole shelf.
+    await page.goBack();
+    await expect(page.getByTestId("hero-search-input")).toHaveValue("");
+    await page.getByTestId("hero-search-submit").click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+});
+
+test("the header search opens the collection from anywhere", async ({ page, isMobile }) => {
+  await page.goto("/playing");
+  const input = page.getByTestId("header-search-input");
+  if (isMobile) {
+    // Phone: the icon only, until it is tapped.
+    await expect(input).toBeHidden();
+    await page.getByTestId("header-search-toggle").click();
+    await expect(input).toBeFocused();
+  } else {
+    await expect(page.getByTestId("header-search-toggle")).toBeHidden();
+    await expect(input).toBeVisible();
+  }
+  await input.fill("zelda");
+  await input.press("Enter");
+  await expect(page).toHaveURL(/\/shelf\?q=zelda/);
+  await expect(page.getByTestId("game-card").first()).toContainText(/zelda/i);
+});
+
+test("the header search stays out of the shelf's way, and the row never overflows", async ({ page, isMobile }) => {
+  await page.goto("/shelf");
+  await expect(page.getByTestId("result-count")).toBeVisible();
+  // The shelf's own toolbar is the better box for the shelf; two is noise.
+  await expect(page.getByTestId("header-search")).toHaveCount(0);
+  await expect(page.getByTestId("header-search-toggle")).toHaveCount(0);
+
+  await page.goto("/");
+  if (isMobile) await page.getByTestId("header-search-toggle").click();
+  const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+  expect(box.scrollWidth, "the header must not burst the row").toBeLessThanOrEqual(box.clientWidth);
+});
+
+test("a page's own search box offers the whole collection when the answer is not there", async ({ page }) => {
+  await page.goto("/playing?q=zzzqqq");
+  const link = page.getByTestId("search-all-games");
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "/shelf?q=zzzqqq");
+
+  // And it is only there while there is something to search for.
+  await page.goto("/playing");
+  await expect(page.getByTestId("search-all-games")).toHaveCount(0);
+});
