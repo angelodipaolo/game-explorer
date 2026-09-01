@@ -102,9 +102,10 @@ reuses the one on port 3000.
 
 Which layer is missing, at a glance. Routes are relative to `/api/`; skill
 references are `.claude/skills/curate-collection/reference/` (mirrored into
-`.agents/skills/`). Every route below has a `gx` command
-(`npm run gx -- <group> --help`); GAMEEXPLOR-0030 tests that pairing, so the
-column is left out here rather than duplicated and left to rot.
+`.agents/skills/`). Every route below **that an agent may drive** has a `gx`
+command (`npm run gx -- <group> --help`) — the journal row is the exception, and
+deliberately so. GAMEEXPLOR-0030 will assert that pairing in code, which is why
+the column is left out here rather than duplicated and left to rot.
 
 | Data | Prisma model | Routes | Skill reference | Agent write path |
 | --- | --- | --- | --- | --- |

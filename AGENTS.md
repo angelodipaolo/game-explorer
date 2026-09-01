@@ -46,8 +46,9 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   migration — never a JSON file, a directory listing, a YAML manifest or an env
   var. It is reached through routes under `src/app/api/`, behind `src/proxy.ts`.
   Every route an agent may drive gets a `gx` command (`npm run gx -- …`), and
-  that pairing is asserted in code rather than in prose (GAMEEXPLOR-0036 built
-  the CLI; GAMEEXPLOR-0030 asserts the coverage). `curl` stays legal and stays
+  that pairing belongs in code rather than in prose (GAMEEXPLOR-0036 built the
+  CLI; GAMEEXPLOR-0030 will assert the coverage — today `registry.test.ts`
+  asserts only the other direction, that every command names a real route). `curl` stays legal and stays
   documented — the CLI is the front door, not the only door. The command and
   its payload shapes are written down in `.claude/skills/curate-collection/`,
   mirrored into `.agents/skills/`.
