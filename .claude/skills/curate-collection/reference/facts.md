@@ -1,48 +1,10 @@
----
-name: enrich-collection
-description: Fill gaps IGDB leaves in Game Explorer's collection — exact player counts, whether players play at the same time or take turns, co-op, playtime — by researching each game and writing cited facts back through the enrichment API. Use when asked to "fill in player counts", "enrich the collection", "find out which games are 2-player simultaneous", or "work through the gaps".
----
+# Enrichment facts
 
-# Enrich the collection
+See `SKILL.md` for the env/auth preamble — do not skip it.
 
 IGDB knows co-op yes/no for most of the shelf but exact player counts for only
 a fifth, and it does not model "at the same time vs. taking turns" at all. This
-skill fills those gaps from the web, one cited fact at a time.
-
-A server must be reachable, and every call is authenticated:
-
-- `GAME_EXPLORER_URL` — **which collection you are writing to.** There is no
-  default. The real collection lives on the Mac mini
-  (`http://cids-Mac-mini.local:3000` on the wifi,
-  `https://games.angelodipaolo.com` through the tunnel) and that is what "add
-  this to my collection" always means. `http://localhost:3000` is a throwaway
-  dev database: a write there looks like it succeeded and changes nothing the
-  owner will ever see. **If `GAME_EXPLORER_URL` is unset, stop and ask which
-  server** — never guess, and never fall back to localhost just because a dev
-  server happens to answer on it.
-- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
-  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
-  `401`.
-
-Both are exported from the owner's `~/.zshenv`, which **every** zsh sources —
-interactive, non-interactive and scripts alike — so they are already in your
-environment. They are *not* in `.env`. Confirm before you start, and stop if
-either is missing rather than inventing a value:
-
-```bash
-: "${GAME_EXPLORER_URL:?stop and ask the owner which server}"
-: "${GAME_EXPLORER_TOKEN:?stop and ask the owner for an API token}"
-```
-
-Then use `"$GAME_EXPLORER_URL/api/..."` verbatim in every call. Do not write a
-`:-http://localhost:3000` fallback: an unset variable must break the command
-loudly, not quietly retarget it at the wrong database.
-
-If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
-not fall back to writing to the database directly — say the token is missing or
-wrong and let the owner fix it. A local dev server runs with `AUTH_OPEN=1` and
-never returns `401`, so a clean `200` from localhost is **not** evidence that
-you are talking to the right server.
+domain fills those gaps from the web, one cited fact at a time.
 
 ## Rules
 
@@ -81,6 +43,7 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/
 # 2. Start a run
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/enrichment/runs" -H 'content-type: application/json' -d '{"label":"players pass 1"}'
 # → { id: <runId> }
+# GET /api/enrichment/runs lists past runs; GET /api/enrichment/runs/<runId> reads one's report.
 
 # 3. Research each game (web search: "<name> NES players", the manual, a wiki),
 #    then write what you found — batches are fine.
@@ -91,6 +54,8 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
   ]
 }'
 # → { written: [...], skipped: [{ ownedGameId, field, reason }] }
+# skipped reasons: "no sourceUrl — agent facts must cite a source",
+# "owned game not found", "set by hand; agents never overwrite manual facts".
 
 # 4. Finish, and read the report back to the user
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/enrichment/runs/<runId>/finish"
@@ -100,6 +65,13 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
 Work in batches of ~25 games. Use `known` in the gaps response so you do not
 re-research what IGDB already covers; `known.multiplayer: false` means the
 game is single player and `maxPlayers` is 1 by derivation — skip it.
+
+A fact posted through a run always lands with `source: "agent"`. There is a
+separate, owner-facing pair — `GET`/`PUT /api/games/:id/facts { field, value,
+note? }` — that writes `source: "manual"` (a `null` value clears the fact);
+**that endpoint is the owner's hand-entry path, not yours** — using it would
+make your research masquerade as a manual, unoverridable value. Always write
+through a run's `/facts` endpoint instead, even for a single game.
 
 ## Report
 

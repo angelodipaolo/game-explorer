@@ -1,9 +1,6 @@
----
-name: find-codes
-description: Research and record passwords, cheats, Game Genie and Action Replay codes for games in Game Explorer, with a cited source per code, through the codes API. Use when asked to "find codes for my games", "get the Game Genie codes", "fill in passwords", or to add a code to one game.
----
+# Codes
 
-# Find codes for the collection
+See `SKILL.md` for the env/auth preamble — do not skip it.
 
 Codes live on an owned **copy**, not on a title: the NES and SNES versions of
 one game hold separate sets, because Game Genie codes genuinely differ per
@@ -18,41 +15,6 @@ your judgement about what to put in it.
 IGDB has no cheat or password data (`/v4/cheats`, `/v4/game_cheats`, `/v4/codes`
 do not exist), so everything here comes from research. `games.websites` in the
 catalog sometimes links a wiki worth reading — a lead, not a source of truth.
-
-A server must be reachable, and every call is authenticated:
-
-- `GAME_EXPLORER_URL` — **which collection you are writing to.** There is no
-  default. The real collection lives on the Mac mini
-  (`http://cids-Mac-mini.local:3000` on the wifi,
-  `https://games.angelodipaolo.com` through the tunnel) and that is what "add
-  this to my collection" always means. `http://localhost:3000` is a throwaway
-  dev database: a write there looks like it succeeded and changes nothing the
-  owner will ever see. **If `GAME_EXPLORER_URL` is unset, stop and ask which
-  server** — never guess, and never fall back to localhost just because a dev
-  server happens to answer on it.
-- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
-  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
-  `401`.
-
-Both are exported from the owner's `~/.zshenv`, which **every** zsh sources —
-interactive, non-interactive and scripts alike — so they are already in your
-environment. They are *not* in `.env`. Confirm before you start, and stop if
-either is missing rather than inventing a value:
-
-```bash
-: "${GAME_EXPLORER_URL:?stop and ask the owner which server}"
-: "${GAME_EXPLORER_TOKEN:?stop and ask the owner for an API token}"
-```
-
-Then use `"$GAME_EXPLORER_URL/api/..."` verbatim in every call. Do not write a
-`:-http://localhost:3000` fallback: an unset variable must break the command
-loudly, not quietly retarget it at the wrong database.
-
-If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
-not fall back to writing to the database directly — say the token is missing or
-wrong and let the owner fix it. A local dev server runs with `AUTH_OPEN=1` and
-never returns `401`, so a clean `200` from localhost is **not** evidence that
-you are talking to the right server.
 
 ## The four kinds
 
@@ -120,9 +82,10 @@ Partial success is normal: a bad entry is skipped with a reason and the rest
 still land. Read `skipped` — the reasons are "unknown kind", "owned game not
 found", and "already at the 30-code limit".
 
-For one game by hand: `POST /api/games/:id/codes` with the same body minus
-`ownedGameId`; `PATCH /api/games/:id/codes/:codeId` to edit or tick `verified`;
-`DELETE` the same path to remove. `GET /api/games/:id/codes` lists a copy's set.
+For one game by hand: `GET /api/games/:id/codes` lists a copy's set; `POST
+/api/games/:id/codes` with the same body minus `ownedGameId`; `PATCH
+/api/games/:id/codes/:codeId` to edit or tick `verified`; `DELETE` the same
+path to remove.
 
 ## Report
 

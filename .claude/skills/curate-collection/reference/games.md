@@ -1,47 +1,9 @@
----
-name: import-collection
-description: Import games into Game Explorer from a CSV, spreadsheet, list, or photo of a shelf. Use when the user says "import these games", "add this CSV to the shelf", "add these cartridges", or hands you any list of owned games. Drives the staged import API — you parse and normalize, the API validates, matches against IGDB, dedupes, and commits as one undoable batch.
----
+# Import games
 
-# Import a collection
+See `SKILL.md` for the env/auth preamble — do not skip it.
 
 You are the smart client. The API owns validation, matching, dedupe, and the
 transaction. You own parsing, normalizing, and judgment on the rows it holds.
-
-A server must be reachable, and every call is authenticated:
-
-- `GAME_EXPLORER_URL` — **which collection you are writing to.** There is no
-  default. The real collection lives on the Mac mini
-  (`http://cids-Mac-mini.local:3000` on the wifi,
-  `https://games.angelodipaolo.com` through the tunnel) and that is what "add
-  this to my collection" always means. `http://localhost:3000` is a throwaway
-  dev database: a write there looks like it succeeded and changes nothing the
-  owner will ever see. **If `GAME_EXPLORER_URL` is unset, stop and ask which
-  server** — never guess, and never fall back to localhost just because a dev
-  server happens to answer on it.
-- `GAME_EXPLORER_TOKEN` — one of the API tokens from the server's `.env`
-  (`API_TOKENS`). **Every** `/api/*` call needs it; a call without one is a
-  `401`.
-
-Both are exported from the owner's `~/.zshenv`, which **every** zsh sources —
-interactive, non-interactive and scripts alike — so they are already in your
-environment. They are *not* in `.env`. Confirm before you start, and stop if
-either is missing rather than inventing a value:
-
-```bash
-: "${GAME_EXPLORER_URL:?stop and ask the owner which server}"
-: "${GAME_EXPLORER_TOKEN:?stop and ask the owner for an API token}"
-```
-
-Then use `"$GAME_EXPLORER_URL/api/..."` verbatim in every call. Do not write a
-`:-http://localhost:3000` fallback: an unset variable must break the command
-loudly, not quietly retarget it at the wrong database.
-
-If a call comes back `401 {"error":"unauthorized"}`, stop. Do not retry, and do
-not fall back to writing to the database directly — say the token is missing or
-wrong and let the owner fix it. A local dev server runs with `AUTH_OPEN=1` and
-never returns `401`, so a clean `200` from localhost is **not** evidence that
-you are talking to the right server.
 
 ## 1. Parse
 
@@ -86,6 +48,13 @@ Each row comes back with:
 | `chosenIgdbId` | what `auto` picked |
 
 Batches of ≤ 25 keep each call under ~20 s (IGDB is rate-limited to 4 req/s).
+
+Other session routes: `GET /api/import/sessions` (every session), `GET
+/api/import/sessions/<sessionId>` (one session with every row), `DELETE
+/api/import/sessions/<sessionId>` (discard an unfinished session), `GET
+/api/import/batches` (past commits), `POST /api/import/csv` (multipart
+`file` field, or a raw `text/csv` body — creates a session directly instead of
+building rows by hand).
 
 ## 3. Resolve what you can, hand the rest to the user
 
