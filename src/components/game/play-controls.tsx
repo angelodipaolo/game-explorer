@@ -43,8 +43,10 @@ export function PlayControls({ gameId, sessions, queued, canEdit }: { gameId: st
   }
 
   const start = () => call("POST", `/api/games/${gameId}/sessions`, {});
-  // `endedAt` has to be sent: leaving it out means "no change", which for an
-  // open run would keep it open (and the service would force it back to "playing").
+  // `endedAt` has to be sent along with `outcome` — the route refuses the two
+  // apart (GAMEEXPLOR-0038: closing a run without an end date is a 400, not a
+  // default to "now"), so this is the one date the UI, not the owner, is
+  // allowed to supply: "Finished" pressed right now means "ended just now".
   const finish = (outcome: "completed" | "abandoned") => open && call("PATCH", `/api/sessions/${open.id}`, { outcome, endedAt: new Date().toISOString() });
 
   if (!canEdit) {

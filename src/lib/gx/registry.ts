@@ -1141,18 +1141,23 @@ export const COMMANDS: Command[] = [
     args: [id("sessionId", "sessionId", "The run's id, from `gx play list` or `gx play open`.")],
     flags: [
       b("outcome", "string", "How it went. A run closed without one is recorded as completed.", { choices: ["completed", "abandoned"] }),
-      // Required, and not because the API demands it — because of what the API
-      // does when it is missing. `PATCH /api/sessions/:id` runs
-      // `updateSession`, which keeps the stored `endedAt` when none is sent;
-      // on an open run that is null, and an outcome is then forced back to
-      // "playing". So `gx play finish --outcome completed` with no date used
-      // to exit 0, leave the run open, and reset the outcome — a silent no-op
-      // whose only visible consequence is a 409 on the next real start.
+      // Required, and the API now demands it too (GAMEEXPLOR-0038) — belt and
+      // braces rather than a lone guard.
       //
-      // Requiring the flag is also the right answer on principle: a finish
-      // with no stated end date is a date the agent invented, which is the one
-      // thing "record, never infer" forbids. If the owner did not say when,
-      // ask; do not let a default answer for them.
+      // The history is worth keeping, because the flag was required first and
+      // for a different reason. `PATCH /api/sessions/:id` used to keep the
+      // stored `endedAt` when none was sent; on an open run that is null, and
+      // the outcome was then forced back to "playing". So `gx play finish
+      // --outcome completed` with no date exited 0, left the run open, and
+      // discarded the outcome — a silent no-op whose only visible consequence
+      // was a 409 on the next real start. The route refuses that shape with a
+      // 400 now, so this flag is no longer the only thing standing between an
+      // agent and that bug.
+      //
+      // It stays required on principle regardless: a finish with no stated end
+      // date is a date the agent invented, which is the one thing "record,
+      // never infer" forbids. If the owner did not say when, ask; do not let a
+      // default answer for them.
       b("ended-at", "string", "The day it ended, `YYYY-MM-DD` or ISO. There is no default: a finish with no stated end date is a date you invented, so if the owner did not say when, ask.", { required: true }),
       b("note", "string", "One line about the run, ≤ 500 characters."),
     ],
@@ -1172,7 +1177,9 @@ export const COMMANDS: Command[] = [
       b("outcome", "string", "How it went.", { choices: ["playing", "completed", "abandoned"] }),
       b("note", "string", "One line about the run, ≤ 500 characters."),
     ],
-    detail: "Reopening obeys the one-open-run rule (409) and is refused outright on an undated run (400): its timestamps are the day it was typed in, so there is no moment to resume from.",
+    detail:
+      "Reopening obeys the one-open-run rule (409) and is refused outright on an undated run (400): its timestamps are the day it was typed in, so there is no moment to resume from. " +
+      "Setting --outcome completed or abandoned on a run this edit leaves open is a 400 as well: closing a run needs an end date, and the API will not pick one for you.",
   },
   {
     group: "play",
