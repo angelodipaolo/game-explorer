@@ -156,8 +156,19 @@ describe("play sessions", () => {
     expect(noted.note).toBe("co-op night");
 
     // Reopening while also claiming completed is the same contradiction from
-    // a closed run's side, and is refused the same way.
+    // a closed run's side, and is refused the same way — and, like the open
+    // case above, refused before anything is written.
     await expect(updateSession(closed.id, { endedAt: null, outcome: "completed" })).rejects.toMatchObject({ status: 400 });
+    const stillClosed = await sessionsFor(nes).then((rs) => rs.find((r) => r.id === closed.id)!);
+    expect(stillClosed.endedAt).not.toBeNull();
+    expect(stillClosed.outcome).toBe("completed");
+
+    // An empty patch is a legitimate no-op, not a contradiction: there is no
+    // outcome to disagree with the dates, so nothing is refused and nothing
+    // changes.
+    const unchanged = await updateSession(stillOpen.id, {});
+    expect(unchanged.endedAt).toBeNull();
+    expect(unchanged.note).toBe("co-op night");
   });
 
   it("refuses to reopen a run when another one is already open", async () => {
