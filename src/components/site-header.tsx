@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NavTrigger } from "@/components/nav-trigger";
+import { SearchBox } from "@/components/search-box";
 import { platformCounts } from "@/lib/collection";
 import { readViewer } from "@/lib/viewer";
 
@@ -26,6 +27,11 @@ export async function SiteHeader() {
             Game <span className="text-nes-grey">Explorer</span>
           </span>
         </Link>
+        {/* Collection search, on every page that has a header
+            (GAMEEXPLOR-0027): an icon on a phone that opens a full-width row
+            under the bar, an inline field from `sm` up. It hides itself on
+            /shelf, where the toolbar's own box is the better one. */}
+        <SearchBox variant="header" />
         {/* Phone: the wordmark and the hamburger, nothing else. Four links plus
             a wordmark plus a 44px button do not fit in 390px — the wordmark
             wrapped to two lines and burst the row — and they no longer have to,
