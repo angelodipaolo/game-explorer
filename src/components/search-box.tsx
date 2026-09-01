@@ -123,9 +123,16 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
    * click handler, so it is inside the user gesture iOS requires before it
    * will raise a keyboard, and `preventScroll` leaves the smooth scroll above
    * to do the moving — a default `focus()` jumps there instantly and fights
-   * it. Returns false when the hero is not on the page at all (an empty shelf
-   * renders the import prompt instead), and the glyph falls back to its own
-   * panel, so the control is never inert.
+   * it.
+   *
+   * Returns false when the hero is not on the page at all, which happens on
+   * exactly one screen: an empty shelf, where `page.tsx` renders the import
+   * prompt instead. The glyph then does nothing — it is suppressed on `/` by
+   * pathname alone, so there is no panel behind it to fall back to. That is
+   * the right outcome rather than a gap worth closing: a collection with no
+   * games in it has nothing to search, and wiring up a second code path to
+   * open an empty search over an empty shelf would be machinery for a state
+   * the owner leaves in the first five minutes.
    */
   function jumpToHero(): boolean {
     const hero = document.getElementById(HERO_INPUT_ID);
