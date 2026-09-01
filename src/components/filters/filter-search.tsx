@@ -10,14 +10,21 @@ import { useDebouncedQuery } from "@/components/shelf/use-filters";
  * `/playing` and `/series/[slug]` — the two surfaces that show a *subset* of
  * the collection and therefore have something to narrow.
  *
- * **The rule it exists to enforce: the two search controls never have the same
- * shape on the same screen.** From `md` up the header carries a labelled
- * "Search all games" field, so this one is a bare glyph; below `md` the header
- * is a 44px glyph beside the wordmark, so this one stays the labelled field it
- * has always been. Exactly one of the pair is prose at any width, which is a
- * far louder signal than making one box smaller than the other — and it avoids
- * the trap of two anonymous magnifiers 90px apart on a 390px phone, which is
- * the ticket's own complaint wearing a different hat.
+ * **The rule it exists to enforce: at rest, the two search controls never have
+ * the same shape on the same screen.** From `md` up the header carries a
+ * labelled "Search all games" field, so this one is a bare glyph; below `md`
+ * the header is a 44px glyph beside the wordmark, so this one stays the
+ * labelled field it has always been. Exactly one of the pair is prose at any
+ * width, which is a far louder signal than making one box smaller than the
+ * other — and it avoids the trap of two anonymous magnifiers 90px apart on a
+ * 390px phone, which is the ticket's own complaint wearing a different hat.
+ *
+ * *At rest* is the whole of the qualifier, and it is deliberate: expanding
+ * this field from `md` up does put two prose fields on screen at once. That is
+ * fine and it is not the reported problem — the second one is there because
+ * the reader just asked for it, it is named for the page it narrows rather
+ * than for the collection, and it goes away on blur. What the ticket is about
+ * is what a page *offers* you before you touch anything.
  *
  * That responsive half is CSS, not state: there is one input in the DOM at
  * every width, and `md:hidden` is what decides whether the collapsed
@@ -95,7 +102,23 @@ export function FilterSearch({ filters, set, label }: { filters: Filters; set: (
       // it was typed. Without this the browser would treat it as a GET form
       // and navigate, dropping every other filter on the way.
       onSubmit={(e) => e.preventDefault()}
-      className={cx("flex min-w-0 flex-1 items-center gap-1.5", open ? "" : "md:flex-none")}
+      /*
+        `flex-1` in **every** state, and this is the one line in this file that
+        has to be justified rather than described. It was `md:flex-none` while
+        collapsed, which grouped the glyph and `Filters` neatly at the left —
+        and made `Filters` unclickable while the field was open. Blur fires on
+        *mousedown*: reaching for `Filters` collapsed the form between the press
+        and the release, the button jumped 1122px at 1280, and the click landed
+        on nothing. The second attempt worked, so it read as flakiness rather
+        than as a bug.
+
+        The row is therefore `[control]……[Filters]` at every width and in every
+        state. `Filters` does not move because the search changed shape, which
+        is the same layout-thrash rule that keeps `Filters` on screen when the
+        field is focused at 390px. A control that moves under the pointer is
+        broken; a control that stays put is merely a different arrangement.
+      */
+      className="flex min-w-0 flex-1 items-center gap-1.5"
       data-testid="filter-search"
     >
       {/* The collapsed glyph. Always mounted so `collapse()` has something to

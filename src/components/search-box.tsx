@@ -33,6 +33,9 @@ import { focusTrigger, useOverlay } from "@/components/overlay";
  * a bigger target than the field it replaces. Every `md:` in this file is one
  * half of that split — they move together or not at all.
  */
+/** The hero field on `/`, which the header's glyph scrolls to and focuses. */
+const HERO_INPUT_ID = "home-search";
+
 export function SearchBox({ variant }: { variant: "header" | "hero" }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -95,15 +98,42 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
   /*
     Home is the other page that already has a search-everything box — the hero,
     which is the same control at three times the width — and two of them 100px
-    apart is the whole of GAMEEXPLOR-0033. But the suppression only starts at
-    `md`, deliberately: home is 4.3 screens tall on a 390px phone and the hero
-    is not sticky, so removing the glyph outright would leave one flick between
-    a reader and any search at all, with a two-tap recovery. A 44px glyph
-    beside the wordmark is not a second search bar, and by the time it matters
-    the hero is off-screen. From `md` up the hero is always the search you can
-    see, so the header's field goes away.
+    apart is the whole of GAMEEXPLOR-0033. So on `/` this instance never
+    renders a field of its own:
+
+    - From `md` up it renders nothing at all. The hero is on screen, and the
+      hero is the search.
+    - Below `md` the *glyph* stays, because home is several screens tall on a
+      390px phone and the hero is not sticky — take it away and a reader who
+      has scrolled has no search anywhere, with a two-tap recovery. But it is a
+      **shortcut to the hero, not a disclosure of a duplicate**: tapping it
+      scrolls the hero into view and puts the caret in it. Opening the panel
+      here would have put two fields on screen 85px apart, both saying "Search
+      all games" — this ticket's own complaint, reachable in one tap, and worse
+      than what shipped before, where at least the two read differently.
+
+    Everywhere else the glyph opens the panel as it always has: the second
+    field there is the page's own filter, named for the page rather than for
+    the collection, so the two never read as the same control.
   */
   const suppressed = variant === "header" && pathname === "/";
+
+  /**
+   * Take the reader to the one search box home has. Focus is set inside the
+   * click handler, so it is inside the user gesture iOS requires before it
+   * will raise a keyboard, and `preventScroll` leaves the smooth scroll above
+   * to do the moving — a default `focus()` jumps there instantly and fights
+   * it. Returns false when the hero is not on the page at all (an empty shelf
+   * renders the import prompt instead), and the glyph falls back to its own
+   * panel, so the control is never inert.
+   */
+  function jumpToHero(): boolean {
+    const hero = document.getElementById(HERO_INPUT_ID);
+    if (!(hero instanceof HTMLInputElement)) return false;
+    hero.scrollIntoView({ block: "center", behavior: "smooth" });
+    hero.focus({ preventScroll: true });
+    return true;
+  }
 
   if (variant === "hero") {
     return (
@@ -120,6 +150,11 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
             placeholder="Search all games"
             aria-label="Search all games"
             className="h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
+            // A stable id, because the header's glyph on `/` is a shortcut to
+            // *this* field rather than a second one of its own (see below) and
+            // the two are separate component instances with no ref between
+            // them. `useId` would be a different string on every render pass.
+            id={HERO_INPUT_ID}
             data-testid="hero-search-input"
           />
         </label>
@@ -149,64 +184,76 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           focusTrigger(e);
+          // On `/` this is a shortcut, not a disclosure — see `jumpToHero`.
+          if (suppressed && jumpToHero()) return;
           if (open) collapse();
           else setOpen(true);
         }}
         aria-label="Search all games"
-        aria-expanded={open}
-        aria-controls="header-search-panel"
+        // On `/` it expands nothing, so it claims nothing: a button that
+        // announces itself as collapsed and then never expands is a worse lie
+        // than no state at all. It names the field it moves you to instead.
+        aria-expanded={suppressed ? undefined : open}
+        aria-controls={suppressed ? HERO_INPUT_ID : "header-search-panel"}
         className={cx("ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition md:hidden", open ? "border-accent bg-surface-2 text-text" : "border-transparent text-muted hover:border-border hover:bg-surface-2")}
         data-testid="header-search-toggle"
       >
         <SearchIcon />
       </button>
       {/* One form for both widths, so there is one input in the DOM and one
-          thing to focus. `max-md:` is the phone dress: hidden until the icon
-          is tapped, then a full-width row beneath the bar. */}
-      <form
-        ref={panel}
-        id="header-search-panel"
-        onSubmit={submit}
-        role="search"
-        // Every *visible* name on this control is now the one name for the
-        // job — "Search all games" — but the landmark keeps its qualifier:
-        // below `md` on home this panel and the hero can be open at the same
-        // time, and a landmark list that says "search, search" tells you
-        // nothing about either.
-        aria-label="Search all games from any page"
-        className={cx("flex min-w-0 md:ml-auto md:max-w-sm md:flex-1", "max-md:absolute max-md:inset-x-0 max-md:top-full max-md:border-b max-md:border-border/70 max-md:bg-bg max-md:px-4 max-md:py-3 max-md:shadow-lg max-md:shadow-black/40", open ? "" : "max-md:hidden", suppressed ? "md:hidden" : "")}
-        data-testid="header-search"
-      >
-        <label className="relative min-w-0 flex-1">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">
-            <SearchIcon />
-          </span>
-          <input
-            ref={input}
-            type="search"
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            // Escape here as well as in `useOverlay`, and not instead of it:
-            // the overlay only listens while `open` is true, and `open` is set
-            // by the phone toggle alone. From `md` up the field is always in
-            // the header and never "open", so without this line Escape from a
-            // desktop search box did nothing at all (GAMEEXPLOR-0027 shipped
-            // it; the overlay refactor took it away).
-            onKeyDown={(e) => {
-              if (e.key === "Escape") collapse();
-            }}
-            onBlur={() => setOpen(false)}
-            placeholder="Search all games"
-            aria-label="Search all games"
-            // `h-11`/`text-base` at every width, not `sm:h-9 sm:text-sm`: this
-            // field is the iPad's search and an iPad is a touch device, so 36px
-            // missed the GAMEEXPLOR-0023 target bar, and 14px made iPadOS zoom
-            // the whole page the moment it was focused.
-            className="h-11 w-full min-w-0 rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
-            data-testid="header-search-input"
-          />
-        </label>
-      </form>
+          thing to focus. `max-md:` is the phone dress: hidden until the icon is
+          tapped, then a full-width row beneath the bar. Not rendered at all on
+          `/`, where the glyph above is a shortcut to the hero: a panel there
+          would be a second "Search all games" field, and dead DOM carrying a
+          second search landmark that nothing can ever open. */}
+      {suppressed ? null : (
+        <form
+          ref={panel}
+          id="header-search-panel"
+          onSubmit={submit}
+          role="search"
+          // One job, one name, everywhere — the landmark included. It used to
+          // carry a "…from any page" qualifier because home rendered this
+          // panel *and* the hero, and a landmark list that reads "search,
+          // search" tells you nothing about either. Home no longer renders
+          // this panel at all, and the only other page that shows two search
+          // landmarks is one with a `FilterBar`, whose landmark is named for
+          // the page it narrows. There is nothing left to disambiguate from.
+          aria-label="Search all games"
+          className={cx("flex min-w-0 md:ml-auto md:max-w-sm md:flex-1", "max-md:absolute max-md:inset-x-0 max-md:top-full max-md:border-b max-md:border-border/70 max-md:bg-bg max-md:px-4 max-md:py-3 max-md:shadow-lg max-md:shadow-black/40", open ? "" : "max-md:hidden")}
+          data-testid="header-search"
+        >
+          <label className="relative min-w-0 flex-1">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-faint">
+              <SearchIcon />
+            </span>
+            <input
+              ref={input}
+              type="search"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              // Escape here as well as in `useOverlay`, and not instead of it:
+              // the overlay only listens while `open` is true, and `open` is set
+              // by the phone toggle alone. From `md` up the field is always in
+              // the header and never "open", so without this line Escape from a
+              // desktop search box did nothing at all (GAMEEXPLOR-0027 shipped
+              // it; the overlay refactor took it away).
+              onKeyDown={(e) => {
+                if (e.key === "Escape") collapse();
+              }}
+              onBlur={() => setOpen(false)}
+              placeholder="Search all games"
+              aria-label="Search all games"
+              // `h-11`/`text-base` at every width, not `sm:h-9 sm:text-sm`: this
+              // field is the iPad's search and an iPad is a touch device, so 36px
+              // missed the GAMEEXPLOR-0023 target bar, and 14px made iPadOS zoom
+              // the whole page the moment it was focused.
+              className="h-11 w-full min-w-0 rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
+              data-testid="header-search-input"
+            />
+          </label>
+        </form>
+      )}
     </>
   );
 }

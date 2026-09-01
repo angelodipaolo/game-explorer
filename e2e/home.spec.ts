@@ -142,8 +142,10 @@ test("the search survives characters a URL cares about", async ({ page }) => {
 });
 
 test("the phone search icon closes what it opened, and Escape hands focus back", async ({ page, isMobile }) => {
-  test.skip(!isMobile, "the icon is the phone presentation; from `sm` up the field is inline");
-  await page.goto("/");
+  test.skip(!isMobile, "the icon is the phone presentation; from `md` up the field is inline");
+  // `/playing`, not `/`: home's glyph is a shortcut to the hero now and has no
+  // panel of its own to open (GAMEEXPLOR-0033).
+  await page.goto("/playing");
   const toggle = page.getByTestId("header-search-toggle");
   const input = page.getByTestId("header-search-input");
 
@@ -169,7 +171,7 @@ test("the phone search icon closes what it opened, and Escape hands focus back",
   // And tapping the page closes it too.
   await toggle.click();
   await expect(input).toBeFocused();
-  await page.getByTestId("hero-search-input").click();
+  await page.getByTestId("filter-search-input").click();
   await expect(input).toBeHidden();
 });
 
@@ -198,10 +200,17 @@ test("the header search stays out of the shelf's way, and the row never overflow
   await expect(page.getByTestId("header-search")).toHaveCount(0);
   await expect(page.getByTestId("header-search-toggle")).toHaveCount(0);
 
+  const noOverflow = async (where: string) => {
+    const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+    expect(box.scrollWidth, `the header must not burst the row on ${where}`).toBeLessThanOrEqual(box.clientWidth);
+  };
   await page.goto("/");
+  await noOverflow("home");
+  // The disclosed panel is the state that can burst it, and `/playing` is
+  // where the panel still lives.
+  await page.goto("/playing");
   if (isMobile) await page.getByTestId("header-search-toggle").click();
-  const box = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
-  expect(box.scrollWidth, "the header must not burst the row").toBeLessThanOrEqual(box.clientWidth);
+  await noOverflow("playing");
 });
 
 test("a page's own search box offers the whole collection when the answer is not there", async ({ page }) => {
@@ -279,17 +288,32 @@ test("the filter search narrows the page without ever leaving it", async ({ page
   await page.goto("/playing");
   await expect(page.getByTestId("filter-search-toggle")).toBeVisible();
 
-  // `history.length` is the assertion that proves `replaceState` rather than a
-  // navigation: `router.replace` would re-render the server page and re-send
-  // the whole collection on every keystroke, and `push` would bury the page
-  // the reader started on under one entry per letter.
+  /*
+    The real proof that this is `history.replaceState` and not `router.replace`
+    is **no request for the filtered URL**. `router.replace` re-renders the
+    server page — an RSC fetch for `/playing?q=…` on every keystroke, re-sending
+    the whole payload — which is exactly what `use-filters.ts` refuses to do and
+    what a reader on a phone would feel. `history.length` cannot show that:
+    `router.replace` leaves it unchanged too, so on its own it only rules out
+    `push`. Both are asserted, the request count first.
+
+    Requests for a bare `/playing` are not counted: Next prefetches the header's
+    own nav link, and that is not this control's doing. A `q` in the URL is what
+    only a filter change could have produced.
+  */
+  const filteredFetches: string[] = [];
+  page.on("request", (r) => {
+    const u = new URL(r.url());
+    if (u.pathname === "/playing" && u.searchParams.has("q")) filteredFetches.push(`${r.method()} ${r.url()}`);
+  });
   const before = await page.evaluate(() => history.length);
   await page.getByTestId("filter-search-toggle").click();
   await expect(page.getByTestId("filter-search-input")).toBeFocused();
   await page.getByTestId("filter-search-input").fill("contra");
   await expect(page).toHaveURL(/\/playing\?q=contra/);
   await expect(page.getByRole("heading", { name: /In progress/ })).toContainText(/·\s*\d+ of \d+/);
-  expect(await page.evaluate(() => history.length), "a filter change is not a navigation").toBe(before);
+  expect(filteredFetches, "a filter change must not re-render the server page").toEqual([]);
+  expect(await page.evaluate(() => history.length), "and it is not a `push` either").toBe(before);
 
   // Escape puts the field away and *keeps* the term — a native
   // `<input type="search">` would have emptied it, which is a filter
@@ -344,4 +368,75 @@ test("the shelf keeps its box, and calls it what it is", async ({ page }) => {
   await box.press("Enter");
   await expect(page).toHaveURL(/platform=nes/);
   await expect(page).toHaveURL(/q=mario/);
+});
+
+test("the Filters button stays put and stays clickable while the search is open", async ({ page }) => {
+  /*
+    The regression this exists to stop: the filter search's form was `flex-1`
+    while open and `md:flex-none` while collapsed, and blur fires on
+    *mousedown*. So reaching for `Filters` with the field open collapsed the row
+    between the press and the release, `Filters` jumped 1122px at 1280, and the
+    click landed on nothing. It worked the second time, which is why it read as
+    flakiness rather than as a bug. `mouse.down()`/`mouse.up()` rather than
+    `click()`, because `click()` re-resolves the element's box between the two
+    and would paper straight over it.
+  */
+  for (const width of [768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/playing");
+    const filters = page.getByTestId("open-filters");
+    await expect(filters).toBeVisible();
+    const parked = (await filters.boundingBox())!;
+
+    // Open the field, however this width opens it.
+    const glyph = page.getByTestId("filter-search-toggle");
+    if (await glyph.isVisible()) await glyph.click();
+    else await page.getByTestId("filter-search-input").click();
+    await expect(page.getByTestId("filter-search-input")).toBeFocused();
+
+    const moved = (await filters.boundingBox())!;
+    expect(Math.abs(moved.x - parked.x), `Filters moved when the search opened at ${width}px`).toBeLessThanOrEqual(1);
+
+    // Press where it is, release where it is, and the sheet must open.
+    await page.mouse.move(moved.x + moved.width / 2, moved.y + moved.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(page.getByTestId("filter-sheet"), `one press of Filters at ${width}px`).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+});
+
+test("home's glyph is a shortcut to the hero, not a second box", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "one project drives the explicit widths");
+  for (const width of [390, 640]) {
+    await page.setViewportSize({ width, height: 700 });
+    await page.goto("/");
+    const glyph = page.getByTestId("header-search-toggle");
+    await expect(glyph).toBeVisible();
+
+    // Scroll the hero off the top — the state the glyph exists for. Home is
+    // several screens tall and the hero is not sticky.
+    await page.evaluate(() => window.scrollTo(0, 1200));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(600);
+
+    await glyph.click();
+    const hero = page.getByTestId("hero-search-input");
+    // It moves you to the one box home has, and puts the caret in it.
+    await expect(hero).toBeFocused();
+    await expect.poll(() => page.evaluate(() => document.getElementById("home-search")!.getBoundingClientRect().top), { timeout: 3000 }).toBeGreaterThan(0);
+    await expect.poll(() => page.evaluate(() => document.getElementById("home-search")!.getBoundingClientRect().bottom)).toBeLessThan(700);
+
+    // And it never conjures a second one. Two visible fields both saying
+    // "Search all games" is the complaint this whole ticket is about.
+    await expect(page.getByPlaceholder("Search all games")).toHaveCount(1);
+    await expect(page.getByRole("search")).toHaveCount(1);
+    await expect(page.getByTestId("header-search")).toHaveCount(0);
+
+    // And with the hero already on screen, where there is nowhere to scroll to
+    // and the whole job is the caret.
+    await page.goto("/");
+    await expect(glyph).toBeVisible();
+    await glyph.click();
+    await expect(hero).toBeFocused();
+  }
 });
