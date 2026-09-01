@@ -316,8 +316,17 @@ describe("deleteGame", () => {
     await prisma.playSession.create({ data: { ownedGameId: g.id, startedAt: new Date("2026-08-01T12:00:00Z") } });
 
     expect(await status(() => deleteGame(g.id))).toBe(409);
-    expect(await message(() => deleteGame(g.id))).toMatch(/Chrono Trigger.*run in progress \(started 2026-08-01\)/);
+    // The date reads the way the rest of the app spells it, not as an ISO
+    // slice: `toISOString()` printed a UTC day, so a run stored at local
+    // midnight came back as the day before for anyone west of Greenwich.
+    expect(await message(() => deleteGame(g.id))).toMatch(/Chrono Trigger.*run in progress \(started 1 Aug 2026\)/);
     expect(await prisma.ownedGame.findUnique({ where: { id: g.id } })).not.toBeNull();
+
+    // A month-precision run must not have a day invented for it here either —
+    // this message is the seventh place a run's date reaches a reader, and the
+    // one where they cannot go and check the real value.
+    await prisma.playSession.updateMany({ where: { ownedGameId: g.id }, data: { startedPrecision: "month" } });
+    expect(await message(() => deleteGame(g.id))).toMatch(/run in progress \(started Aug 2026\)/);
 
     // A finished run is history, not an obstacle.
     await prisma.playSession.updateMany({ where: { ownedGameId: g.id }, data: { endedAt: new Date("2026-08-05T12:00:00Z"), outcome: "completed" } });

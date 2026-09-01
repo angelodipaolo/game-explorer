@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { PlaySession } from "@prisma/client";
-import { apiError, day } from "@/components/ui";
+import { apiError } from "@/components/ui";
+import { runSince } from "@/lib/play/format";
 
 /**
  * The primary action, moved above the fold: the open-run banner and the
@@ -59,7 +60,7 @@ export function PlayControls({ gameId, sessions, queued, canEdit }: { gameId: st
     // about the collection, not a control.
     return (
       <div className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-full bg-accent/15 px-3 text-sm text-accent" data-testid="open-run">
-        <span aria-hidden>▶</span> Playing since {day(open.startedAt)}
+        <span aria-hidden>▶</span> Playing since {runSince(open)}
       </div>
     );
   }
@@ -69,7 +70,7 @@ export function PlayControls({ gameId, sessions, queued, canEdit }: { gameId: st
       {open ? (
         <div className="rounded-xl border border-accent/50 bg-accent/10 p-3" data-testid="open-run">
           <div className="font-display text-sm font-bold">
-            <span className="text-accent" aria-hidden>▶</span> Playing since {day(open.startedAt)}
+            <span className="text-accent" aria-hidden>▶</span> Playing since {runSince(open)}
           </div>
           {open.note ? <p className="mt-1 text-sm text-muted">{open.note}</p> : null}
           <div className="mt-3 flex flex-wrap gap-2">

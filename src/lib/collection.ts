@@ -456,8 +456,23 @@ export type PlayingGame = {
    */
   game: ShelfGame;
 };
-/** An open run, with the last thing written during it as the "where I left off" line. */
-export type InProgressRow = PlayingGame & { sessionId: string; startedAt: Date; note: string | null; lastEntry: { title: string | null; body: string | null; occurredAt: Date } | null };
+/**
+ * An open run, with the last thing written during it as the "where I left off"
+ * line.
+ *
+ * `startedPrecision` travels with `startedAt` and is not optional: `/playing`
+ * is the most-looked-at page in the app, and a run the owner recorded as
+ * "August 2026" reading back as "since 1 Aug 2026" there is exactly the
+ * invented day GAMEEXPLOR-0037 exists to delete. The pair goes through
+ * `runSince` in `src/lib/play/format.ts`; nothing here renders it.
+ */
+export type InProgressRow = PlayingGame & {
+  sessionId: string;
+  startedAt: Date;
+  startedPrecision: string;
+  note: string | null;
+  lastEntry: { title: string | null; body: string | null; occurredAt: Date } | null;
+};
 export type QueuedRow = PlayingGame & { position: number; note: string | null };
 
 /**
@@ -509,7 +524,7 @@ export async function loadPlaying(): Promise<{ inProgress: InProgressRow[]; upNe
     const base = game(s.ownedGame);
     if (!base) continue;
     const e = entries.find((x) => x.sessionId === s.id);
-    inProgress.push({ ...base, sessionId: s.id, startedAt: s.startedAt, note: s.note, lastEntry: e ? { title: e.title, body: e.body, occurredAt: e.occurredAt } : null });
+    inProgress.push({ ...base, sessionId: s.id, startedAt: s.startedAt, startedPrecision: s.startedPrecision, note: s.note, lastEntry: e ? { title: e.title, body: e.body, occurredAt: e.occurredAt } : null });
   }
   const upNext: QueuedRow[] = [];
   for (const q of queue) {

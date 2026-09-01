@@ -3,6 +3,8 @@ import { z } from "zod";
 import { normalizeTitle } from "@/lib/catalog/normalize";
 import { prisma } from "@/lib/db";
 import { EnrichmentError } from "@/lib/enrichment/service";
+import { stamp } from "@/lib/play/format";
+import { storedPrecision } from "@/lib/play/precision";
 import { journalImages } from "@/lib/journal/image";
 import { manualImages } from "@/lib/manuals/image";
 import { deleteImage as deleteMapImage } from "@/lib/maps/image";
@@ -549,10 +551,16 @@ export async function deleteGame(ownedGameId: string): Promise<DeleteReport> {
     });
     if (!copy) throw new EnrichmentError("owned game not found", 404);
 
-    const open = await tx.playSession.findFirst({ where: { ownedGameId, endedAt: null }, select: { id: true, startedAt: true } });
+    const open = await tx.playSession.findFirst({ where: { ownedGameId, endedAt: null }, select: { id: true, startedAt: true, startedPrecision: true } });
     if (open) {
       throw new EnrichmentError(
-        `"${copy.title}" has a run in progress (started ${open.startedAt.toISOString().slice(0, 10)}) — finish or delete that run before deleting the copy`,
+        // `stamp`, not `toISOString().slice(0, 10)`. That did two wrong things
+        // at once on a month-precision run: it printed a day nobody recorded
+        // (GAMEEXPLOR-0037), and it printed it in UTC, so a date stored as
+        // local midnight came back as the day before for anyone west of
+        // Greenwich. An error message is the one place a reader cannot check
+        // the real value, so it has to be the value.
+        `"${copy.title}" has a run in progress (started ${stamp(open.startedAt, storedPrecision(open.startedPrecision))}) — finish or delete that run before deleting the copy`,
         409,
         { openSessionId: open.id },
       );

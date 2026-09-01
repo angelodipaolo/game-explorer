@@ -1,0 +1,34 @@
+-- The precision a run's dates were claimed at: `day` or `month`.
+--
+-- Two columns rather than one, because mixed precision is the *default* case
+-- and not an exotic one: the game page's Finished button always stamps a full
+-- timestamp, so backdating a start to "Aug 2026" and tapping Finished today
+-- produces a run that is a month at one end and a day at the other. A single
+-- per-run column would have to either downgrade the end nobody had to guess or
+-- invent a day for the start nobody gave.
+--
+-- HAND-WRITTEN, and it must stay a plain ADD COLUMN — the same reason
+-- 20260831143329_play_session_undated is hand-written, and it has now bitten
+-- twice. Prisma generates a full SQLite table redefine for PlaySession (create
+-- new_, copy, drop, rename), and the DROP takes `PlaySession_one_open_run`
+-- with it: the partial unique index from 20260831032612 that is the database's
+-- half of the one-open-run rule. Prisma's schema language cannot express a
+-- filtered index, so it does not know the index exists and will not recreate
+-- it. Nothing fails; the only symptom is two taps on "Start playing" 50ms
+-- apart both succeeding, months later.
+--
+-- Worse still is a redefine that recreates the index *without* its WHERE
+-- clause: that passes a `.indexes PlaySession` check and then forbids a copy
+-- from ever having a second run. So the check that matters is the DDL text,
+-- not the index name — `select sql from sqlite_master where name =
+-- 'PlaySession_one_open_run'` must still contain `WHERE "endedAt" IS NULL`.
+--
+-- Every existing row backfills to 'day', and that is the truth rather than a
+-- compromise: every run in the log was entered through an <input type="date">
+-- or as a bare YYYY-MM-DD / ISO timestamp through the API. A day is exactly
+-- what was claimed. Undated rows get 'day' too and it means nothing for them —
+-- their timestamps are placeholders and `undated` already tells every reader
+-- to ignore both ends. Do not special-case them; a second rule about a field
+-- nobody reads is a future bug.
+ALTER TABLE "PlaySession" ADD COLUMN "startedPrecision" TEXT NOT NULL DEFAULT 'day';
+ALTER TABLE "PlaySession" ADD COLUMN "endedPrecision" TEXT NOT NULL DEFAULT 'day';

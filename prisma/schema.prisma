@@ -471,8 +471,28 @@ model PlaySession {
   ownedGameId String
   ownedGame   OwnedGame      @relation(fields: [ownedGameId], references: [id], onDelete: Cascade)
   startedAt   DateTime
+  /// day | month — the precision the start was *claimed* at, not the precision
+  /// the column can hold. "month" means `startedAt` is the first instant of
+  /// the month the owner named and the day component is scaffolding: nothing
+  /// may render it. Recording "August 2026" as 1 August and rendering it back
+  /// as "1 Aug 2026" is a confident guess the owner never made, which is the
+  /// one thing this app refuses to do with data.
+  ///
+  /// Meaningless when `undated` is set — there both timestamps are the moment
+  /// the row was typed in, and no precision value can say that. `undated` is
+  /// therefore not folded in here: it is a claim about the *columns* being
+  /// placeholders, not a claim that the date is coarse.
+  startedPrecision String    @default("day")
   /// Null while the run is open.
   endedAt     DateTime?
+  /// day | month, the same contract, and deliberately independent of
+  /// `startedPrecision`: "I started on the 12th and finished sometime in
+  /// October" is a real sentence, and the app produces it by default — the
+  /// game page's Finished button stamps a full timestamp onto whatever start
+  /// the run was backdated with. One shared precision column would force
+  /// either downgrading a day nobody had to guess or inventing a day nobody
+  /// gave.
+  endedPrecision   String    @default("day")
   /// playing | completed | abandoned. Constrained against endedAt in the
   /// service: open runs are always "playing", ended runs never are.
   outcome     String         @default("playing")

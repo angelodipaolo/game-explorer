@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MONTH_ONLY } from "@/lib/play/precision";
 
 /**
  * Date handling for the things you enter by hand: when a run started, when a
@@ -29,3 +30,39 @@ export function parseWhen(v: string | Date): Date {
  * bare calendar date, or a Date (the API sends strings, tests send Dates).
  */
 export const whenSchema = z.union([z.string().datetime({ offset: true }), z.string().date(), z.date()]).transform(parseWhen);
+
+/**
+ * The same input, widened by one shape: a bare `YYYY-MM`.
+ *
+ * This is what `src/lib/play/service.ts` accepts for a run's `startedAt` and
+ * `endedAt` (GAMEEXPLOR-0037). `whenSchema` above is deliberately left alone —
+ * the journal still uses it, and a journal entry happened on a *day*: it is
+ * usually written the day it happened, and "by month" was a request about
+ * runs.
+ *
+ * **The precision is carried by the shape of the value, not by a second
+ * field.** `2026-08` means August; `2026-08-12` means the 12th. There is no
+ * `precision` key in any request body and no `--precision` flag, so there is
+ * no pair of fields that can disagree and nothing for a caller to forget — and
+ * the widening cannot break an existing caller, because `2026-08` is refused
+ * by the schema as it stands today, so nothing in the wild is sending one.
+ *
+ * Note what this schema does *not* do: it validates the shape and hands the
+ * raw value on. `parsePrecise` in `src/lib/play/precision.ts` is what turns it
+ * into a date and a precision, and the service calls it. Transforming here
+ * instead would have changed the argument type of `startSession`,
+ * `logPastSession` and `updateSession` from a date to a pair, for no gain —
+ * every one of them already has to decide which of the two columns it is
+ * writing.
+ *
+ * The month arm is `MONTH_ONLY` from `precision.ts` rather than a second
+ * regex: `/^\d{4}-\d{2}$/` accepts `2026-13`, and `new Date(2026, 12, 1)`
+ * rolls silently into January 2027 instead of throwing. One regex, one
+ * refusal.
+ */
+export const preciseWhenSchema = z.union([
+  z.string().datetime({ offset: true }),
+  z.string().date(),
+  z.string().regex(MONTH_ONLY, { error: "a month is YYYY-MM, with a month between 01 and 12" }),
+  z.date(),
+]);

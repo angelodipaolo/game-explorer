@@ -41,43 +41,25 @@ export function Badge({ tone = "muted", children, className, title }: { tone?: "
   );
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 /**
- * `12 Aug 2026`, formatted off the machine's own clock rather than
- * `toLocaleDateString`, so a server render and the browser render that
- * hydrates it are byte-identical and React stays quiet.
+ * The date vocabulary lives in `src/lib/play/format.ts` now and is re-exported
+ * from here so that the dozens of existing `import { day } from
+ * "@/components/ui"` call sites keep working.
  *
- * Here rather than in `src/lib/dates.ts` for two reasons: a helper exported
- * from a `"use client"` module is a client reference on the server (not a
- * function you can call), and `lib/dates` imports zod — which a client
- * component has no business dragging into its bundle. `lib/dates` still owns
- * the parsing half: a bare `YYYY-MM-DD` is local midnight, never UTC.
- */
-export function day(d: Date | string): string {
-  const x = new Date(d);
-  return `${x.getDate()} ${MONTHS[x.getMonth()]} ${x.getFullYear()}`;
-}
-
-/**
- * `12 Aug`, or `12 Aug 2025` once the year stops being obvious — for a caption
- * too narrow to spend four characters on this year (home's three-across card).
+ * The move is GAMEEXPLOR-0037: a run's dates can be a month as well as a day,
+ * which needs one `MONTHS` array and one set of rules, not a copy here and a
+ * copy there. What has *not* changed is why these are not in
+ * `src/lib/dates.ts`: that module imports zod, and a client component has no
+ * business dragging a parser into its bundle to render "12 Aug 2026". A helper
+ * exported from a `"use client"` module is also a client reference on the
+ * server rather than a function the server can call, which is why the
+ * definitions sit in a plain module and only pass through here.
  *
- * Built from the same parts as `day` rather than by trimming its output: a
- * regex over a formatted date silently stops matching the day the format
- * changes, and quietly renders the year again.
+ * `lib/dates` still owns the parsing half, and `lib/play/precision` the
+ * arithmetic: a bare `YYYY-MM-DD` is local midnight, never UTC, and a bare
+ * `YYYY-MM` is the first instant of that month.
  */
-export function shortDay(d: Date | string): string {
-  const x = new Date(d);
-  const dm = `${x.getDate()} ${MONTHS[x.getMonth()]}`;
-  return x.getFullYear() === new Date().getFullYear() ? dm : `${dm} ${x.getFullYear()}`;
-}
-
-/** The local calendar day as `YYYY-MM-DD`: what a date input holds, and what `parseWhen` reads back as local midnight. */
-export function dateInput(d: Date | string = new Date()): string {
-  const x = new Date(d);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-}
+export { day, shortDay, dateInput, monthInput } from "@/lib/play/format";
 
 /**
  * The message behind a failed API response, for the alert every write path

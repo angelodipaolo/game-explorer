@@ -1,8 +1,9 @@
 import type { OwnedGame, PlaySession, QueueEntry } from "@prisma/client";
 import { z } from "zod";
-import { whenSchema } from "@/lib/dates";
+import { preciseWhenSchema } from "@/lib/dates";
 import { prisma } from "@/lib/db";
 import { EnrichmentError } from "@/lib/enrichment/service";
+import { type Precise, type Precision, outOfOrder, parsePrecise, storedPrecision } from "./precision";
 
 /**
  * Play history and the "up next" queue for owned copies.
@@ -42,8 +43,19 @@ export const MAX_QUEUE = 50;
 
 const note = z.string().trim().max(500).nullish();
 const blank = (v: string | null | undefined) => (v === undefined ? undefined : v || null);
-/** A bare "2026-08-30" means local midnight, not UTC — see src/lib/dates.ts. */
-const when = whenSchema;
+/**
+ * A run's date, at the precision it was claimed at (GAMEEXPLOR-0037). A bare
+ * `2026-08-30` means local midnight on that day, not UTC; a bare `2026-08`
+ * means August, and the app will never render a day for it. The shape of the
+ * value is the only thing that says which — there is no `precision` field in
+ * any body here, so there is nothing that can contradict itself and nothing an
+ * agent can forget to send.
+ *
+ * The schema validates; `parsePrecise` (below, in each writer) does the
+ * reading. Keeping the transform out of the schema is what lets every existing
+ * caller keep passing a plain `Date`.
+ */
+const when = preciseWhenSchema;
 
 export const startSessionSchema = z.object({ startedAt: when.optional(), note });
 export type StartSessionInput = z.infer<typeof startSessionSchema>;
@@ -156,8 +168,38 @@ function asOpenRunConflict(e: unknown): never {
   throw e;
 }
 
-function assertOrder(startedAt: Date, endedAt: Date | null | undefined) {
-  if (endedAt && endedAt.getTime() < startedAt.getTime()) throw new EnrichmentError("a run cannot end before it started", 400);
+/**
+ * A date the patch or the caller did not touch keeps the precision it was
+ * recorded at — and a stored precision is re-read through `storedPrecision`
+ * because the column is a `String` and nothing in SQLite constrains it.
+ */
+function kept<T extends Date | null>(at: T, precision: string): { at: T; precision: Precision } {
+  return { at, precision: storedPrecision(precision) };
+}
+
+/**
+ * A run cannot end before it started — compared *between periods*, not between
+ * the two stored instants (GAMEEXPLOR-0037).
+ *
+ * A month-precision date is stored as the first instant of its month, so the
+ * naive comparison refuses two ordinary runs:
+ *
+ * - started **12 Aug 2026** (a day), finished **Aug 2026** (a month, stored as
+ *   1 Aug). The run ended somewhere in the rest of August; `1 Aug < 12 Aug`
+ *   would have made month precision fail on its most obvious use.
+ * - started at **14:00 today**, finished **today** — a bare date, which is
+ *   local midnight. That one is a bug the app has today: it refuses a run
+ *   finished the day it started, which is the commonest run there is. Fixing
+ *   it is a deliberate behaviour change, not a side effect; it is written down
+ *   in `reference/play.md`.
+ *
+ * Still a 400, which is what the check is for: started 12 Aug, finished "Jul
+ * 2026". No reading of July reaches 12 August.
+ */
+function assertOrder(started: Precise, ended: { at: Date | null | undefined; precision: Precision }) {
+  if (ended.at && outOfOrder(started.at, started.precision, ended.at, ended.precision)) {
+    throw new EnrichmentError("a run cannot end before it started", 400);
+  }
 }
 
 /**
@@ -171,8 +213,13 @@ export async function startSession(ownedGameId: string, input: StartSessionInput
   return prisma
     .$transaction(async (tx) => {
       await assertNoOpenRun(tx, ownedGameId);
+      // No date at all is "now", and now is a day: the one-tap Start button
+      // knows the day for free, so recording "September 2026" for something
+      // that began this afternoon would throw away precision nobody had to
+      // work for.
+      const started = input.startedAt === undefined ? { at: new Date(), precision: "day" as const } : parsePrecise(input.startedAt);
       const session = await tx.playSession.create({
-        data: { ownedGameId, startedAt: input.startedAt ?? new Date(), outcome: "playing", note: blank(input.note) ?? null },
+        data: { ownedGameId, startedAt: started.at, startedPrecision: started.precision, outcome: "playing", note: blank(input.note) ?? null },
       });
       await tx.queueEntry.deleteMany({ where: { ownedGameId } });
       await renumber(tx);
@@ -216,9 +263,11 @@ export async function logPastSession(ownedGameId: string, input: PastSessionInpu
       data: { ownedGameId, startedAt: recordedAt, endedAt: recordedAt, undated: true, outcome, note: blank(input.note) ?? null },
     });
   }
-  assertOrder(input.startedAt, input.endedAt);
+  const started = parsePrecise(input.startedAt);
+  const ended = parsePrecise(input.endedAt);
+  assertOrder(started, ended);
   return prisma.playSession.create({
-    data: { ownedGameId, startedAt: input.startedAt, endedAt: input.endedAt, outcome, note: blank(input.note) ?? null },
+    data: { ownedGameId, startedAt: started.at, startedPrecision: started.precision, endedAt: ended.at, endedPrecision: ended.precision, outcome, note: blank(input.note) ?? null },
   });
 }
 
@@ -265,9 +314,21 @@ export async function updateSession(sessionId: string, patch: SessionPatch): Pro
   // closes the run; leaving an already-undated run undated keeps the ones it
   // has, so editing its note does not move it up the list.
   const recordedAt = new Date();
-  const startedAt = undated ? (s.undated ? s.startedAt : recordedAt) : patch.startedAt ?? s.startedAt;
-  const endedAt = undated ? (s.undated ? s.endedAt ?? s.startedAt : recordedAt) : patch.endedAt === undefined ? s.endedAt : patch.endedAt;
-  assertOrder(startedAt, endedAt);
+  // A date and its precision move together, and only when the patch actually
+  // restates that date: `--note` on a month-precision run must not quietly
+  // promote it to a day. The `undated` arms keep whatever precision the row
+  // already had rather than adding a fourth rule for a field nobody reads —
+  // both timestamps there are placeholders and `undated` is what tells every
+  // reader so.
+  const started = undated ? kept(s.undated ? s.startedAt : recordedAt, s.startedPrecision) : patch.startedAt === undefined ? kept(s.startedAt, s.startedPrecision) : parsePrecise(patch.startedAt);
+  const ended = undated
+    ? kept(s.undated ? s.endedAt ?? s.startedAt : recordedAt, s.endedPrecision)
+    : patch.endedAt === undefined || patch.endedAt === null
+      ? kept(patch.endedAt === null ? null : s.endedAt, s.endedPrecision)
+      : parsePrecise(patch.endedAt);
+  const startedAt = started.at;
+  const endedAt = ended.at;
+  assertOrder(started, ended);
   if (endedAt && patch.outcome === "playing") throw new EnrichmentError('a finished run cannot have the outcome "playing" — clear endedAt to reopen it', 400);
   // The twin of the check above, and the one this ticket exists for
   // (GAMEEXPLOR-0038). `endedAt` is falsy here either because the patch never
@@ -298,7 +359,10 @@ export async function updateSession(sessionId: string, patch: SessionPatch): Pro
       // Reopening a closed run is subject to the same one-open-run rule, and
       // has to be checked in the transaction that performs the reopen.
       if (!endedAt && s.endedAt) await assertNoOpenRun(tx, s.ownedGameId, sessionId);
-      return tx.playSession.update({ where: { id: sessionId }, data: { startedAt, endedAt, outcome, undated, note: blank(patch.note) } });
+      return tx.playSession.update({
+        where: { id: sessionId },
+        data: { startedAt, startedPrecision: started.precision, endedAt, endedPrecision: ended.precision, outcome, undated, note: blank(patch.note) },
+      });
     })
     .catch(asOpenRunConflict);
 }

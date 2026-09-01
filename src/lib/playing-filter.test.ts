@@ -58,6 +58,7 @@ const inProgress: InProgressRow[] = [contra, chrono].map((g, i) => ({
   game: g,
   sessionId: `s${i}`,
   startedAt: new Date(`2026-08-${20 - i}T12:00:00.000Z`),
+  startedPrecision: "day",
   note: null,
   lastEntry: null,
 }));

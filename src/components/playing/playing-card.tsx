@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { GameCard } from "@/components/shelf/game-card";
-import { cx, day, shortDay } from "@/components/ui";
+import { cx } from "@/components/ui";
+import { runSince, runSinceShort } from "@/lib/play/format";
 import type { InProgressRow, QueuedRow } from "@/lib/collection";
 
 /**
@@ -65,15 +66,20 @@ export function PlayingCard({
  * "PS4 · since 31 Aug 2026" truncates to "PS4 · since 31 A…". There the
  * platform is left to the cover's chip and the year is dropped for a run
  * started this year — the ambiguity it removes only exists across a new year,
- * and that is exactly when `shortDay` keeps it.
+ * and that is exactly when `runSinceShort` keeps it.
+ *
+ * Both captions go through `src/lib/play/format.ts` rather than spelling a
+ * date here, so a run the owner recorded as "August 2026" says "since Aug
+ * 2026" on this card and in the play history and in the banner on the game
+ * page — never "since 1 Aug 2026", a day nobody typed (GAMEEXPLOR-0037).
  */
 export function RunCaption({ row, leftOff = false, compact = false }: { row: InProgressRow; leftOff?: boolean; compact?: boolean }) {
   const where = row.lastEntry ? (row.lastEntry.body ?? row.lastEntry.title ?? "") : row.note;
-  if (compact) return <span className="block truncate text-muted">since {shortDay(row.startedAt)}</span>;
+  if (compact) return <span className="block truncate text-muted">since {runSinceShort(row)}</span>;
   return (
     <>
       <span className="block truncate text-muted">
-        {row.platformLabel} · since {day(row.startedAt)}
+        {row.platformLabel} · since {runSince(row)}
       </span>
       {leftOff && where ? (
         <span className="mt-0.5 line-clamp-3 text-faint" data-testid="left-off">
