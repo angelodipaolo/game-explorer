@@ -98,6 +98,45 @@ reuses the one on port 3000.
 | `data/manuals/` | Manual page scans, one file per `ManualPage` id (`MANUALS_DIR` overrides). Gitignored, **not in the snapshot** — same stance as `data/maps/`. |
 | `data/music/` | The owner's own soundtrack MP3s, one file per `MusicTrack` id (`MUSIC_DIR` overrides). Gitignored, **not in the snapshot** (the rows are; the audio is not), never under `public/`, never committed. |
 
+## The layers, kind by kind
+
+Which layer is missing, at a glance. Routes are relative to `/api/`; skill
+references are `.claude/skills/curate-collection/reference/` (mirrored into
+`.agents/skills/`). `gx` commands are not a column yet — GAMEEXPLOR-0036 adds
+them and GAMEEXPLOR-0030 tests that every row's routes have one.
+
+| Data | Prisma model | Routes | Skill reference | Agent write path |
+| --- | --- | --- | --- | --- |
+| Games (owned copies) | `OwnedGame`, `CatalogGame` | `GET games` · `GET/PATCH/DELETE games/:id` | `games.md` | yes |
+| Facts | `GameFact` | `GET/PUT games/:id/facts` | `facts.md` | yes — never overwrites a `manual` value |
+| Tags | `GameTag` | `GET/PUT/DELETE games/:id/tags` · `GET tags` | `tags.md` | yes — manual beats agent; IGDB tags hide, never delete |
+| Codes | `GameCode` | `GET/POST games/:id/codes` · `PATCH/DELETE games/:id/codes/:codeId` · `POST codes` · `GET codes/gaps` | `codes.md` | yes |
+| Maps | `GameMap`, `MapMarker` | `GET/POST games/:id/maps` · `GET/PATCH/DELETE maps/:mapId` · `GET/PUT maps/:mapId/image` · `POST maps/:mapId/markers` · `PATCH/DELETE maps/:mapId/markers/:markerId` · `GET maps/gaps` | `maps.md` | yes |
+| Bookmarks | `GameBookmark` | `GET/POST games/:id/bookmarks` · `POST bookmarks` · `PATCH/DELETE bookmarks/:bookmarkId` · `GET bookmarks/gaps` | `bookmarks.md` | yes — link and cite, never author the guide |
+| Manuals | `GameManual`, `ManualPage` | `GET/POST games/:id/manuals` · `PATCH/DELETE manuals/:manualId` · `POST/PATCH manuals/:manualId/pages` · `PATCH/DELETE manual-pages/:pageId` · `GET/PUT manual-pages/:pageId/image` | `manuals.md` | yes |
+| Series | `Series`, `SeriesEntry` | `GET/POST series` · `GET/PATCH/DELETE series/:seriesId` · `POST/PATCH/DELETE series/:seriesId/entries` · `POST series/:seriesId/seed-check` · `GET series/collections` · `POST series/seed-preview` · `PATCH/DELETE series-entries/:entryId` | `series.md` | yes — IGDB proposes, a human prunes |
+| Music | `MusicTrack` | `GET/POST games/:id/music` · `GET games/:id/music/all` · `PATCH/DELETE music/:trackId` · `GET/PUT music/:trackId/audio` | `music.md` | yes — registers the owner's own MP3s; never fetches or generates audio |
+| Play sessions | `PlaySession` | `GET/POST games/:id/sessions` · `GET sessions/open` · `PATCH/DELETE sessions/:sessionId` | none — `SKILL.md` says refuse | **no today** (GAMEEXPLOR-0031) |
+| Queue | `QueueEntry` | `GET/POST/PATCH queue` · `DELETE queue/:ownedGameId` | none — `SKILL.md` says refuse | **no today** (GAMEEXPLOR-0031) |
+| Journal | `JournalEntry` | `GET/POST games/:id/journal` · `PATCH/DELETE journal/:entryId` · `GET/PUT journal/:entryId/image` | none, deliberately | **no — owner only**, by design (GAMEEXPLOR-0009) |
+| Import | `ImportSession`, `ImportRow`, `ImportBatch`, `ImportEffect` | `POST/GET import/sessions` · `GET/DELETE import/sessions/:id` · `POST import/sessions/:id/rows` · `PATCH import/sessions/:id/rows/:rowId` · `POST import/sessions/:id/commit` · `POST import/csv` · `GET import/batches` · `POST import/batches/:id/rollback` | `games.md` | yes — the only way a copy gets on the shelf |
+| Enrichment | `EnrichmentRun` | `POST/GET enrichment/runs` · `GET enrichment/runs/:id` · `POST enrichment/runs/:id/facts` · `POST enrichment/runs/:id/tags` · `POST enrichment/runs/:id/finish` · `GET enrichment/gaps` | `facts.md`, `tags.md` | yes — every claim carries a citation |
+
+GAMEEXPLOR-0031 opens the queue and play sessions to agents under "record,
+never infer" — an agent may write down a run the owner reports, never one it
+deduced. Until it lands, both are a refusal. The journal never opens.
+`/api/auth/*` and `/api/img/*` are not in the table because they are not
+collection data.
+
+### When the skill applies
+
+The rule in "Where the collection lives" applies **whether or not you invoked
+the skill**, and to reads as well as writes: open
+`.claude/skills/curate-collection/reference/<domain>.md`, use the routes it
+documents, follow its payload rules. There is no second, quicker path. The
+moment the thing you are changing is something the owner would recognise on
+their shelf, it belongs to the mini and to this skill.
+
 ## Invariants (the ones that bite silently)
 
 - **Collection writes go to the mini, never to the local database.** The shelf
@@ -106,6 +145,21 @@ reuses the one on port 3000.
   and changes nothing the owner will ever see — the failure is silent by
   construction, which is why the rule is absolute. Unset `GAME_EXPLORER_URL`
   means stop and ask, not fall back to localhost.
+- **Every feature is database → REST API → CLI command → skill, in that
+  order.** State is a Prisma model with a migration — not a JSON file, a
+  directory listing or an env var; it is reached through `src/app/api/` behind
+  `src/proxy.ts`; every route an agent may drive gets a `gx` command
+  (`npm run gx -- …`, GAMEEXPLOR-0036 — decided but **not yet built**; `curl`
+  is the path until it lands, and stays legal after); and
+  `curate-collection` documents it. Reads are part of the rule, not a
+  nicety: an agent that cannot list a thing cannot act on it, which is what
+  `GET /api/games?q=` fixed (GAMEEXPLOR-0028). Blobs are the carve-out — bytes
+  go on disk through `src/lib/media/`, the row that names them is a table. Stop
+  at the database and the feature is invisible to agents; stop at the API and it
+  is reachable but undiscoverable. Music was briefly built as a hand-edited JSON
+  manifest with read-only routes and was rebuilt onto this shape before it
+  shipped — the worked example of what not to do, told in full in `AGENTS.md`.
+  It is no longer in the tree.
 - **Every IGDB game query carries a `game_type` filter.** Default is
   `(0,3,8,9,10,11)`; mod/DLC/pack types throw. See `decisions.md` for why
   `= 0` alone was wrong.
@@ -211,6 +265,12 @@ Collection-size assertions live in `e2e/shelf.spec.ts` and `e2e/smoke.spec.ts`
 - Commit at each verified milestone with the ticket id in the message
   (`GAMEEXPLOR-0001: …`); never commit a red state.
 - Keep durable findings in the notes directory (Sabin) when one exists, not in chat.
+- **Definition of done for anything that adds or changes state**: the table
+  exists, the API can create/read/update/delete it, it has a `gx` command
+  (once GAMEEXPLOR-0036 lands), and the `curate-collection` reference file
+  describes it. A branch that stops
+  earlier is not finished, it is half a feature with the agent-facing half
+  missing — and that half never gets added later, because nothing is broken.
 - Don't add: RAWG, a provider abstraction, hosting, auth, fetched/stored/shown
   prices, live LLM calls on browse paths, a column-mapping wizard,
   ratings/playlists, agent-written game guides, or a play-status column on

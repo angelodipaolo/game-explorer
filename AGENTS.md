@@ -41,6 +41,29 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   than falling back to `localhost`: writing to the wrong collection returns a
   clean 200 and silently changes nothing the owner will see. The local copy is
   for building and debugging the app. Local is for code, the mini is for data.
+- **Every feature is four layers, in this order: database → REST API → CLI
+  command → skill.** State is a Prisma model in `prisma/schema.prisma` with a
+  migration — never a JSON file, a directory listing, a YAML manifest or an env
+  var. It is reached through routes under `src/app/api/`, behind `src/proxy.ts`.
+  Every route an agent may drive gets a `gx` command (`npm run gx -- …`), and
+  that pairing is asserted in code rather than in prose. **`gx` is not on
+  `main` yet** — GAMEEXPLOR-0036 builds it, GAMEEXPLOR-0030 asserts the
+  pairing, and until they land `curl` is the path. `curl` stays legal and
+  stays documented afterwards too. The command and its payload shapes are written
+  down in `.claude/skills/curate-collection/`, mirrored into `.agents/skills/`.
+  **Reads count, not just writes** — an agent that cannot list a thing cannot
+  act on it, which is why `GET /api/games?q=` had to exist before any of the
+  rest was usable (GAMEEXPLOR-0028). Blobs are the one carve-out: bytes go on
+  disk through `src/lib/media/`, but the *row that names them* is a table
+  (`GameMap`, `ManualPage`, `JournalEntry`, `MusicTrack`). A feature that stops
+  at the database is invisible to agents; one that stops at the API is
+  reachable but undiscoverable, because nobody guesses a route exists. The
+  worked example of the wrong shape is music: it was first built as a
+  hand-edited `data/music/index.json` with read-only routes, which the phone
+  could not write and a remote agent could not reach at all. That was corrected
+  before it shipped (GAMEEXPLOR-0025 / GAMEEXPLOR-0032) — `main` has
+  `MusicTrack`, a write API and `reference/music.md` — so recognise the shape,
+  do not go looking for it in the tree.
 - **No cost, price, ROI, or resale tracking.** That is `game-manage`'s job.
   Carve-out, GAMEEXPLOR-0008: outbound price-lookup links are in — the game
   page links out to a PriceCharting and eBay search for the copy you own
@@ -77,11 +100,16 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 - **Agents never author play history or journal entries.** Codes and maps share
   one API between the owner and a research skill because they are public facts
   about a game. A playthrough is not; nobody but the owner can produce it.
+  GAMEEXPLOR-0031 revisits *half* of this — the queue and runs open up under
+  "record, never infer", because dictating a run the owner described is not
+  authoring one. The journal never opens.
 
 ## Data rules that are easy to get silently wrong
 
-- Every IGDB game query must include `game_type = 0`. IGDB's NES catalog is
-  thick with romhacks; without it `Super Mario Bros` matches a fan hack.
+- Every IGDB game query must include a `game_type` filter — the default is
+  `(0,3,8,9,10,11)`, and `= 0` alone was wrong (see `decisions.md`). IGDB's NES
+  catalog is thick with romhacks; without the filter `Super Mario Bros` matches
+  a fan hack.
 - Player data has two tiers. `game_modes` (85% coverage) gives co-op yes/no;
   `multiplayer_modes` (20%) gives exact counts. Absent numeric fields are
   omitted *or* returned as `0` — both mean "unknown", never "zero players".
