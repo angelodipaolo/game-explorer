@@ -41,6 +41,28 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   than falling back to `localhost`: writing to the wrong collection returns a
   clean 200 and silently changes nothing the owner will see. The local copy is
   for building and debugging the app. Local is for code, the mini is for data.
+- **Every feature is four layers, in this order: database → REST API → CLI
+  command → skill.** State is a Prisma model in `prisma/schema.prisma` with a
+  migration — never a JSON file, a directory listing, a YAML manifest or an env
+  var. It is reached through routes under `src/app/api/`, behind `src/proxy.ts`.
+  Every route an agent may drive has a `gx` command (`npm run gx -- …`), and
+  that pairing is asserted in code, not in prose (GAMEEXPLOR-0036 decided the
+  CLI and GAMEEXPLOR-0030 tests the coverage; `gx` is landing, raw `curl` stays
+  legal and stays documented). The command and its payload shapes are written
+  down in `.claude/skills/curate-collection/`, mirrored into `.agents/skills/`.
+  **Reads count, not just writes** — an agent that cannot list a thing cannot
+  act on it, which is why `GET /api/games?q=` had to exist before any of the
+  rest was usable (GAMEEXPLOR-0028). Blobs are the one carve-out: bytes go on
+  disk through `src/lib/media/`, but the *row that names them* is a table
+  (`GameMap`, `ManualPage`, `JournalEntry`, `MusicTrack`). A feature that stops
+  at the database is invisible to agents; one that stops at the API is
+  reachable but undiscoverable, because nobody guesses a route exists. The
+  worked example of the wrong shape is music: it was first built as a
+  hand-edited `data/music/index.json` with read-only routes, which the phone
+  could not write and a remote agent could not reach at all. That was corrected
+  before it shipped (GAMEEXPLOR-0025 / GAMEEXPLOR-0032) — `main` has
+  `MusicTrack`, a write API and `reference/music.md` — so recognise the shape,
+  do not go looking for it in the tree.
 - **No cost, price, ROI, or resale tracking.** That is `game-manage`'s job.
   Carve-out, GAMEEXPLOR-0008: outbound price-lookup links are in — the game
   page links out to a PriceCharting and eBay search for the copy you own
