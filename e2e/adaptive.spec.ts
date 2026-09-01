@@ -238,26 +238,107 @@ test.describe("adaptive", () => {
   });
 
   test("compact edit toggles keep a 44px hit area without growing their ink", async ({ page }, testInfo) => {
-    await openNthGame(page, gameIndex(testInfo.project.name));
-    const pills = page.locator(".tap-44:visible");
-    const count = await pills.count();
-    expect(count, "the game page shows at least one compact edit toggle").toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      const pill = pills.nth(i);
-      const label = (await pill.textContent())?.trim() || `pill ${i}`;
-      // The deliberate trade: the ink stays under 44 (the section header stays
-      // compact) and the *hit area* is the full square. Both halves are
-      // asserted, so nobody can satisfy one by abandoning the other.
-      const box = (await pill.boundingBox())!;
-      expect(box.height, `"${label}" should have stayed visually compact`).toBeLessThan(TARGET);
-      await expectHitArea(pill, `"${label}"`);
-    }
+    const project = testInfo.project.name;
+    const gameId = await openNthGame(page, gameIndex(project));
+    /*
+      The toggles the ticket actually named are the "Edit" pills a section
+      header only grows once it has something in it — an empty game page shows
+      the "+ code" twins instead, and an earlier version of this test measured
+      those four and called it done. So the fixtures come first, through the
+      same API a skill uses: a code, a bookmark, a note, a finished run and an
+      open one, all named for this project and all removed in the `finally`.
+    */
+    const label = `E2E ${project}`;
+    const fixture = await page.evaluate(
+      async ([id, name]) => {
+        const day = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const post = async (url: string, body: unknown) => {
+          const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+          if (!r.ok) throw new Error(`${url} → ${r.status} ${await r.text()}`);
+          return r.json();
+        };
+        const today = new Date();
+        const lastWeek = new Date(today.getTime() - 7 * 86_400_000);
+        const code = await post(`/api/games/${id}/codes`, { kind: "password", effect: `${name} — stage 2`, code: "ABCD EFGH" });
+        const bookmark = await post(`/api/games/${id}/bookmarks`, { kind: "guide", url: `https://example.test/${encodeURIComponent(name)}/guide`, title: `${name} guide`, why: "Stage by stage" });
+        const entry = await post(`/api/games/${id}/journal`, { kind: "note", title: `${name} note`, body: "Got as far as the third stage.", occurredAt: day(today), sessionId: null });
+        const past = await post(`/api/games/${id}/sessions`, { startedAt: day(lastWeek), endedAt: day(lastWeek), outcome: "completed" });
+        // This copy may genuinely be in play already; only start (and only
+        // clean up) a run if it is not.
+        const runs: { id: string; endedAt: string | null }[] = await (await fetch(`/api/games/${id}/sessions`)).json();
+        const already = runs.find((r) => !r.endedAt) ?? null;
+        const open = already ? null : await post(`/api/games/${id}/sessions`, {});
+        return { gameId: id, code: code.id as string, bookmark: bookmark.id as string, entry: entry.id as string, past: past.id as string, open: (open?.id ?? null) as string | null };
+      },
+      [gameId, label],
+    );
 
-    // The one compact toggle that grew for real instead: it ends a wrapped row
-    // of tag chips and sits above the sticky section nav, so it has no square
-    // to borrow.
-    const tags = page.getByTestId("edit-tags");
-    if (await tags.isVisible().catch(() => false)) await expectTapTarget(tags, "the tag editor's toggle");
+    try {
+      await page.reload();
+      /** A section only shows its "Edit" pill while it is open. */
+      const openSection = async (id: string) => {
+        const toggle = page.getByTestId(`section-toggle-${id}`);
+        await toggle.scrollIntoViewIfNeeded();
+        if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+      };
+
+      // The deliberate trade, asserted on each named control: the ink stays
+      // under 44 (the section header stays compact) and the *hit area* is the
+      // full square. Both halves, so nobody can satisfy one by abandoning the
+      // other.
+      const compact = async (testId: string) => {
+        const pill = page.getByTestId(testId);
+        await expect(pill, `${testId}: not on the page`).toBeVisible();
+        const box = (await pill.boundingBox())!;
+        expect(box.height, `${testId} should have stayed visually compact`).toBeLessThan(TARGET);
+        await expectHitArea(pill, testId);
+      };
+
+      for (const [section, testId] of [
+        ["codes", "edit-codes"],
+        ["guides", "edit-bookmarks"],
+        ["play", "edit-runs"],
+        ["journal", "edit-journal"],
+      ] as [string, string][]) {
+        await openSection(section);
+        await compact(testId);
+      }
+
+      // The fifth: the composer's "file under this run" pill, which only
+      // exists while a run is open and the chip has been cleared.
+      await page.getByTestId("journal-add-note").click();
+      await expect(page.getByTestId("journal-composer")).toBeVisible();
+      await page.getByTestId("journal-clear-run").click();
+      await compact("journal-set-run");
+
+      // And every other `.tap-44` on the page holds the same contract — the
+      // empty-state twins on whichever sections this copy has nothing in.
+      const pills = page.locator(".tap-44:visible");
+      const count = await pills.count();
+      expect(count, "the game page shows at least one compact edit toggle").toBeGreaterThan(0);
+      for (let i = 0; i < count; i++) {
+        const pill = pills.nth(i);
+        const label = (await pill.getAttribute("data-testid")) ?? (await pill.textContent())?.trim() ?? `pill ${i}`;
+        const box = (await pill.boundingBox())!;
+        expect(box.height, `"${label}" should have stayed visually compact`).toBeLessThan(TARGET);
+        await expectHitArea(pill, `"${label}"`);
+      }
+
+      // The one compact toggle that grew for real instead: it ends a wrapped
+      // row of tag chips and sits above the sticky section nav, so it has no
+      // square to borrow.
+      const tags = page.getByTestId("edit-tags");
+      if (await tags.isVisible().catch(() => false)) await expectTapTarget(tags, "the tag editor's toggle");
+    } finally {
+      await page.evaluate(async (f) => {
+        const del = (url: string) => fetch(url, { method: "DELETE" });
+        await del(`/api/games/${f.gameId}/codes/${f.code}`);
+        await del(`/api/bookmarks/${f.bookmark}`);
+        await del(`/api/journal/${f.entry}`);
+        await del(`/api/sessions/${f.past}`);
+        if (f.open) await del(`/api/sessions/${f.open}`);
+      }, fixture);
+    }
   });
 
   test("the map viewer's controls and markers are 44px", async ({ page }) => {
@@ -333,5 +414,31 @@ test.describe("adaptive", () => {
     await expectRenderedFaint(page, page.locator(".text-faint:visible").first(), "faint text on the game page");
     await page.goto("/shelf");
     await expectTokenContrast(page, AA);
+
+    /*
+      The two places a token that measures AA still rendered below it, because
+      an `opacity-*` above the text is not folded into `getComputedStyle().color`
+      and so nothing here was looking: the preset chips' hints (4.30:1 at rest,
+      2.27:1 on the pressed chip's red) and the shelf's "maybe" treatment
+      (3.63:1). `expectRenderedFaint` now multiplies out every opacity between
+      the text and its ground, so both are measured the way they are painted.
+    */
+    await page.goto("/shelf?length=quick&view=list");
+    const presets = page.getByTestId("preset");
+    const count = await presets.count();
+    expect(count, "the shelf shows preset chips").toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      const chip = presets.nth(i);
+      const pressed = (await chip.getAttribute("aria-pressed")) === "true";
+      await expectRenderedFaint(page, chip.locator("span").first(), `a preset chip's hint (${pressed ? "pressed" : "at rest"})`);
+    }
+    // "Something quick" is a filter with a large unknown tail, so this page
+    // always has maybe rows to measure. The "?" is the one that carries the
+    // meaning, and it is the one that used to fade with the row.
+    const maybeMark = page.locator('[data-testid="game-row"] .text-faint', { hasText: "?" }).first();
+    await expect(maybeMark, "the quick filter leaves a maybe tail to measure").toBeVisible();
+    await expectRenderedFaint(page, maybeMark, "the shelf's maybe treatment");
+    // The dimming itself is still there — it just rides on the art now.
+    expect(await page.locator('[data-testid="game-row"] .opacity-70').count(), "a maybe row still dims its cover").toBeGreaterThan(0);
   });
 });

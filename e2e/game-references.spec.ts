@@ -73,24 +73,24 @@ async function makePng(page: Page, label: string) {
  * A missing blob image is not this spec's failure. Contra is shared with
  * `game-maps.spec.ts`, which creates a map, drives it and deletes it again;
  * when the two interleave, a page here can still be holding the URL of an
- * image that has just gone, and the browser logs a bare "Failed to load
- * resource" with no way to tell which. So: a console error whose location is
- * one of the blob image routes is dropped, and a generic resource error is
- * dropped only when a 404 on one of those routes was actually seen. Every
- * other console error still fails the test.
+ * image that has just gone. So a console error *located at* one of the blob
+ * image routes is dropped — and nothing else is.
+ *
+ * That location is the whole filter, and it has to stay that way. Both
+ * Chromium and WebKit populate `m.location().url` for a resource error, so
+ * this is precise: it names the route that failed. The wider rule that once
+ * stood here — drop any "Failed to load resource" after any blob 404 was seen
+ * — latched: one interleaved 404 turned off the check for the rest of the
+ * test, including a 400 or 500 from `POST /api/games/:id/bookmarks`, which is
+ * the exact failure this spec exists to catch.
  */
 const BLOB_IMAGE = /\/api\/(maps|manual-pages|journal)\/[^/]+\/image/;
 
 function collectConsoleErrors(page: Page, errors: string[]) {
-  const missed: string[] = [];
-  page.on("response", (r) => {
-    if (r.status() === 404 && BLOB_IMAGE.test(r.url())) missed.push(r.url());
-  });
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     if (BLOB_IMAGE.test(m.location().url)) return;
-    if (missed.length && /Failed to load resource/.test(m.text())) return;
     errors.push(m.text());
   });
 }

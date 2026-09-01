@@ -62,6 +62,10 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
    * `restoreFocus` stays off: `collapse` above already returns focus to the
    * icon, and a restore on every close would fight the blur-to-close path by
    * dragging focus back out of whatever you tabbed to.
+   *
+   * It only listens while the panel is `open`, which above `sm` it never is —
+   * the field is simply in the header. The input keeps its own Escape handler
+   * for that width; the two agree, because both call `collapse`.
    */
   const panel = useOverlay<HTMLFormElement>({ open, onClose: collapse, modal: false });
 
@@ -150,6 +154,15 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
             type="search"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
+            // Escape here as well as in `useOverlay`, and not instead of it:
+            // the overlay only listens while `open` is true, and `open` is set
+            // by the phone toggle alone. Above `sm` the field is always in the
+            // header and never "open", so without this line Escape from a
+            // desktop search box did nothing at all (GAMEEXPLOR-0027 shipped
+            // it; the overlay refactor took it away).
+            onKeyDown={(e) => {
+              if (e.key === "Escape") collapse();
+            }}
             onBlur={() => setOpen(false)}
             placeholder="Search all games"
             aria-label="Search the whole collection"

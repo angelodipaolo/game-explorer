@@ -49,8 +49,15 @@ function onScreen(el: Element): boolean {
   return el.isConnected && el.getClientRects().length > 0;
 }
 
+/**
+ * The overlay's tab order. The negative-`tabindex` check is not redundant with
+ * the selector above: `button:not([disabled])` matches a `tabindex="-1"`
+ * button just fine, and without this an overlay could not opt a control out of
+ * its own trap — which is how the filter sheet's full-screen backdrop ended up
+ * ahead of every filter as the first Tab.
+ */
 function tabbables(root: HTMLElement): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(onScreen);
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => onScreen(el) && el.tabIndex >= 0);
 }
 
 /*
@@ -87,15 +94,45 @@ function unlockScroll(): void {
   releaseBody = null;
 }
 
-/** `inert` on every body child that is not the overlay (or its ancestor). Returns the undo. */
+/*
+  `inert` on every body child that is not the overlay (or its ancestor),
+  counted per element for the same reason the scroll lock is counted: with two
+  overlays open, the first one to close would otherwise strip `inert` off the
+  page that the second is still in front of. The count says how many open
+  overlays need a given element inert; the attribute goes on at 0→1 and comes
+  off at 1→0.
+
+  Two children are always skipped. `NEXT-ROUTE-ANNOUNCER` is Next's `aria-live`
+  region: inert it and a screen reader stops hearing route changes for as long
+  as any modal is open, which is exactly when you have most likely just
+  navigated. And the app's single `<audio>` (GAMEEXPLOR-0025) is a body child
+  that outlives every page; it is not interactive and has nothing to gain from
+  being made unreachable.
+*/
+const inertCounts = new WeakMap<Element, number>();
+
+function skipInert(el: Element): boolean {
+  return el.tagName === "NEXT-ROUTE-ANNOUNCER" || el.tagName === "AUDIO";
+}
+
 function inertBackground(container: HTMLElement): () => void {
-  const undo: (() => void)[] = [];
+  const held: Element[] = [];
   for (const el of Array.from(document.body.children)) {
-    if (el === container || el.contains(container) || el.hasAttribute("inert")) continue;
-    el.setAttribute("inert", "");
-    undo.push(() => el.removeAttribute("inert"));
+    if (el === container || el.contains(container) || skipInert(el)) continue;
+    const n = (inertCounts.get(el) ?? 0) + 1;
+    inertCounts.set(el, n);
+    if (n === 1) el.setAttribute("inert", "");
+    held.push(el);
   }
-  return () => undo.forEach((f) => f());
+  return () => {
+    for (const el of held) {
+      const n = (inertCounts.get(el) ?? 1) - 1;
+      if (n <= 0) {
+        inertCounts.delete(el);
+        el.removeAttribute("inert");
+      } else inertCounts.set(el, n);
+    }
+  };
 }
 
 export type OverlayOptions = {
@@ -141,9 +178,27 @@ export function useOverlay<T extends HTMLElement = HTMLDivElement>({ open, onClo
     const releaseInert = modal ? inertBackground(container) : null;
     if (modal) lockScroll();
 
-    if (modal) {
-      if (!container.hasAttribute("tabindex")) container.tabIndex = -1;
-      (initialFocus?.current ?? tabbables(container)[0] ?? container).focus();
+    /*
+      The inert set and the scroll lock are only ever released by the cleanup
+      React registers when this function *returns* — and React registers no
+      cleanup at all for an effect whose body throws. A `.focus()` on a node
+      that has just been removed is enough, and the page is then permanently
+      inert and scroll-locked with only a reload to recover. So the work after
+      the lock undoes itself and rethrows: the error still surfaces, without
+      taking the page with it.
+    */
+    const release = () => {
+      releaseInert?.();
+      if (modal) unlockScroll();
+    };
+    try {
+      if (modal) {
+        if (!container.hasAttribute("tabindex")) container.tabIndex = -1;
+        (initialFocus?.current ?? tabbables(container)[0] ?? container).focus();
+      }
+    } catch (err) {
+      release();
+      throw err;
     }
 
     // Capture phase: this beats a page-level `keydown` listener (the manual
@@ -190,8 +245,7 @@ export function useOverlay<T extends HTMLElement = HTMLDivElement>({ open, onClo
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
       document.removeEventListener("focusin", onFocusIn);
-      releaseInert?.();
-      if (modal) unlockScroll();
+      release();
       if (!restoreFocus) return;
       // The trigger can be gone (a link inside the overlay navigated) or
       // hidden at this width (the search icon above `sm`). Handing focus to a

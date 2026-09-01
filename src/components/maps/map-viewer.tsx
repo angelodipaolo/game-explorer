@@ -18,8 +18,9 @@ import { cx } from "@/components/ui";
  * Things learned the hard way while prototyping, kept here on purpose:
  *  - `overflow: clip`, not `hidden` — hidden containers can still be scrolled
  *    programmatically (focus, scrollIntoView) and that shifts the whole scene.
- *  - Never capture the pointer when it goes down on a button; capture redirects
- *    the click to the container and the marker never hears it.
+ *  - Never capture the pointer when it goes down on a marker; capture redirects
+ *    the click to the container and the marker never hears it. The pan still
+ *    has to start there, so `pointermove`/`pointerup` live on `window`.
  *  - The markers layer must be anchored at the world origin, or it lands below
  *    the image in normal flow and every marker is one map-height too low.
  *  - `max-width: none` on the image: a global img reset squashes a 4096px map.
@@ -51,6 +52,9 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
   // View state lives in refs and is written straight to the DOM: a pan at 60fps
   // through React state would re-render every marker on every frame.
   const view = useRef({ s: 0.2, tx: 0, ty: 0 });
+  // True from the moment a drag passes the slop threshold until the next
+  // pointerdown. A marker reads it to tell a tap from the end of a pan.
+  const moved = useRef(false);
   const [scale, setScale] = useState(0.2);
 
   const W = active?.width || 1024;
@@ -124,12 +128,25 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
     if (!vp) return;
     const pts = new Map<number, { x: number; y: number }>();
     let last: { x: number; y: number; d?: number; cx?: number; cy?: number } | null = null;
-    let moved = false;
     const down = (e: PointerEvent) => {
-      if ((e.target as HTMLElement).closest("button, a")) return;
-      vp.setPointerCapture(e.pointerId);
+      const t = e.target as HTMLElement;
+      const onMarker = !!t.closest('[data-testid="map-marker"]');
+      /*
+        The HUD, the back link and the map switcher are things you press, so a
+        drag starting on one is not a pan. A marker is not one of them: it sits
+        ON the map, and at 44x44 on a dense map (114 of them on the Legacy of
+        the Wizard dungeon) refusing to pan from a marker froze a quarter of
+        the surface — one thumb drag in four appeared to do nothing at all. So
+        a drag may start anywhere on the map, marker included, and the marker
+        gives up its tap instead (see `moved` below).
+      */
+      if (!onMarker && t.closest("button, a")) return;
+      // Capture retargets the click to the container, so a captured marker
+      // would never hear its own tap. The listeners below are on `window`
+      // precisely so an uncaptured drag survives leaving the map.
+      if (!onMarker) vp.setPointerCapture(e.pointerId);
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      moved = false;
+      moved.current = false;
       last = null;
       vp.classList.add("cursor-grabbing");
     };
@@ -142,7 +159,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
         if (last) {
           const dx = P[0].x - last.x;
           const dy = P[0].y - last.y;
-          if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+          if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
           view.current.tx += dx;
           view.current.ty += dy;
           apply();
@@ -159,7 +176,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
           apply();
         }
         last = { x: 0, y: 0, d, cx, cy };
-        moved = true;
+        moved.current = true;
       }
     };
     const up = (e: PointerEvent) => {
@@ -167,7 +184,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
       last = null;
       vp.classList.remove("cursor-grabbing");
       // A plain tap on the ground clears the selection.
-      if (had && pts.size === 0 && !moved && !(e.target as HTMLElement).closest("button, a")) setSelected(null);
+      if (had && pts.size === 0 && !moved.current && !(e.target as HTMLElement).closest("button, a")) setSelected(null);
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -179,16 +196,20 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
       vp.scrollLeft = 0;
     };
     vp.addEventListener("pointerdown", down);
-    vp.addEventListener("pointermove", move);
-    vp.addEventListener("pointerup", up);
-    vp.addEventListener("pointercancel", up);
+    // Move and up ride on `window`, not the viewport: a drag that started on a
+    // marker is deliberately not captured, and without these a finger that
+    // wandered off the map would leave a pointer id stuck in `pts` and the
+    // next touch would be read as a pinch.
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     vp.addEventListener("wheel", wheel, { passive: false });
     vp.addEventListener("scroll", scroll);
     return () => {
       vp.removeEventListener("pointerdown", down);
-      vp.removeEventListener("pointermove", move);
-      vp.removeEventListener("pointerup", up);
-      vp.removeEventListener("pointercancel", up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
       vp.removeEventListener("wheel", wheel);
       vp.removeEventListener("scroll", scroll);
     };
@@ -232,7 +253,7 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
     <div className="fixed inset-0 grid grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] overflow-hidden bg-bg text-text md:grid-cols-[minmax(0,1fr)_320px] md:grid-rows-1" data-testid="map-viewer">
       {/* Map */}
       <div ref={vpRef} className={cx("relative cursor-grab touch-none select-none", "[overflow:clip]")} style={{ background: "#0d1a3a" }} data-testid="map-viewport">
-        <div ref={worldRef} className="absolute left-0 top-0 origin-top-left" style={{ width: W, height: H }}>
+        <div ref={worldRef} className="absolute left-0 top-0 origin-top-left" style={{ width: W, height: H }} data-testid="map-world">
           {active.width ? (
             <img src={`/api/maps/${active.id}/image`} alt={`${gameName} — ${active.title}`} width={W} height={H} draggable={false} className="block [image-rendering:pixelated] [max-width:none] [max-height:none]" style={{ width: W, height: H }} />
           ) : (
@@ -254,9 +275,19 @@ export function MapViewer({ gameId, gameName, maps }: Props) {
                       pixels at every zoom. Two markers closer together than
                       44px on screen do overlap; zooming in separates them, and
                       the location list beside the map is the guaranteed
-                      non-overlapping way to reach every one of them. */}
+                      non-overlapping way to reach every one of them.
+
+                      Those 44px cover a lot of a dense map, so the marker
+                      yields to the pan: a drag that began here moves the map
+                      and the click that ends it is dropped. `detail` is what
+                      keeps that honest for a keyboard — Enter on a focused
+                      marker synthesises a click with `detail === 0`, and that
+                      one always selects. */}
                   <button
-                    onClick={() => pick(m, "map")}
+                    onClick={(e) => {
+                      if (e.detail !== 0 && moved.current) return;
+                      pick(m, "map");
+                    }}
                     aria-label={m.name}
                     aria-pressed={on}
                     data-testid="map-marker"

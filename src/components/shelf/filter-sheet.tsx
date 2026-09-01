@@ -40,7 +40,12 @@ export function PresetRow({ filters, active, set, reset }: { filters: Filters; a
             className={cx("min-h-11 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
             data-testid="preset"
           >
-            {p.label} <span className="opacity-60">· {p.hint}</span>
+            {/* A token step down, not `opacity-60`: opacity is not inherited
+                into the computed colour, so the hint used to render at
+                4.30:1 (and 2.27:1 on the pressed chip's red) while the
+                stylesheet still read as AA. On the pressed chip the hint
+                keeps `--accent-ink` and steps back by weight instead. */}
+            {p.label} <span className={on ? "font-normal" : "text-faint"}>· {p.hint}</span>
           </button>
         );
       })}
@@ -59,12 +64,15 @@ export function PresetRow({ filters, active, set, reset }: { filters: Filters; a
  */
 export function FilterSheet({ open, onClose, filters, facets, set, reset, active, confirmed, maybe, showPresets, viewer }: { open: boolean; onClose: () => void; filters: Filters; facets: Facets; set: (p: Partial<Filters>) => void; reset: () => void; active: number; confirmed: number; maybe: number; showPresets?: boolean; viewer: Viewer }) {
   // Focus lands on the panel itself rather than the backdrop button that
-  // precedes it in the DOM, so the first Tab is the first filter and the
-  // dialog's label is what a screen reader announces.
+  // precedes it in the DOM, so the dialog's label is what a screen reader
+  // announces. The backdrop is `tabIndex={-1}` and therefore out of the trap's
+  // tab order: it is a pointer affordance that duplicates the visible ×, and
+  // left tabbable it was where the first Tab landed — a full-screen unlabelled
+  // "close" ahead of every filter.
   const panel = useRef<HTMLDivElement>(null);
   return (
     <Overlay open={open} onClose={onClose} label="Filters" className="z-40" initialFocus={panel} testId="filter-sheet">
-      <button className="absolute inset-0 bg-black/60" aria-label="Close filters" onClick={onClose} />
+      <button tabIndex={-1} className="absolute inset-0 bg-black/60" aria-label="Close filters" onClick={onClose} />
       <div ref={panel} tabIndex={-1} className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl border-t border-border bg-bg-elev p-5 pb-safe shadow-2xl outline-none sm:inset-auto sm:right-4 sm:top-16 sm:w-[28rem] sm:rounded-2xl sm:border">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">Narrow it down</h2>

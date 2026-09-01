@@ -60,6 +60,11 @@ export async function expectTapTarget(locator: Locator, name: string, min = TARG
  */
 export async function expectHitArea(locator: Locator, name: string, min = TARGET): Promise<void> {
   await locator.scrollIntoViewIfNeeded();
+  // Then centre it. A probe 22px below a control that is sitting on the bottom
+  // edge of a 390x844 phone viewport lands outside the document, where
+  // `elementFromPoint` answers null — a fact about the scroll position, not
+  // about the target.
+  await locator.evaluate((el) => el.scrollIntoView({ block: "center", inline: "center" }));
   const el = await locator.elementHandle();
   expect(el, `${name}: not in the DOM`).not.toBeNull();
   const probes = await locator.page().evaluate(
@@ -144,7 +149,10 @@ export async function expectModal(page: Page, check: ModalCheck): Promise<void> 
 
   const background = await page.evaluate((id) => {
     const o = document.querySelector(`[data-testid="${id}"]`);
-    const siblings = Array.from(document.body.children).filter((el) => el !== o && !el.contains(o));
+    // Next's route announcer and the app's one persistent <audio> are
+    // deliberately left alone by `inertBackground` — see the comment there.
+    const skip = (el: Element) => el.tagName === "NEXT-ROUTE-ANNOUNCER" || el.tagName === "AUDIO";
+    const siblings = Array.from(document.body.children).filter((el) => el !== o && !el.contains(o) && !skip(el));
     return {
       overflow: getComputedStyle(document.body).overflow,
       inert: siblings.length > 0 && siblings.every((el) => el.hasAttribute("inert")),
@@ -207,7 +215,17 @@ export async function expectTokenContrast(page: Page, minimum = AA): Promise<voi
   for (const r of rows) expect(r.ratio, `${r.fg} on ${r.bg} is ${r.ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(minimum);
 }
 
-/** What a `.text-faint` element actually renders as, so the token is not merely declared but used. */
+/**
+ * What a `.text-faint` element actually renders as, so the token is not merely
+ * declared but used.
+ *
+ * `getComputedStyle(el).color` is not the answer on its own: `opacity` is not
+ * inherited into it, so a token that clears AA in the stylesheet can land on
+ * screen at 3.6:1 because an ancestor carries `opacity-70`. Every opacity
+ * between the text and the ground it is printed on is multiplied together and
+ * the colour is composited over that ground first — which is what the browser
+ * paints, and therefore what the eye has to read.
+ */
 export async function expectRenderedFaint(page: Page, locator: Locator, name: string, minimum = AA): Promise<void> {
   await expect(locator, `${name}: not on the page`).toBeVisible();
   const measured = await locator.evaluate((el) => {
@@ -216,22 +234,31 @@ export async function expectRenderedFaint(page: Page, locator: Locator, name: st
       const [r, g, b] = c.map((x) => x / 255).map((x) => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     };
-    // Walk up for the first ancestor that actually paints a background.
+    // Walk up for the first ancestor that actually paints a background,
+    // accumulating every opacity on the way — those apply to the text and not
+    // to the ground behind it.
     let ground: Element | null = el;
     let bg = [10, 10, 10];
+    let alpha = 1;
     while (ground) {
+      if (ground !== el) alpha *= Number(getComputedStyle(ground).opacity || 1);
       const c = getComputedStyle(ground).backgroundColor;
       const parts = rgb(c);
-      const alpha = Number((c.match(/[\d.]+/g) ?? [])[3] ?? 1);
-      if (parts.length === 3 && alpha > 0.5) {
+      const bgAlpha = Number((c.match(/[\d.]+/g) ?? [])[3] ?? 1);
+      if (parts.length === 3 && bgAlpha > 0.5) {
         bg = parts;
         break;
       }
       ground = ground.parentElement;
     }
-    const fg = rgb(getComputedStyle(el).color);
+    alpha *= Number(getComputedStyle(el).opacity || 1);
+    // The colour's own alpha counts too: `text-faint/70` is the same lie by a
+    // different route.
+    const declared = getComputedStyle(el).color;
+    alpha *= Number((declared.match(/[\d.]+/g) ?? [])[3] ?? 1);
+    const fg = rgb(declared).map((c, i) => c * alpha + bg[i] * (1 - alpha));
     const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
-    return { ratio: (hi + 0.05) / (lo + 0.05), size: parseFloat(getComputedStyle(el).fontSize) };
+    return { ratio: (hi + 0.05) / (lo + 0.05), size: parseFloat(getComputedStyle(el).fontSize), alpha };
   });
-  expect(measured.ratio, `${name}: rendered ${measured.ratio.toFixed(2)}:1 at ${measured.size}px`).toBeGreaterThanOrEqual(minimum);
+  expect(measured.ratio, `${name}: rendered ${measured.ratio.toFixed(2)}:1 at ${measured.size}px (effective opacity ${measured.alpha.toFixed(2)})`).toBeGreaterThanOrEqual(minimum);
 }
