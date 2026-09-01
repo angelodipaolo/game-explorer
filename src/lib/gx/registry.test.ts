@@ -119,9 +119,15 @@ describe("the command registry", () => {
 
   it("no command drives a route an agent must not touch", () => {
     // Auth is the owner's browser session; /api/img is the shelf's pixels; the
-    // journal, the play log and the queue are the owner's own record of actually playing — all
-    // three are refusals in the curate-collection skill, not gaps in coverage.
-    const banned = [/^\/api\/auth\//, /^\/api\/img\//, /^\/api\/journal\//, /^\/api\/games\/\[id\]\/journal$/, /^\/api\/sessions\//, /^\/api\/games\/\[id\]\/sessions$/, /^\/api\/queue/];
+    // journal is the owner's own writing about their own life. All three are
+    // refusals in the curate-collection skill, not gaps in coverage.
+    //
+    // The play log and the queue were on this list until GAMEEXPLOR-0031 and
+    // are deliberately off it now: "record, never infer" is a rule about where
+    // a run's *facts* come from, and no test can check that. What a test can
+    // check is that the journal never grows a command by accident, which is
+    // what this is for. Do not add /api/sessions or /api/queue back.
+    const banned = [/^\/api\/auth\//, /^\/api\/img\//, /^\/api\/journal\//, /^\/api\/games\/\[id\]\/journal$/];
     const offenders = COMMANDS.filter((c) => banned.some((b) => b.test(c.route))).map((c) => `${c.group} ${c.name} -> ${c.route}`);
     expect(offenders).toEqual([]);
   });

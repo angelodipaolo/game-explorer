@@ -1,12 +1,13 @@
 ---
 name: curate-collection
-description: Curate and enrich Game Explorer's collection through its write API — the one skill for every research and data-entry task on the shelf. Use when asked to import or add games (a CSV, spreadsheet, list, or shelf photo), tag or categorise games ("Metroidvania", "roguelike", "couch co-op"), fill in player counts / co-op / simultaneous-play / playtime facts, find or add Game Genie / Action Replay / password / cheat codes, build interactive maps with markers, find or add reference links (guides, wikis, longplays, articles), scan or organize manuals, register the owner's own soundtrack files as background music for a game, or seed/prune/edit a series. Also covers "work through the gaps", "enrich the collection", "fill in what's missing", and single-game edits like "add a code to this game", "bookmark a guide for this game" or "add music for this game".
+description: Curate and enrich Game Explorer's collection through its write API — the one skill for every research and data-entry task on the shelf. Use when asked to import or add games (a CSV, spreadsheet, list, or shelf photo), tag or categorise games ("Metroidvania", "roguelike", "couch co-op"), fill in player counts / co-op / simultaneous-play / playtime facts, find or add Game Genie / Action Replay / password / cheat codes, build interactive maps with markers, find or add reference links (guides, wikis, longplays, articles), scan or organize manuals, register the owner's own soundtrack files as background music for a game, or seed/prune/edit a series. Also covers "work through the gaps", "enrich the collection", "fill in what's missing", and single-game edits like "add a code to this game", "bookmark a guide for this game" or "add music for this game", or record play state the owner reports ("mark Contra as playing", "I finished this last night", "queue these three up next" — runs and the queue only, never the journal).
 ---
 
 # Curate the collection
 
 Game Explorer has one write API behind every curation task: importing games,
-enrichment facts, tags, codes, maps, bookmarks, manuals, series, and music.
+enrichment facts, tags, codes, maps, bookmarks, manuals, series, music, and the
+play state the owner reports.
 This skill is the entry point for all of it. Read the routing table below, then
 open the one reference file that covers the task at hand — each reference
 file is self-contained on payload shapes and gotchas for its domain.
@@ -104,31 +105,35 @@ what belongs in it.
 | Scanned manuals: pages, reordering, page images | `reference/manuals.md` |
 | Series: seeding from an IGDB collection, pruning, editing | `reference/series.md` |
 | Background music: registering owner-supplied soundtrack tracks | `reference/music.md` |
+| Play state: a run the owner reports, and the up-next queue | `reference/play.md` |
 
 ## Never write these
 
-Three things in this app have **no agent write path by design**
-(GAMEEXPLOR-0009) — that data is the owner's alone, produced by actually
-playing the game, and an agent inventing or editing it would be fabricating a
-memory:
+**The journal** — `/api/games/[id]/journal`, `/api/journal/*`
+(`/api/journal/[entryId]`, `/api/journal/[entryId]/image`) — has **no agent
+write path by design** (GAMEEXPLOR-0009, reaffirmed by GAMEEXPLOR-0031). No
+batch endpoint, no `gaps` route, no `gx` command. If asked to write a journal
+note or add a journal photo, **refuse and say why**.
 
-- **Play sessions** — `POST /api/games/[id]/sessions`, `/api/sessions/*`
-  (`/api/sessions/open`, `/api/sessions/[sessionId]`). No batch endpoint, no
-  `gaps` route. If asked to log a play session or mark a game finished,
-  **refuse and say why** — this is the owner's own log, not a fact about the
-  game.
-- **Journal entries** — `/api/games/[id]/journal`, `/api/journal/*`
-  (`/api/journal/[entryId]`, `/api/journal/[entryId]/image`). Same refusal:
-  notes and photos from an actual play session are not something to draft on
-  someone's behalf.
-- **The play queue** — `/api/queue*` (`/api/queue`,
-  `/api/queue/[ownedGameId]`). "Up next" is a decision about what to play,
-  not a filing system or a research result; leave it to the owner.
+The reason, which is worth keeping straight because it is what separates this
+from everything else in the routing table: codes, maps and bookmarks share one
+API between the owner and a research skill because they are public facts about
+a game, checkable by anyone. Journal entries are not. Notes and photos are
+prose about the owner's own life, nobody but them can produce a playthrough's
+writing, and an agent drafting one is the same failure as an agent-written
+walkthrough — no citation granularity, and undetectable as invention after the
+fact. There is no dictation shape for it either: a run has a date and an
+outcome to be told, a journal entry is the writing itself.
+
+Play sessions and the queue were on this list too until GAMEEXPLOR-0031, which
+opened both under one rule — **record, never infer**: write down a run the
+owner described, never one you deduced. See `reference/play.md` before you
+touch either; the rule and its refusals are stated there in full.
 
 Also **`/api/auth/*`** (`/api/auth/login`, `/api/auth/logout`) is not for
 agents — it is how the owner's browser session is established, not a curation
 endpoint.
 
-If a request sounds like one of these ("log that I played this", "add a
-journal photo", "queue this up next"), say plainly that this app has no agent
-write path for it and that it is the owner's to add by hand.
+If a request sounds like the journal ("write up my session", "add a journal
+photo"), say plainly that this app has no agent write path for it and that it
+is the owner's to add by hand.

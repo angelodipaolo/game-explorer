@@ -97,12 +97,18 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
   records every id a prune was shown so a rejected port never comes back as
   "new". Codes-and-maps stance: no `source` column and no precedence on
   `Series` or `SeriesEntry` — one API for the owner and for a research skill.
-- **Agents never author play history or journal entries.** Codes and maps share
-  one API between the owner and a research skill because they are public facts
-  about a game. A playthrough is not; nobody but the owner can produce it.
-  GAMEEXPLOR-0031 revisits *half* of this — the queue and runs open up under
-  "record, never infer", because dictating a run the owner described is not
-  authoring one. The journal never opens.
+- **Agents never author journal entries.** Codes and maps share one API between
+  the owner and a research skill because they are public facts about a game. A
+  playthrough's writing is not: nobody but the owner can produce it, and a
+  fabricated memory is undetectable after the fact — unlike a wrong tag or a
+  bad code, which is visibly wrong on the page. That is why the journal has no
+  agent write path and never will.
+  GAMEEXPLOR-0031 opened the other half — play sessions and the queue — under
+  **record, never infer**: an agent may write down a run the owner described
+  and may plan what is up next, and may never derive a run from a habit, a
+  journal entry or a completion percentage. Dictation is not authorship. The
+  rule and its refusals live in
+  `.claude/skills/curate-collection/reference/play.md`; the journal never opens.
 
 ## Data rules that are easy to get silently wrong
 
@@ -117,10 +123,16 @@ Prisma 6 on SQLite, Zod 4. Tests: Vitest (unit/integration) and Playwright (e2e)
 - Fact precedence is `manual > agent > igdb`. A `manual` value is never
   overwritten by IGDB sync or an agent. Agents cite a source per claim and
   leave a field null rather than guess.
-- **Play history and journal entries have no agent write path.** No skill, no
-  batch endpoint, no `gaps` route — agents never author them. Codes and maps
-  are public facts about a game and share one API with a research skill; a
-  playthrough is not, and an agent inventing one would be fabricating a memory.
+- **Journal entries have no agent write path.** No skill, no batch endpoint, no
+  `gaps` route, no `gx` command — agents never author them. Codes and maps are
+  public facts about a game and share one API with a research skill; a
+  playthrough's writing is not, and an agent inventing one would be fabricating
+  a memory nothing on the page could contradict.
+- **Play sessions and the queue do have one** (GAMEEXPLOR-0031), bounded by
+  **record, never infer**: an agent writes down what the owner stated and
+  deduces nothing. No `gaps` route here either, because a game with no runs is
+  not missing data — it is a game nobody has played. No bulk "mark everything
+  played", no timers, no automatic detection.
 - Play state is **derived** from `PlaySession` rows (`endedAt is null` is
   "playing now"), never stored on `OwnedGame`.
 - Migration `20260831032612_one_open_run_per_copy` is **hand-written SQL** — a

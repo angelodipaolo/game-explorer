@@ -78,7 +78,7 @@ reuses the one on port 3000.
 | `src/lib/series/` | Series: ordered lists of **catalog** games (`Series`/`SeriesEntry`, membership by IGDB id, ownership resolved at render). `shape.ts` is the pure half (slug, `?missing`, sections, the seed diff); `service.ts` the DB half. Seeded from an IGDB collection via `src/lib/catalog/collections.ts`, then pruned by hand — nothing auto-publishes. |
 | `src/lib/owned-match.ts` | `matchSimilarToOwned` — the one rule for checking IGDB ids against the shelf (through parents both ways). Re-exported by `collection.ts`. |
 | `src/lib/tags.ts`, `src/lib/tags/` | Tags: IGDB genres/perspectives/themes ∪ manual ∪ agent − hidden. Manual beats agent; IGDB tags hide, never delete. |
-| `src/lib/play/` | Play history and the one ordered "up next" queue. `PlaySession` rows are the log play state is derived from; `startSession` dequeues in the same transaction. No agent write path. |
+| `src/lib/play/` | Play history and the one ordered "up next" queue. `PlaySession` rows are the log play state is derived from; `startSession` dequeues in the same transaction. Agents write here only under "record, never infer" (GAMEEXPLOR-0031, `reference/play.md`). |
 | `src/lib/journal/` | Dated notes and photos per owned copy (`kind: note \| photo`), optionally tied to the run they were written during. Photos live in `data/journal/`, served by `/api/journal/:entryId/image`. No agent write path. |
 | `src/lib/music/` | Background music while you browse a game (GAMEEXPLOR-0025). `MusicTrack` rows per **owned copy** + one MP3 each on disk, exactly like maps and manuals: `service.ts` is the DB half, `audio.ts` the disk half (`MUSIC_DIR`, the store, `Range` parsing), `player.ts` the browser half (per-device `localStorage` setting, pathname → game, random pick). Owner-supplied MP3s only — nothing here fetches, converts or generates audio. |
 | `src/lib/media/` | `createFileStore(dir, formats)` — the one on-disk blob store, behind `data/maps/`, `data/journal/`, `data/manuals/` and `data/music/`. `image-store.ts` (`createImageStore` + `sniffImage`) and `audio-store.ts` (`createAudioStore` + `sniffAudio`) are thin wrappers over it. Reuse them; never hand-roll a path. |
@@ -116,15 +116,18 @@ them and GAMEEXPLOR-0030 tests that every row's routes have one.
 | Manuals | `GameManual`, `ManualPage` | `GET/POST games/:id/manuals` · `PATCH/DELETE manuals/:manualId` · `POST/PATCH manuals/:manualId/pages` · `PATCH/DELETE manual-pages/:pageId` · `GET/PUT manual-pages/:pageId/image` | `manuals.md` | yes |
 | Series | `Series`, `SeriesEntry` | `GET/POST series` · `GET/PATCH/DELETE series/:seriesId` · `POST/PATCH/DELETE series/:seriesId/entries` · `POST series/:seriesId/seed-check` · `GET series/collections` · `POST series/seed-preview` · `PATCH/DELETE series-entries/:entryId` | `series.md` | yes — IGDB proposes, a human prunes |
 | Music | `MusicTrack` | `GET/POST games/:id/music` · `GET games/:id/music/all` · `PATCH/DELETE music/:trackId` · `GET/PUT music/:trackId/audio` | `music.md` | yes — registers the owner's own MP3s; never fetches or generates audio |
-| Play sessions | `PlaySession` | `GET/POST games/:id/sessions` · `GET sessions/open` · `PATCH/DELETE sessions/:sessionId` | none — `SKILL.md` says refuse | **no today** (GAMEEXPLOR-0031) |
-| Queue | `QueueEntry` | `GET/POST/PATCH queue` · `DELETE queue/:ownedGameId` | none — `SKILL.md` says refuse | **no today** (GAMEEXPLOR-0031) |
+| Play sessions | `PlaySession` | `GET/POST games/:id/sessions` · `GET sessions/open` · `PATCH/DELETE sessions/:sessionId` | `play.md` | yes — **record, never infer**: a run the owner stated, never one deduced (GAMEEXPLOR-0031) |
+| Queue | `QueueEntry` | `GET/POST/PATCH queue` · `DELETE queue/:ownedGameId` | `play.md` | yes — a plan, not a memory (GAMEEXPLOR-0031) |
 | Journal | `JournalEntry` | `GET/POST games/:id/journal` · `PATCH/DELETE journal/:entryId` · `GET/PUT journal/:entryId/image` | none, deliberately | **no — owner only**, by design (GAMEEXPLOR-0009) |
 | Import | `ImportSession`, `ImportRow`, `ImportBatch`, `ImportEffect` | `POST/GET import/sessions` · `GET/DELETE import/sessions/:id` · `POST import/sessions/:id/rows` · `PATCH import/sessions/:id/rows/:rowId` · `POST import/sessions/:id/commit` · `POST import/csv` · `GET import/batches` · `POST import/batches/:id/rollback` | `games.md` | yes — the only way a copy gets on the shelf |
 | Enrichment | `EnrichmentRun` | `POST/GET enrichment/runs` · `GET enrichment/runs/:id` · `POST enrichment/runs/:id/facts` · `POST enrichment/runs/:id/tags` · `POST enrichment/runs/:id/finish` · `GET enrichment/gaps` | `facts.md`, `tags.md` | yes — every claim carries a citation |
 
-GAMEEXPLOR-0031 opens the queue and play sessions to agents under "record,
-never infer" — an agent may write down a run the owner reports, never one it
-deduced. Until it lands, both are a refusal. The journal never opens.
+The queue and play sessions are open to agents under "record, never infer"
+(GAMEEXPLOR-0031) — an agent may write down a run the owner reports and may
+plan what is up next, never a run it deduced from a habit, a journal entry or a
+completion percentage. If a date was not stated, it asks. **The journal never
+opens**: notes and photos are the owner's own prose, and a fabricated memory is
+undetectable afterwards in a way a wrong tag is not.
 `/api/auth/*` and `/api/img/*` are not in the table because they are not
 collection data.
 
