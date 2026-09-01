@@ -13,6 +13,7 @@ async function main() {
     await tx.importEffect.deleteMany();
     await tx.mapMarker.deleteMany();
     await tx.gameMap.deleteMany();
+    await tx.musicTrack.deleteMany();
     await tx.manualPage.deleteMany();
     await tx.gameManual.deleteMany();
     await tx.gameBookmark.deleteMany();
@@ -45,6 +46,7 @@ async function main() {
     // Manuals before the pages that point at them.
     await tx.gameManual.createMany({ data: snap.gameManuals ?? [] });
     await tx.manualPage.createMany({ data: snap.manualPages ?? [] });
+    await tx.musicTrack.createMany({ data: snap.musicTracks ?? [] });
     // Sessions before the entries that point at them; the queue last.
     await tx.playSession.createMany({ data: snap.playSessions ?? [] });
     await tx.journalEntry.createMany({ data: snap.journalEntries ?? [] });
@@ -54,7 +56,7 @@ async function main() {
     await tx.seriesEntry.createMany({ data: snap.seriesEntries ?? [] });
     await tx.enrichmentRun.createMany({ data: snap.enrichmentRuns ?? [] });
   });
-  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued, ${(snap.gameBookmarks ?? []).length} bookmarks, ${(snap.manualPages ?? []).length} manual pages, ${(snap.series ?? []).length} series (${(snap.seriesEntries ?? []).length} entries) from ${snap.exportedAt}`);
+  console.log(`restored ${snap.ownedGames.length} owned games, ${snap.catalogGames.length} catalog rows, ${(snap.playSessions ?? []).length} play sessions, ${(snap.journalEntries ?? []).length} journal entries, ${(snap.queueEntries ?? []).length} queued, ${(snap.gameBookmarks ?? []).length} bookmarks, ${(snap.manualPages ?? []).length} manual pages, ${(snap.musicTracks ?? []).length} music tracks, ${(snap.series ?? []).length} series (${(snap.seriesEntries ?? []).length} entries) from ${snap.exportedAt}`);
 }
 
 main().finally(() => prisma.$disconnect());

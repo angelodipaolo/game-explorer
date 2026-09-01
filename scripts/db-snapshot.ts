@@ -24,6 +24,7 @@ async function main() {
     gameBookmarks: await prisma.gameBookmark.findMany(),
     gameManuals: await prisma.gameManual.findMany(),
     manualPages: await prisma.manualPage.findMany(),
+    musicTracks: await prisma.musicTrack.findMany(),
     playSessions: await prisma.playSession.findMany(),
     journalEntries: await prisma.journalEntry.findMany(),
     queueEntries: await prisma.queueEntry.findMany(),
@@ -33,7 +34,7 @@ async function main() {
   };
   const file = path.resolve(__dirname, "../data/snapshot.json");
   fs.writeFileSync(file, JSON.stringify(out, null, 1));
-  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts, ${out.gameTags.length} tags, ${out.gameCodes.length} codes, ${out.gameMaps.length} maps (${out.mapMarkers.length} markers — images stay in data/maps/), ${out.gameBookmarks.length} bookmarks, ${out.gameManuals.length} manuals (${out.manualPages.length} pages — scans stay in data/manuals/), ${out.playSessions.length} play sessions, ${out.journalEntries.length} journal entries (photos stay in data/journal/), ${out.queueEntries.length} queued, ${out.series.length} series (${out.seriesEntries.length} entries)`);
+  console.log(`wrote ${file}: ${out.ownedGames.length} owned, ${out.catalogGames.length} catalog, ${out.gameFacts.length} facts, ${out.gameTags.length} tags, ${out.gameCodes.length} codes, ${out.gameMaps.length} maps (${out.mapMarkers.length} markers — images stay in data/maps/), ${out.gameBookmarks.length} bookmarks, ${out.gameManuals.length} manuals (${out.manualPages.length} pages — scans stay in data/manuals/), ${out.musicTracks.length} music tracks (audio stays in data/music/), ${out.playSessions.length} play sessions, ${out.journalEntries.length} journal entries (photos stay in data/journal/), ${out.queueEntries.length} queued, ${out.series.length} series (${out.seriesEntries.length} entries)`);
 }
 
 main().finally(() => prisma.$disconnect());

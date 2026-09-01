@@ -77,7 +77,7 @@ function copyDirIfPresent(from: string, to: string) {
  */
 async function warnOnMissingBlobs(counts: Record<string, number>) {
   // Keyed by blob directory. A directory with no entry here has no database
-  // rows to compare against and is skipped — see `music` below.
+  // rows to compare against and is skipped; every one of them has rows today.
   const rows: Partial<Record<(typeof BLOB_DIRS)[number], number>> = {
     maps: await prisma.gameMap.count(),
     // Only photos that actually have bytes: a row POSTed but not yet PUT is
@@ -86,10 +86,9 @@ async function warnOnMissingBlobs(counts: Record<string, number>) {
     // Same rule for manual pages: a page row POSTed but not yet PUT has no
     // file to miss, so only pages that recorded a pixel size count.
     manuals: await prisma.manualPage.count({ where: { width: { gt: 0 } } }),
-    // `music` is deliberately absent (GAMEEXPLOR-0025): its files are listed
-    // in data/music/index.json, not in any table, so there is no row count to
-    // compare and an empty directory is the ordinary state of a machine with
-    // no soundtracks copied in. Warning on it would fire for everyone.
+    // Same again for music: a track row POSTed but not yet PUT has no audio
+    // to miss, so only tracks that recorded a size count.
+    music: await prisma.musicTrack.count({ where: { bytes: { gt: 0 } } }),
   };
   for (const dir of BLOB_DIRS) {
     const expected = rows[dir];

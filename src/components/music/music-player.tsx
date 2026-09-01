@@ -13,8 +13,10 @@ import { gameIdFromPathname, pickTrack, serverSettingsSnapshot, settingsSnapshot
  * instead of restarting it, and no page has to know music exists.
  *
  * It is driven by the pathname and nothing else: `usePathname()` says which
- * game (if any) is on screen, that copy's soundtrack comes from
- * `/api/music/games/:id`, and one of its tracks is picked at random. A game
+ * game (if any) is on screen — the id in `/game/<id>` is the owned copy, the
+ * same id the API keys tracks on, so there is nothing to resolve — that copy's
+ * soundtrack comes from `GET /api/games/:id/music`, and one of its tracks is
+ * picked at random. A game
  * with no registered music, and every route that is not a game page, stops the
  * audio. No context, no provider, no props threaded through pages.
  *
@@ -68,7 +70,7 @@ export function MusicPlayer() {
     if (!audio) return;
     const forGame = gameRef.current;
     currentRef.current = track;
-    const src = `/api/music/tracks/${encodeURIComponent(track.id)}`;
+    const src = `/api/music/${encodeURIComponent(track.id)}/audio`;
     if (audio.getAttribute("src") !== src) {
       audio.pause();
       audio.src = src;
@@ -91,7 +93,11 @@ export function MusicPlayer() {
   // policy wants — including the one that flipped the toggle on /settings.
   // Capture phase, so a handler that stops propagation cannot hide it.
   useEffect(() => {
-    const mark = () => {
+    // `isTrusted` is what makes this ref mean what its name says: a
+    // script-dispatched PointerEvent would set it, the browser would still
+    // refuse `play()`, and the flag would be lying rather than merely wrong.
+    const mark = (e: Event) => {
+      if (!e.isTrusted) return;
       gestured.current = true;
     };
     const passive = { capture: true, passive: true } as const;
@@ -115,13 +121,19 @@ export function MusicPlayer() {
   // games and on the toggle — not on a volume change, and not on
   // `/game/x` → `/game/x/map`, which is the same id and the same track.
   useEffect(() => {
+    const changedGame = gameRef.current !== gameId;
     gameRef.current = gameId;
     if (!enabled || !gameId) {
       stop();
       return;
     }
+    // The previous game's track stops *before* the new game's lookup, not
+    // after it lands. Otherwise a slow request leaves Metal Gear Solid playing
+    // over The Last of Us's page for as long as the round trip takes — brief on
+    // a LAN, but "the music matches the game on screen" is the whole feature.
+    if (changedGame) stop();
     const controller = new AbortController();
-    fetch(`/api/music/games/${encodeURIComponent(gameId)}`, { signal: controller.signal })
+    fetch(`/api/games/${encodeURIComponent(gameId)}/music`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`music lookup failed: ${res.status}`))))
       .then((data: unknown) => {
         const raw = data && typeof data === "object" ? (data as { tracks?: unknown }).tracks : null;

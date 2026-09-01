@@ -43,6 +43,14 @@ describe("settings", () => {
     expect(parseSettings('{"enabled":"yes","volume":9}')).toEqual({ enabled: false, volume: 1 });
     expect(parseSettings('{"enabled":true,"volume":-3}')).toEqual({ enabled: true, volume: 0 });
     expect(parseSettings('{"enabled":true,"volume":"loud"}')).toEqual({ enabled: true, volume: DEFAULT_MUSIC_SETTINGS.volume });
+    // `Number(null)` and `Number([])` are both 0, so a coercing parser would
+    // turn a corrupt store into a toggle that is on and silent.
+    expect(parseSettings('{"enabled":true,"volume":null}')).toEqual({ enabled: true, volume: DEFAULT_MUSIC_SETTINGS.volume });
+    expect(parseSettings('{"enabled":true,"volume":[]}')).toEqual({ enabled: true, volume: DEFAULT_MUSIC_SETTINGS.volume });
+    expect(parseSettings('{"enabled":true,"volume":{}}')).toEqual({ enabled: true, volume: DEFAULT_MUSIC_SETTINGS.volume });
+    expect(parseSettings('{"enabled":true,"volume":"0.5"}')).toEqual({ enabled: true, volume: DEFAULT_MUSIC_SETTINGS.volume });
+    // A real number still clamps rather than falling back.
+    expect(parseSettings('{"enabled":true,"volume":0}')).toEqual({ enabled: true, volume: 0 });
   });
 
   it("never throws when the browser refuses to store anything", () => {

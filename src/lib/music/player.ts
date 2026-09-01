@@ -33,10 +33,16 @@ export const MUSIC_SETTINGS_EVENT = "game-explorer:music-settings";
 
 type StorageLike = { getItem(key: string): string | null; setItem(key: string, value: string): void };
 
+/**
+ * Only a real, finite number is a volume. `Number(null)` and `Number([])` are
+ * both `0`, so coercing first would turn a corrupted store into a toggle that
+ * is on and silent with nothing to explain it — the worst possible failure for
+ * a setting whose only feedback is sound. Out-of-range numbers still clamp:
+ * -5 is 0 and 1e9 is 1, both of which are what the writer meant.
+ */
 const clampVolume = (v: unknown): number => {
-  const n = typeof v === "number" ? v : Number(v);
-  if (!Number.isFinite(n)) return DEFAULT_MUSIC_SETTINGS.volume;
-  return Math.min(1, Math.max(0, n));
+  if (typeof v !== "number" || !Number.isFinite(v)) return DEFAULT_MUSIC_SETTINGS.volume;
+  return Math.min(1, Math.max(0, v));
 };
 
 /** Anything that is not exactly the shape we wrote falls back to the default, field by field. */
@@ -158,13 +164,13 @@ export function gameIdFromPathname(pathname: string | null | undefined): string 
   return m ? m[1] : null;
 }
 
-/** What `/api/music/games/:id` hands back: an id to fetch and a name. No paths. */
+/** What `GET /api/games/:id/music` hands back: an id to fetch and a name. No paths. */
 export type PlayableTrack = { id: string; title: string };
 
 /**
  * One track at random, optionally not the one already playing.
  *
- * Lives here rather than next to the manifest because the *browser* is what
+ * Lives here rather than in the service because the *browser* is what
  * chooses — the server would have to pick per request, and every soft
  * navigation back to the same game would then re-pick. `random` is injected so
  * the choice is testable; it returns a value in [0,1) like `Math.random`. With
