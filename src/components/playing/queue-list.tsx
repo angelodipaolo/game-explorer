@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { QueuedRow } from "@/lib/collection";
 import { apiError } from "@/components/ui";
-import { PlayingCard, QueueCaption, playingGrid } from "./playing-card";
+import { shelfGrid } from "@/components/shelf/grid";
+import { PlayingCard, QueueCaption } from "./playing-card";
 
 /**
  * "Up next", in order, as a grid of the shelf's cards (GAMEEXPLOR-0026) with
@@ -64,7 +65,7 @@ export function QueueList({ rows, canEdit, locked = false, dim, onClearFilters }
   // the second. `flex-wrap` does it at every width without a breakpoint.
   return (
     <>
-      <div className={playingGrid} data-testid="queue-list">
+      <div className={shelfGrid} role="list" data-testid="queue-list">
         {rows.map((r, i) => (
           <PlayingCard key={r.ownedGameId} row={r} dim={dim?.has(r.ownedGameId)} priority={i < 6} testId="queue-row" caption={<QueueCaption row={r} />}>
             {/* Read-only for a visitor: the order is the interesting part, the

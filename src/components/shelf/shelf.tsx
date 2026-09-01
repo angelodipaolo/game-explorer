@@ -8,6 +8,7 @@ import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilter
 import { Button, cx } from "@/components/ui";
 import { FilterSheet, PresetRow } from "./filter-sheet";
 import { GameCard, GameRow } from "./game-card";
+import { shelfGrid } from "./grid";
 import { useRegisterShelfFilters } from "./filter-context";
 import { useDebouncedQuery, useFilters, useScrollMemory } from "./use-filters";
 
@@ -156,7 +157,7 @@ function Games({ games, view, dim }: { games: ShelfGame[]; view: Filters["view"]
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:gap-x-4" data-testid="grid">
+    <div className={shelfGrid} data-testid="grid">
       {games.map((g, i) => (
         <GameCard key={g.id} game={g} dim={dim} priority={i < 12} />
       ))}

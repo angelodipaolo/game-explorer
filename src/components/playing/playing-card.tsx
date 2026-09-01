@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { GameCard } from "@/components/shelf/game-card";
-import { cx, day } from "@/components/ui";
+import { cx, day, shortDay } from "@/components/ui";
 import type { InProgressRow, QueuedRow } from "@/lib/collection";
 
 /**
@@ -14,11 +14,15 @@ import type { InProgressRow, QueuedRow } from "@/lib/collection";
  *
  * The caption is where the two pages differ from the shelf and from each
  * other: since-when and where you left off for an open run, position and note
- * for a queued one. Two lines at most, both truncated — a card is a glance,
- * and the game page is one tap away for the rest.
+ * for a queued one.
  *
- * `GameCard` already badges an open run with ▶ Playing on the cover, so
- * nothing here draws a second play marker.
+ * `role="listitem"` because both of these grids are lists — the queue is
+ * genuinely an ordered one — and the `<ul>` these cards replaced said so.
+ * Every grid that renders a `PlayingCard` carries `role="list"` to match.
+ *
+ * `GameCard` already badges an open run with ▶ Playing on the cover and the
+ * platform on a chip, so nothing here draws a second play marker, and the
+ * compact captions do not repeat the platform.
  */
 export function PlayingCard({
   row,
@@ -38,7 +42,7 @@ export function PlayingCard({
   children?: ReactNode;
 }) {
   return (
-    <div className={cx(children ? "flex flex-col" : null)} data-testid={testId}>
+    <div role="listitem" className={cx(children ? "flex flex-col" : null)} data-testid={testId}>
       <GameCard game={row.game} dim={dim} priority={priority} />
       {caption ? <div className="mt-1 px-0.5 text-xs leading-snug">{caption}</div> : null}
       {children ? <div className="mt-auto pt-2">{children}</div> : null}
@@ -47,44 +51,53 @@ export function PlayingCard({
 }
 
 /**
- * An open run: the copy and when it started, and — on `/playing`, where there
- * is room for it — the last thing written during the run, else the run's note.
+ * An open run: when it started, and — on `/playing`, where there is room for
+ * it — the last thing written during the run, else the run's note.
+ *
+ * That last line is the reason "In progress" exists at all — it is the thing
+ * you came back to read — so it is clamped rather than truncated. A card is
+ * about 160px wide at every width the grid uses, and one line of it holds
+ * about a third of a real note; three hold a whole one. The caption is allowed
+ * to be taller than its neighbour's, exactly as `GameCard`'s own two-line
+ * title already is.
  *
  * `compact` is home's three-across card, about 105px wide on a phone, where
  * "PS4 · since 31 Aug 2026" truncates to "PS4 · since 31 A…". There the
- * platform and the date get a line each, and the year is dropped for a run
+ * platform is left to the cover's chip and the year is dropped for a run
  * started this year — the ambiguity it removes only exists across a new year,
  * and that is exactly when `shortDay` keeps it.
  */
 export function RunCaption({ row, leftOff = false, compact = false }: { row: InProgressRow; leftOff?: boolean; compact?: boolean }) {
   const where = row.lastEntry ? (row.lastEntry.body ?? row.lastEntry.title ?? "") : row.note;
-  if (compact) {
-    return (
-      <>
-        <span className="block truncate text-muted">{row.platformLabel}</span>
-        <span className="block truncate text-faint">since {shortDay(row.startedAt)}</span>
-      </>
-    );
-  }
+  if (compact) return <span className="block truncate text-muted">since {shortDay(row.startedAt)}</span>;
   return (
     <>
       <span className="block truncate text-muted">
         {row.platformLabel} · since {day(row.startedAt)}
       </span>
-      {leftOff && where ? <span className="block truncate text-faint">{where}</span> : null}
+      {leftOff && where ? (
+        <span className="mt-0.5 line-clamp-3 text-faint" data-testid="left-off">
+          {where}
+        </span>
+      ) : null}
     </>
   );
 }
 
-/** `day()` without the year when the year is this one. */
-function shortDay(d: Date | string): string {
-  const x = new Date(d);
-  const full = day(x);
-  return x.getFullYear() === new Date().getFullYear() ? full.replace(/ \d{4}$/, "") : full;
-}
-
-/** A queued copy: where it sits in the order, the platform, and its note. */
-export function QueueCaption({ row }: { row: QueuedRow }) {
+/**
+ * A queued copy: where it sits in the order, the platform, and its note.
+ *
+ * `compact` is home again, and there it says "Up next" instead of "#2".
+ * "Where you left off" is the only heading on that page and it is about open
+ * runs, so a bare position under a card the owner has never started reads as a
+ * lie — the old list carried its own "Up next ·" label for exactly that
+ * reason. On `/playing` an "Up next" `<h2>` sits directly above these cards
+ * and the number is the useful half; the grid order already says the rest,
+ * which is why the old layout kept the number in its own right-hand column
+ * rather than in the caption.
+ */
+export function QueueCaption({ row, compact = false }: { row: QueuedRow; compact?: boolean }) {
+  if (compact) return <span className="block truncate text-muted">Up next</span>;
   return (
     <>
       <span className="block truncate text-muted">
@@ -94,10 +107,3 @@ export function QueueCaption({ row }: { row: QueuedRow }) {
     </>
   );
 }
-
-/**
- * The shelf's grid, phone-first. Two across at 375px is what the shelf does
- * (`src/components/shelf/shelf.tsx`), and on `/playing` it is also what leaves
- * room for the queue's four controls under a card.
- */
-export const playingGrid = "grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:gap-x-4";

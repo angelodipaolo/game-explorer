@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { GameCard } from "@/components/shelf/game-card";
 import { PlayingCard, QueueCaption, RunCaption } from "@/components/playing/playing-card";
+import { shelfGridThreeUp } from "@/components/shelf/grid";
 import type { InProgressRow, QueuedRow, ShelfGame } from "@/lib/collection";
 import type { HomeRow } from "@/lib/home";
 import { Carousel } from "./carousel";
@@ -60,6 +61,8 @@ export function PicksRow({ games }: { games: ShelfGame[] }) {
  * A grid rather than a carousel, unlike the rows above it. This section is
  * short and capped, and it is acted on rather than browsed — hiding half of it
  * behind a sideways scroll would bury the one game you came back to finish.
+ * Covers cost height: a full panel of seven is about twice the old list's, and
+ * the cap and the three-across grid are what hold that to one screenful.
  *
  * Rendered only when there is something in it, so a collection with no play
  * log yet simply does not show it.
@@ -73,14 +76,19 @@ export function PlayingPanel({ inProgress, upNext }: { inProgress: InProgressRow
           Now playing <span aria-hidden>›</span>
         </Link>
       </div>
-      {/* Three across on a phone rather than the shelf's two: at most seven
-          cards land here, and they should not push the day's rows off screen. */}
-      <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:gap-x-4">
+      {/* Three across on a phone rather than the shelf's two. A full panel is
+          still taller than the list it replaced — seven cards are three rows,
+          roughly twice the height — so the cap matters: three across is what
+          keeps the day's rows within a scroll of it rather than a page. */}
+      <div className={shelfGridThreeUp} role="list">
         {inProgress.slice(0, 4).map((r) => (
           <PlayingCard key={r.sessionId} row={r} testId="home-in-progress" caption={<RunCaption row={r} compact />} />
         ))}
+        {/* `compact`: "Up next", not "#2". This section's only heading is
+            "Where you left off", and a bare position under a game nobody has
+            started would read as a run. */}
         {upNext.slice(0, 3).map((r) => (
-          <PlayingCard key={r.ownedGameId} row={r} testId="home-up-next" caption={<QueueCaption row={r} />} />
+          <PlayingCard key={r.ownedGameId} row={r} testId="home-up-next" caption={<QueueCaption row={r} compact />} />
         ))}
       </div>
     </section>

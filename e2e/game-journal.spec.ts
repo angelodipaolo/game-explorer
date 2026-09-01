@@ -149,6 +149,37 @@ test("a queued game can be started from Now playing", async ({ page }, testInfo)
   const row = page.getByTestId("queue-row").filter({ hasText: title });
   await expect(row).toBeVisible();
 
+  // The queue is a grid of cards now (GAMEEXPLOR-0026) and its four controls
+  // wrap into a cluster under each one, so the thing worth pinning is that
+  // they are still thumb-sized after the wrap.
+  const up = row.getByTestId("queue-up");
+  const upBox = (await up.boundingBox())!;
+  expect(upBox.width, "one-handed tap target").toBeGreaterThanOrEqual(44);
+  expect(upBox.height, "one-handed tap target").toBeGreaterThanOrEqual(44);
+
+  // Cards, not rows: the page must still fit the width it is read at.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow, "horizontal overflow on /playing").toBeLessThanOrEqual(1);
+
+  // Unfiltered, the order is the whole queue's and reordering is live.
+  await expect(page.getByTestId("queue-reorder-locked")).toHaveCount(0);
+
+  // Filtered, it is not: `PATCH /api/queue` takes a full permutation, and a
+  // filtered list is a subset. Both arrows go dead and the page says why.
+  const platform = await page.evaluate(async (gameId) => {
+    const queue: { ownedGameId: string; ownedGame: { platform: string } }[] = await (await fetch("/api/queue")).json();
+    return queue.find((q) => q.ownedGameId === gameId)!.ownedGame.platform;
+  }, id);
+  await page.goto(`/playing?platform=${platform}`);
+  const filtered = page.getByTestId("queue-row").filter({ hasText: title });
+  await expect(filtered).toBeVisible();
+  await expect(filtered.getByTestId("queue-up")).toBeDisabled();
+  await expect(filtered.getByTestId("queue-down")).toBeDisabled();
+  await expect(page.getByTestId("queue-reorder-locked")).toBeVisible();
+
+  await page.goto("/playing");
+  await expect(row).toBeVisible();
+
   // Starting it drops it out of the queue and up into In progress, in one refresh.
   await row.getByTestId("queue-play-now").click();
   await expect(page.getByTestId("playing-row").filter({ hasText: title })).toBeVisible();

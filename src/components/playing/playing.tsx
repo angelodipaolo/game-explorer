@@ -7,8 +7,9 @@ import type { Viewer } from "@/lib/viewer";
 import { activeFilterCount, facets as buildFacets, splitInOrder } from "@/lib/filters";
 import { Button } from "@/components/ui";
 import { FilterBar } from "@/components/filters/filter-bar";
+import { shelfGrid } from "@/components/shelf/grid";
 import { useFilters } from "@/components/shelf/use-filters";
-import { PlayingCard, RunCaption, playingGrid } from "./playing-card";
+import { PlayingCard, RunCaption } from "./playing-card";
 import { QueueList } from "./queue-list";
 
 /**
@@ -48,7 +49,7 @@ export function Playing({ inProgress, upNext, viewer }: { inProgress: InProgress
       <section className="mt-6">
         <SectionHeading label="In progress" shown={open.shown} total={inProgress.length} active={active} />
         {open.shown ? (
-          <div className={playingGrid} data-testid="in-progress">
+          <div className={shelfGrid} role="list" data-testid="in-progress">
             {open.kept.map((r, i) => (
               // `RunCaption` with `leftOff`: the last thing written during this
               // run, else the run's own note. The ▶ Playing badge is the card's.
