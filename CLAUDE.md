@@ -102,8 +102,10 @@ reuses the one on port 3000.
 
 Which layer is missing, at a glance. Routes are relative to `/api/`; skill
 references are `.claude/skills/curate-collection/reference/` (mirrored into
-`.agents/skills/`). `gx` commands are not a column yet — GAMEEXPLOR-0036 adds
-them and GAMEEXPLOR-0030 tests that every row's routes have one.
+`.agents/skills/`). Every route below **that an agent may drive** has a `gx`
+command (`npm run gx -- <group> --help`) — the journal row is the exception, and
+deliberately so. GAMEEXPLOR-0030 will assert that pairing in code, which is why
+the column is left out here rather than duplicated and left to rot.
 
 | Data | Prisma model | Routes | Skill reference | Agent write path |
 | --- | --- | --- | --- | --- |
@@ -152,9 +154,8 @@ their shelf, it belongs to the mini and to this skill.
   order.** State is a Prisma model with a migration — not a JSON file, a
   directory listing or an env var; it is reached through `src/app/api/` behind
   `src/proxy.ts`; every route an agent may drive gets a `gx` command
-  (`npm run gx -- …`, GAMEEXPLOR-0036 — decided but **not yet built**; `curl`
-  is the path until it lands, and stays legal after); and
-  `curate-collection` documents it. Reads are part of the rule, not a
+  (`npm run gx -- …`, GAMEEXPLOR-0036; `curl` stays legal as the escape
+  hatch); and `curate-collection` documents it. Reads are part of the rule, not a
   nicety: an agent that cannot list a thing cannot act on it, which is what
   `GET /api/games?q=` fixed (GAMEEXPLOR-0028). Blobs are the carve-out — bytes
   go on disk through `src/lib/media/`, the row that names them is a table. Stop
@@ -269,9 +270,8 @@ Collection-size assertions live in `e2e/shelf.spec.ts` and `e2e/smoke.spec.ts`
   (`GAMEEXPLOR-0001: …`); never commit a red state.
 - Keep durable findings in the notes directory (Sabin) when one exists, not in chat.
 - **Definition of done for anything that adds or changes state**: the table
-  exists, the API can create/read/update/delete it, it has a `gx` command
-  (once GAMEEXPLOR-0036 lands), and the `curate-collection` reference file
-  describes it. A branch that stops
+  exists, the API can create/read/update/delete it, it has a `gx` command, and
+  the `curate-collection` reference file describes it. A branch that stops
   earlier is not finished, it is half a feature with the agent-facing half
   missing — and that half never gets added later, because nothing is broken.
 - Don't add: RAWG, a provider abstraction, hosting, auth, fetched/stored/shown
