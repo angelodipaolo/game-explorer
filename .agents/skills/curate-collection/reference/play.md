@@ -128,18 +128,26 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
   -d '{ "startedAt": "2026-07-04", "endedAt": "2026-07-19", "outcome": "completed" }'
 ```
 
-- `startedAt` alone defaults to `endedAt` — a one-sitting run.
+- **`endedAt` is the field that makes this a past run**, and it back-fills the
+  start: `endedAt` alone records a one-sitting run that began and ended that
+  day. The reverse is *not* true — see the warning below.
 - `outcome` defaults to `completed`; the other value is `abandoned`.
 - `outcome: "playing"` with an end date is a **400**. A finished run is not in
   progress; leave `endedAt` out if you meant to start one.
 - `undated: true` together with either date is a **400** — send it on its own.
 - An end before the start is a **400** (`a run cannot end before it started`).
+- `note` is trimmed and capped at **500 characters**; longer is a **400**.
 - An unknown `ownedGameId` is a **404**.
 
-**Use `gx play log`, not `gx play start`, for anything in the past.** They call
-the same route and the API cannot tell which you meant: a `start` missing its
-`--ended-at` opens a run that claims the owner is playing a game they finished
-in 1997, and then blocks the next real run with a 409.
+**`--started-at` on its own does not record a past run — it opens a live
+one.** This is the sharpest edge on the page. The route branches on `endedAt`,
+so a body carrying only a start date is indistinguishable from "start playing
+now, from this date" and falls straight through to `startSession`: you get an
+open run claiming the owner is playing a game they finished in 1997, and the
+next real run on that copy is refused with a 409 for a reason nobody can see.
+`gx play log` and `gx play start` are two names for one route — the names say
+which you meant, they do not make the API check. **A past run needs
+`--ended-at`, or `--undated`. Every time.**
 
 ### Close, correct, reopen, delete
 
@@ -156,9 +164,19 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
   -H 'content-type: application/json' -d '{ "outcome": "completed", "endedAt": "2026-08-30" }'
 ```
 
-- `endedAt` defaults to **now** when you close a run. Pass the day the owner
-  stated instead of letting today stand in for it — the default is right for a
-  finger on the Finish button, not for dictation an hour later.
+- **`endedAt` is required to finish a run, and `gx play finish` enforces it.**
+  There is no "defaults to now" here, and believing there was is worse than a
+  missing default. `PATCH /api/sessions/:sessionId` runs `updateSession`, which
+  *keeps* the stored `endedAt` when none is sent — on an open run that is
+  `null`, so the run stays open and the outcome is forced back to `playing`.
+  A finish with no date is therefore a silent no-op that answers `200`: it
+  looks like it worked, the run is still in progress, and the only symptom is a
+  409 the next time anyone starts that copy. `gx play finish` makes the flag
+  required so the request cannot be built at all. Sending the PATCH by hand,
+  you are on your own — always include `endedAt`.
+  It is the right rule on principle too: an end date nobody stated is one you
+  invented, and inventing it is what "record, never infer" forbids. If the
+  owner did not say when, ask.
 - **A run cannot be finished before it started: 400.** This is the one that
   will bite you, because it looks like a bug and is not. If you started the run
   with `gx play start` just now, its `startedAt` is *today*, and closing it
@@ -176,10 +194,14 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
 - An **undated run cannot be reopened** — **400**, `an undated run cannot be
   reopened — give it dates first`. Its timestamps are the day it was recorded,
   so there is no moment to resume from.
-- `undated` moves both ways. `undated: true` forgets the dates; `undated:
-  false` is the "I remembered when that was" edit and must arrive **with** a
-  real `startedAt` and `endedAt` (**400** otherwise). Sending dates alongside
-  `undated: true` is also a **400**.
+- `undated` moves both ways. `undated: true` forgets the dates — and **closes
+  the run if it was open**, stamping both timestamps with the moment of the
+  edit, because an undated run can never be in progress. `undated: false` is
+  the "I remembered when that was" edit; it must arrive **with** a real
+  `startedAt` and `endedAt` (**400** otherwise), though that refusal only fires
+  on a run that is *currently* undated — clearing a flag that was never set on
+  an already-dated run changes nothing and needs no help. Sending dates
+  alongside `undated: true` is a **400** either way.
 - `DELETE /api/sessions/<sessionId>` removes the run and **keeps its journal
   entries**, which survive with a null `sessionId`. Deleting a run never
   destroys the owner's writing. Delete only a run that should not exist — one
@@ -223,6 +245,8 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
   same game is listed twice`). This is on purpose — a stale list must not be
   able to delete an entry by leaving it out. So always `gx queue list --json`
   immediately before you reorder, and build the new order from what came back.
+- `note` here has the same shape as a run's: trimmed, **500 characters** at
+  most, a **400** beyond that.
 - `DELETE /api/queue/<ownedGameId>` removes one entry and closes the gap;
   **404** if it was not queued.
 - Deleting an owned copy removes its queue entry too (`games.md`).
@@ -231,7 +255,7 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X PATCH "$GAME_EXPLORER
 
 | Route | What it does | Refusals |
 | --- | --- | --- |
-| `GET /api/games/:id/sessions` | One copy's runs, newest first, undated last | 404 unknown copy |
+| `GET /api/games/:id/sessions` | One copy's runs, newest first, undated last | none — an unknown copy is `200 []`, not a 404 |
 | `POST /api/games/:id/sessions` | Start a run, or log a past/undated one | 409 already open · 400 bad dates/outcome · 404 unknown copy |
 | `GET /api/sessions/open` | Every run in progress, newest first | — |
 | `PATCH /api/sessions/:sessionId` | Finish, reopen, correct dates/outcome/note | 409 reopen conflict · 400 contradictory dates · 404 |

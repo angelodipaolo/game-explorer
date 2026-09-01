@@ -1072,10 +1072,17 @@ export const COMMANDS: Command[] = [
 
      `start` and `log` are two commands over one route because `POST
      /api/games/[id]/sessions` branches on whether an end date is present, and
-     the mistake that branch invites is silent: forget `--ended-at` on a run
-     from 1997 and the API cheerfully opens a run claiming the owner is
-     playing it right now, which then blocks the next real one with a 409. Two
-     verbs for two intentions, and no way to slip between them. */
+     the mistake that branch invites is silent: with no `--ended-at` and no
+     `--undated` the API opens a run claiming the owner is playing the game
+     right now, which then blocks the next real one with a 409.
+
+     Be precise about what the split buys, because it is less than it looks.
+     It *names* the two intentions, so `gx play log` reads as a claim about the
+     past and `gx play start` as a claim about the present; it does not
+     *enforce* them. `gx play log <id> --started-at 1997-01-01` with neither an
+     end date nor `--undated` still falls through to `startSession` and opens a
+     live run, because the route sees a body indistinguishable from a start.
+     Two named intentions and one honest warning, not a guard rail. */
   {
     group: "play",
     name: "list",
@@ -1134,7 +1141,19 @@ export const COMMANDS: Command[] = [
     args: [id("sessionId", "sessionId", "The run's id, from `gx play list` or `gx play open`.")],
     flags: [
       b("outcome", "string", "How it went. A run closed without one is recorded as completed.", { choices: ["completed", "abandoned"] }),
-      b("ended-at", "string", "The day it ended, `YYYY-MM-DD` or ISO. Defaults to now — pass the date the owner stated rather than letting today stand in for it."),
+      // Required, and not because the API demands it — because of what the API
+      // does when it is missing. `PATCH /api/sessions/:id` runs
+      // `updateSession`, which keeps the stored `endedAt` when none is sent;
+      // on an open run that is null, and an outcome is then forced back to
+      // "playing". So `gx play finish --outcome completed` with no date used
+      // to exit 0, leave the run open, and reset the outcome — a silent no-op
+      // whose only visible consequence is a 409 on the next real start.
+      //
+      // Requiring the flag is also the right answer on principle: a finish
+      // with no stated end date is a date the agent invented, which is the one
+      // thing "record, never infer" forbids. If the owner did not say when,
+      // ask; do not let a default answer for them.
+      b("ended-at", "string", "The day it ended, `YYYY-MM-DD` or ISO. There is no default: a finish with no stated end date is a date you invented, so if the owner did not say when, ask.", { required: true }),
       b("note", "string", "One line about the run, ≤ 500 characters."),
     ],
     detail: "The service keeps the outcome consistent with the dates: a closed run is never \"playing\". Ending a run before it started is a 400.",

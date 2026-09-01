@@ -12,10 +12,22 @@ import { EnrichmentError } from "@/lib/enrichment/service";
  * represent playing a game twice, and this collection is full of games that
  * get replayed every few years. "Playing now" is exactly `endedAt is null`.
  *
- * Unlike codes and maps — which share one API between the owner and a research
- * skill because they are public facts about a game — **there is no agent write
- * path here at all**. Nobody but the owner can produce a playthrough, and an
- * agent inventing one would be fabricating a memory.
+ * Agents may write here, under one rule: **record, never infer**
+ * (GAMEEXPLOR-0031). A run the owner described is dictation — "I finished
+ * Contra last night" is a fact about their evening that they are telling you.
+ * A run *derived* from anything — a habit, a journal entry, a completion
+ * percentage — is a fabricated memory, and nothing on the page can contradict
+ * it afterwards the way a wrong tag contradicts itself. The rule lives in
+ * `.claude/skills/curate-collection/reference/play.md`; nothing in this module
+ * can enforce it, because a dictated write and an invented one are the same
+ * call.
+ *
+ * That asymmetry is exactly why the **journal** stays closed to agents and
+ * always will. Codes and maps share one API between the owner and a research
+ * skill because they are public facts about a game; a playthrough's *writing*
+ * is not, nobody but the owner can produce it, and there is no dictation shape
+ * for it — a run has a date and an outcome to be told, a journal entry is the
+ * prose itself.
  *
  * The queue lives in this module rather than its own because `startSession`
  * must dequeue in the same transaction: a game cannot be both "up next" and

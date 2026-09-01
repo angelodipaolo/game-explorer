@@ -118,9 +118,11 @@ describe("the command registry", () => {
   });
 
   it("no command drives a route an agent must not touch", () => {
-    // Auth is the owner's browser session; /api/img is the shelf's pixels; the
-    // journal is the owner's own writing about their own life. All three are
-    // refusals in the curate-collection skill, not gaps in coverage.
+    // Auth is the owner's browser session and /api/img is the shelf's pixels:
+    // neither is collection data, so neither is a gap in coverage. The journal
+    // is the one actual refusal — the owner's own writing about their own
+    // life, and the "Never write these" section of the curate-collection skill
+    // says so in as many words.
     //
     // The play log and the queue were on this list until GAMEEXPLOR-0031 and
     // are deliberately off it now: "record, never infer" is a rule about where
