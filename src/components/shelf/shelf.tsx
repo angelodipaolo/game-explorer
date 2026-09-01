@@ -6,6 +6,7 @@ import type { ShelfGame } from "@/lib/collection";
 import type { Viewer } from "@/lib/viewer";
 import { activeFilterCount, applyFilters, facets as buildFacets, serializeFilters, type Filters } from "@/lib/filters";
 import { Button, cx } from "@/components/ui";
+import { focusTrigger } from "@/components/overlay";
 import { FilterSheet, PresetRow } from "./filter-sheet";
 import { GameCard, GameRow } from "./game-card";
 import { shelfGrid } from "./grid";
@@ -43,7 +44,10 @@ export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer })
               className="h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
             />
           </label>
-          <Button variant={active ? "primary" : "secondary"} onClick={() => setSheetOpen(true)} data-testid="open-filters" aria-expanded={sheetOpen}>
+          <Button variant={active ? "primary" : "secondary"} onClick={(e) => {
+            focusTrigger(e);
+            setSheetOpen(true);
+          }} data-testid="open-filters" aria-expanded={sheetOpen}>
             Filters{active ? ` · ${active}` : ""}
           </Button>
           <div className="hidden overflow-hidden rounded-xl border border-border sm:flex" role="group" aria-label="View">
@@ -70,7 +74,7 @@ export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer })
                 key={g.name}
                 onClick={() => set({ tags: on ? filters.tags.filter((t) => t !== g.name) : [...filters.tags, g.name] })}
                 aria-pressed={on}
-                className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent-2 bg-accent-2/15 text-accent-2 font-semibold" : "border-border/60 bg-bg-elev text-muted hover:text-text")}
+                className={cx("min-h-11 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent-2 bg-accent-2/15 text-accent-2 font-semibold" : "border-border/60 bg-bg-elev text-muted hover:text-text")}
                 data-testid="genre-chip"
               >
                 {g.name}
@@ -93,14 +97,14 @@ export function Shelf({ games, viewer }: { games: ShelfGame[]; viewer: Viewer })
           <div className="flex items-center gap-3 text-xs text-muted">
             <label className="flex items-center gap-1">
               Sort
-              <select value={filters.sort} onChange={(e) => set({ sort: e.target.value as Filters["sort"], seed: e.target.value === "shuffle" ? Date.now() % 100000 : null })} className="min-h-10 rounded-lg border border-border bg-surface px-2 text-sm text-text">
+              <select value={filters.sort} onChange={(e) => set({ sort: e.target.value as Filters["sort"], seed: e.target.value === "shuffle" ? Date.now() % 100000 : null })} className="min-h-11 rounded-lg border border-border bg-surface px-2 text-sm text-text">
                 <option value="title">A–Z</option>
                 <option value="year">Year</option>
                 <option value="rating">Rating</option>
                 <option value="shuffle">Shuffle</option>
               </select>
             </label>
-            <button onClick={() => set({ view: filters.view === "grid" ? "list" : "grid" })} className="min-h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text sm:hidden">
+            <button onClick={() => set({ view: filters.view === "grid" ? "list" : "grid" })} className="min-h-11 rounded-lg border border-border bg-surface px-3 text-sm text-text sm:hidden" data-testid="view-toggle-phone">
               {filters.view === "grid" ? "List" : "Covers"}
             </button>
           </div>

@@ -11,6 +11,15 @@ import { readViewer } from "@/lib/viewer";
  * platform counts behind the menu are read the same way and for the same
  * reason — one indexed query beats a prop drilled through nine pages.
  */
+/**
+ * A header link is a 44px-tall target (GAMEEXPLOR-0023). An iPad is a touch
+ * device and this row is its whole navigation, so `py-1.5` — 32px — was a
+ * target you had to aim at. The header row is `h-11`, so the link fills its
+ * height rather than growing the bar; only the hover background is visibly
+ * different. `min-w-11` is not needed: every label here is wider than 44px.
+ */
+const navLink = "inline-flex min-h-11 items-center rounded-lg px-3 text-muted hover:bg-surface-2 hover:text-text";
+
 export async function SiteHeader() {
   const [viewer, menu] = await Promise.all([readViewer(), platformCounts()]);
   const { canEdit } = viewer;
@@ -41,23 +50,23 @@ export async function SiteHeader() {
         <nav className="ml-auto hidden items-center gap-1 text-sm sm:flex">
           {/* The wordmark is home (GAMEEXPLOR-0012 moved it there); "Shelf" is
               the grid with the filters, now at /shelf. */}
-          <Link href="/shelf" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-shelf">
+          <Link href="/shelf" className={navLink} data-testid="nav-shelf">
             Shelf
           </Link>
           {/* Two homes on purpose: this is the one-tap route from anywhere with
               a header, and the menu carries it too because that is what a thumb
               reaches for. Short label, since this row is also the iPad's. */}
-          <Link href="/playing" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-playing">
+          <Link href="/playing" className={navLink} data-testid="nav-playing">
             Playing
           </Link>
-          <Link href="/series" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-series">
+          <Link href="/series" className={navLink} data-testid="nav-series">
             Series
           </Link>
           {/* Import is a curation tool: `src/proxy.ts` sends a visitor who
               types the URL to /login, so offering the link to one would only
               be a dead end. */}
           {canEdit ? (
-            <Link href="/import" className="rounded-lg px-3 py-1.5 text-muted hover:bg-surface-2 hover:text-text" data-testid="nav-import">
+            <Link href="/import" className={navLink} data-testid="nav-import">
               Import
             </Link>
           ) : null}

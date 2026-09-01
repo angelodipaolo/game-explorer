@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useRef } from "react";
 import type { Facets, Filters } from "@/lib/filters";
 import type { Viewer } from "@/lib/viewer";
 import { AuthMenu } from "@/components/auth-menu";
 import { MODE_LABELS } from "@/lib/players";
 import { Button, cx } from "@/components/ui";
+import { Overlay } from "@/components/overlay";
 import { FilterControls } from "./filter-controls";
 
 /** One-tap ways in. The first is the flagship. Shared by the shelf and Flip. */
@@ -36,15 +37,20 @@ export function PresetRow({ filters, active, set, reset }: { filters: Filters; a
             key={p.label}
             onClick={() => (on ? reset() : set({ ...CLEARED, ...p.patch }))}
             aria-pressed={on}
-            className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
+            className={cx("min-h-11 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent bg-accent text-accent-ink font-semibold" : "border-border bg-surface text-muted hover:text-text")}
             data-testid="preset"
           >
-            {p.label} <span className="opacity-60">· {p.hint}</span>
+            {/* A token step down, not `opacity-60`: opacity is not inherited
+                into the computed colour, so the hint used to render at
+                4.30:1 (and 2.27:1 on the pressed chip's red) while the
+                stylesheet still read as AA. On the pressed chip the hint
+                keeps `--accent-ink` and steps back by weight instead. */}
+            {p.label} <span className={on ? "font-normal" : "text-faint"}>· {p.hint}</span>
           </button>
         );
       })}
       {active ? (
-        <button onClick={reset} className="min-h-10 shrink-0 rounded-full px-3 text-sm text-accent-2 hover:underline">
+        <button onClick={reset} className="min-h-11 min-w-11 shrink-0 rounded-full px-3 text-sm text-accent-2 hover:underline" data-testid="preset-clear">
           Clear
         </button>
       ) : null}
@@ -57,21 +63,17 @@ export function PresetRow({ filters, active, set, reset }: { filters: Filters; a
  * same one is used on the shelf and in Flip, so the two never drift.
  */
 export function FilterSheet({ open, onClose, filters, facets, set, reset, active, confirmed, maybe, showPresets, viewer }: { open: boolean; onClose: () => void; filters: Filters; facets: Facets; set: (p: Partial<Filters>) => void; reset: () => void; active: number; confirmed: number; maybe: number; showPresets?: boolean; viewer: Viewer }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-  if (!open) return null;
+  // Focus lands on the panel itself rather than the backdrop button that
+  // precedes it in the DOM, so the dialog's label is what a screen reader
+  // announces. The backdrop is `tabIndex={-1}` and therefore out of the trap's
+  // tab order: it is a pointer affordance that duplicates the visible ×, and
+  // left tabbable it was where the first Tab landed — a full-screen unlabelled
+  // "close" ahead of every filter.
+  const panel = useRef<HTMLDivElement>(null);
   return (
-    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Filters">
-      <button className="absolute inset-0 bg-black/60" aria-label="Close filters" onClick={onClose} />
-      <div className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl border-t border-border bg-bg-elev p-5 pb-safe shadow-2xl sm:inset-auto sm:right-4 sm:top-16 sm:w-[28rem] sm:rounded-2xl sm:border">
+    <Overlay open={open} onClose={onClose} label="Filters" className="z-40" initialFocus={panel} testId="filter-sheet">
+      <button tabIndex={-1} className="absolute inset-0 bg-black/60" aria-label="Close filters" onClick={onClose} />
+      <div ref={panel} tabIndex={-1} className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl border-t border-border bg-bg-elev p-5 pb-safe shadow-2xl outline-none sm:inset-auto sm:right-4 sm:top-16 sm:w-[28rem] sm:rounded-2xl sm:border">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold">Narrow it down</h2>
           <div className="flex gap-2">
@@ -96,6 +98,6 @@ export function FilterSheet({ open, onClose, filters, facets, set, reset, active
             opens for filters. Renders nothing when no auth is configured. */}
         <AuthMenu viewer={viewer} className="mt-5 border-t border-border/60 pt-3" />
       </div>
-    </div>
+    </Overlay>
   );
 }

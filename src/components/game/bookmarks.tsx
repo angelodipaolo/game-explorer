@@ -58,7 +58,7 @@ export function Bookmarks({ gameId, bookmarks, canEdit }: { gameId: string; book
 
   const editButton =
     bookmarks.length && canEdit ? (
-      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-bookmarks">
+      <button onClick={() => setEditing((e) => !e)} className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-bookmarks">
         {editing ? "Done" : "Edit"}
       </button>
     ) : null;
@@ -72,7 +72,7 @@ export function Bookmarks({ gameId, bookmarks, canEdit }: { gameId: string; book
           openSection("guides");
           setAdding(true);
         }}
-        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
         data-testid="add-bookmark-empty"
       >
         + link

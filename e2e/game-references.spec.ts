@@ -69,12 +69,37 @@ async function makePng(page: Page, label: string) {
   }, label);
 }
 
+/**
+ * A missing blob image is not this spec's failure. Contra is shared with
+ * `game-maps.spec.ts`, which creates a map, drives it and deletes it again;
+ * when the two interleave, a page here can still be holding the URL of an
+ * image that has just gone. So a console error *located at* one of the blob
+ * image routes is dropped — and nothing else is.
+ *
+ * That location is the whole filter, and it has to stay that way. Both
+ * Chromium and WebKit populate `m.location().url` for a resource error, so
+ * this is precise: it names the route that failed. The wider rule that once
+ * stood here — drop any "Failed to load resource" after any blob 404 was seen
+ * — latched: one interleaved 404 turned off the check for the rest of the
+ * test, including a 400 or 500 from `POST /api/games/:id/bookmarks`, which is
+ * the exact failure this spec exists to catch.
+ */
+const BLOB_IMAGE = /\/api\/(maps|manual-pages|journal)\/[^/]+\/image/;
+
+function collectConsoleErrors(page: Page, errors: string[]) {
+  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("console", (m) => {
+    if (m.type() !== "error") return;
+    if (BLOB_IMAGE.test(m.location().url)) return;
+    errors.push(m.text());
+  });
+}
+
 test("a bookmark can be added from the game page and groups under its kind", async ({ page }, testInfo) => {
   const TITLE = titleFor(testInfo.project.name);
   const URL_ = urlFor(testInfo.project.name);
   const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  collectConsoleErrors(page, errors);
   page.on("dialog", (d) => d.accept());
 
   const gameId = await openContra(page);
@@ -169,8 +194,7 @@ test("the gaps endpoint answers in the shape a research skill drives", async ({ 
 test("a scanned manual shows on the game page and pages through in the viewer", async ({ page }, testInfo) => {
   const MANUAL = manualFor(testInfo.project.name);
   const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  collectConsoleErrors(page, errors);
 
   const gameId = await openContra(page);
   await cleanUpManuals(page, gameId, MANUAL);

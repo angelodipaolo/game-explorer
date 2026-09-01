@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { JournalEntry, PlaySession } from "@prisma/client";
 import { apiError, cx, day, dateInput } from "@/components/ui";
+import { Overlay, focusTrigger } from "@/components/overlay";
 import { Section, openSection } from "@/components/game/section";
 
 /**
@@ -92,6 +93,7 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
   const [file, setFile] = useState<File | null>(null);
   const [viewing, setViewing] = useState<JournalEntry | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const closePhoto = useRef<HTMLButtonElement>(null);
 
   async function add() {
     if (!file && !body.trim()) return;
@@ -154,18 +156,6 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
     }
   }
 
-  // The photo overlay is a dialog: Escape closes it and the feed behind it does
-  // not scroll under it — the same pair as the filter sheet.
-  useEffect(() => {
-    if (!viewing) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setViewing(null);
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [viewing]);
 
   const visible = showAll ? entries : entries.slice(0, FOLD);
   // Entries sit under the run they were written during once there is more than
@@ -175,7 +165,7 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
 
   const editButton =
     entries.length && canEdit ? (
-      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-journal">
+      <button onClick={() => setEditing((e) => !e)} className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-journal">
         {editing ? "Done" : "Edit"}
       </button>
     ) : null;
@@ -190,7 +180,7 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
           openSection("journal");
           setComposerOpen(true);
         }}
-        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
         data-testid="journal-add-note-empty"
       >
         ＋ Add a note
@@ -249,7 +239,7 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
                     </button>
                   </span>
                 ) : (
-                  <button type="button" onClick={() => setOnRun(true)} className="min-h-8 rounded-full border border-dashed border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="journal-set-run">
+                  <button type="button" onClick={() => setOnRun(true)} className="tap-44 min-h-8 rounded-full border border-dashed border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="journal-set-run">
                     + file under this run
                   </button>
                 )}
@@ -302,22 +292,25 @@ export function Journal({ gameId, entries, sessions, canEdit }: { gameId: string
 
       {!entries.length ? <p className="mt-3 text-xs text-faint">Nothing written yet. Notes and photos stay with the run they were written during.</p> : null}
 
-      {viewing ? (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95" role="dialog" aria-modal="true" aria-label={viewing.title ?? "Photo"} data-testid="journal-photo-viewer">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-white/80">
-            <span className="min-w-0 truncate">
-              {viewing.title ? `${viewing.title} · ` : ""}
-              {day(viewing.occurredAt)}
-            </span>
-            <button onClick={() => setViewing(null)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 text-xl text-white" aria-label="Close photo">
-              ×
-            </button>
-          </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center p-3">
-            <img src={`/api/journal/${viewing.id}/image`} alt={viewing.title ?? ""} className="max-h-full max-w-full object-contain" />
-          </div>
+      {/* The photo overlay is a real dialog now (GAMEEXPLOR-0023): Escape
+          closes it, Tab stays inside it, the feed behind it neither scrolls nor
+          takes a tap, and closing puts focus back on the thumbnail. All of that
+          is `Overlay`, shared with the menu, the filter sheet and the
+          screenshot viewer. */}
+      <Overlay open={!!viewing} onClose={() => setViewing(null)} label={viewing?.title ?? "Photo"} className="z-50 flex flex-col bg-black/95" initialFocus={closePhoto} testId="journal-photo-viewer">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-white/80">
+          <span className="min-w-0 truncate">
+            {viewing?.title ? `${viewing.title} · ` : ""}
+            {viewing ? day(viewing.occurredAt) : ""}
+          </span>
+          <button ref={closePhoto} onClick={() => setViewing(null)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 text-xl text-white" aria-label="Close photo" data-testid="journal-photo-close">
+            ×
+          </button>
         </div>
-      ) : null}
+        <div className="flex min-h-0 flex-1 items-center justify-center p-3">
+          {viewing ? <img src={`/api/journal/${viewing.id}/image`} alt={viewing.title ?? ""} className="max-h-full max-w-full object-contain" /> : null}
+        </div>
+      </Overlay>
     </Section>
   );
 }
@@ -365,6 +358,9 @@ function JournalEntryCard({
               type="button"
               onClick={(ev) => {
                 ev.stopPropagation();
+                // Safari does not focus a button on click, and the viewer hands
+                // focus back to whatever had it when it opened.
+                focusTrigger(ev);
                 onOpenPhoto();
               }}
               className="mt-2 block h-24 w-24 overflow-hidden rounded-lg border border-border"

@@ -5,6 +5,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { activeFilterCount, type Facets, type Filters } from "@/lib/filters";
 import type { Viewer } from "@/lib/viewer";
 import { Button, cx } from "@/components/ui";
+import { focusTrigger } from "@/components/overlay";
 import { FilterSheet } from "@/components/shelf/filter-sheet";
 import { useDebouncedQuery } from "@/components/shelf/use-filters";
 
@@ -71,7 +72,10 @@ export function FilterBar({
             className="h-11 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-base outline-none placeholder:text-faint focus:border-accent"
           />
         </label>
-        <Button variant={active ? "primary" : "secondary"} onClick={() => setSheetOpen(true)} data-testid="open-filters" aria-expanded={sheetOpen}>
+        <Button variant={active ? "primary" : "secondary"} onClick={(e) => {
+            focusTrigger(e);
+            setSheetOpen(true);
+          }} data-testid="open-filters" aria-expanded={sheetOpen}>
           Filters{active ? ` · ${active}` : ""}
         </Button>
         {children}
@@ -101,7 +105,7 @@ export function FilterBar({
                 key={g.name}
                 onClick={() => set({ tags: on ? filters.tags.filter((t) => t !== g.name) : [...filters.tags, g.name] })}
                 aria-pressed={on}
-                className={cx("min-h-10 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent-2 bg-accent-2/15 text-accent-2 font-semibold" : "border-border/60 bg-bg-elev text-muted hover:text-text")}
+                className={cx("min-h-11 shrink-0 rounded-full border px-3 text-sm transition touch-manipulation", on ? "border-accent-2 bg-accent-2/15 text-accent-2 font-semibold" : "border-border/60 bg-bg-elev text-muted hover:text-text")}
                 data-testid="genre-chip"
               >
                 {g.name}

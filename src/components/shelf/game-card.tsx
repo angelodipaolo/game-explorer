@@ -8,9 +8,13 @@ import { PlayersLine, minutesLabel } from "./players-line";
 
 export function GameCard({ game, dim, priority }: { game: ShelfGame; dim?: boolean; priority?: boolean }) {
   return (
-    <Link href={`/game/${game.id}`} className={cx("group block animate-fade-up", dim && "opacity-70 hover:opacity-100")} data-testid="game-card" prefetch={false}>
+    // The "maybe" dimming rides on the art, not on the whole card. Opacity is
+    // not inherited into a computed colour, so an `opacity-70` wrapper printed
+    // `text-faint` at 3.63:1 while the token still measured 6.40:1 — and the
+    // "?" badge, which is the actual meaning here, faded with it.
+    <Link href={`/game/${game.id}`} className="group block animate-fade-up" data-testid="game-card" prefetch={false}>
       <div className="relative transition duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]">
-        <Cover imageId={game.cover} title={game.name} priority={priority} className="shadow-lg shadow-black/40 ring-1 ring-white/5 group-hover:ring-accent/60" />
+        <Cover imageId={game.cover} title={game.name} priority={priority} className={cx("shadow-lg shadow-black/40 ring-1 ring-white/5 group-hover:ring-accent/60", dim && "opacity-70 transition-opacity group-hover:opacity-100")} />
         {dim ? <span className="absolute right-2 top-2 rounded-md bg-bg/80 px-1.5 py-0.5 text-xs text-muted backdrop-blur">?</span> : null}
         {/* Open runs only. "Played" is deliberately unbadged: most of the shelf
             would carry one and it would read as wallpaper rather than news. */}
@@ -40,8 +44,10 @@ export function GameCard({ game, dim, priority }: { game: ShelfGame; dim?: boole
 
 export function GameRow({ game, dim }: { game: ShelfGame; dim?: boolean }) {
   return (
-    <Link href={`/game/${game.id}`} className={cx("flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-surface", dim && "opacity-70 hover:opacity-100")} data-testid="game-row" prefetch={false}>
-      <Cover imageId={game.cover} title={game.name} size="small" className="w-10 shrink-0 rounded-md" />
+    // Same trade as the card: the thumbnail dims, the text does not, and the
+    // "?" at the end of the row is what says "we do not know".
+    <Link href={`/game/${game.id}`} className="group flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-surface" data-testid="game-row" prefetch={false}>
+      <Cover imageId={game.cover} title={game.name} size="small" className={cx("w-10 shrink-0 rounded-md", dim && "opacity-70 transition-opacity group-hover:opacity-100")} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           {game.play.status === "playing" ? (

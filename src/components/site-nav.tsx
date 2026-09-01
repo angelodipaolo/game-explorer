@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cx } from "@/components/ui";
+import { useOverlay } from "@/components/overlay";
 import type { PlatformCount } from "@/lib/collection";
 import type { Viewer } from "@/lib/viewer";
 import { AuthMenu } from "@/components/auth-menu";
@@ -45,20 +46,12 @@ export function SiteNav({ open, onClose, platforms, totalGames, viewer }: { open
   const router = useRouter();
   const shelf = useShelfFilters();
 
-  useEffect(() => {
-    if (!open) return;
-    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
-    closeButton.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus();
-    };
-  }, [open, onClose]);
+  // Escape, the Tab trap, the scroll lock (without the desktop scrollbar's
+  // 15px jump), `inert` on the page behind, and focus back on the hamburger:
+  // all of it lives in `useOverlay` now, shared with the filter sheet and the
+  // two media viewers. Focus lands on the × rather than the first link — it is
+  // the thumb's target and the keyboard's way straight back out.
+  const dialog = useOverlay<HTMLDivElement>({ open, onClose, initialFocus: closeButton });
 
   if (!open) return null;
   const selected = (slug: string | null) => {
@@ -88,7 +81,7 @@ export function SiteNav({ open, onClose, platforms, totalGames, viewer }: { open
   // contents would spill across the page. The portal keeps the React tree (and
   // therefore the shelf's filter context) exactly as it is.
   return createPortal(
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Main menu" data-testid="platform-sidebar">
+    <div ref={dialog} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Main menu" data-overlay="" data-testid="platform-sidebar">
       <button className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" aria-label="Close menu" onClick={onClose} />
       <aside id="main-menu" className="platform-drawer absolute inset-y-0 left-0 flex w-[min(22rem,88vw)] flex-col border-r border-border bg-bg-elev shadow-2xl">
         <div className="nes-stripe h-1 shrink-0" aria-hidden="true" />

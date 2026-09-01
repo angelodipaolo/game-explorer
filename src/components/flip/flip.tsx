@@ -7,6 +7,7 @@ import type { Viewer } from "@/lib/viewer";
 import { applyFilters, activeFilterCount, facets as buildFacets, serializeFilters } from "@/lib/filters";
 import { FilterSheet } from "@/components/shelf/filter-sheet";
 import { Badge, cx } from "@/components/ui";
+import { focusTrigger } from "@/components/overlay";
 import { Cover } from "@/components/shelf/cover";
 import { PlayersLine, minutesLabel } from "@/components/shelf/players-line";
 import { modeLabel } from "@/lib/players";
@@ -115,7 +116,10 @@ export function Flip({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) 
             ⇄
           </button>
           <button
-            onClick={() => setSheetOpen(true)}
+            onClick={(e) => {
+            focusTrigger(e);
+            setSheetOpen(true);
+          }}
             className={cx("min-h-11 rounded-xl px-3 text-sm", active ? "bg-accent font-semibold text-accent-ink" : "border border-border bg-surface text-text")}
             data-testid="flip-open-filters"
             aria-expanded={sheetOpen}
