@@ -6,11 +6,17 @@
  *             multiplayer_modes (exact counts)
  *   derived — computed from other facts (simultaneousPlay from offlinecoop)
  *
- * Every player column IGDB gives us describes LOCAL play, so `coop` here means
- * couch co-op. Remote play is `onlineCoop`, which IGDB never sets and nothing
- * derives: it starts unknown on every game and is filled in by the owner or by
- * a research agent. `src/lib/players.ts` turns the resolved profile into the
- * words a person reads.
+ * Co-op is three fields, not one, because IGDB answers them separately:
+ *   coop        — cooperative play at all, KIND UNKNOWN. `game_modes` id 3 is
+ *                 "Co-Operative"; it says nothing about a couch. Hand-set and
+ *                 agent `coop` facts mean this too.
+ *   localCoop   — a couch: `multiplayer_modes.offlinecoop`/`offlinecoopmax`,
+ *                 or split screen on a game that is cooperative.
+ *   onlineCoop  — remote: `multiplayer_modes.onlinecoop`.
+ * Only kind-specific evidence may set a kind. Never infer "local" from the
+ * bare co-op tag: Bloodborne, Destiny and DOOM carry it and none of them is a
+ * couch game. `src/lib/players.ts` turns the resolved profile into the words a
+ * person reads.
  *
  * Every resolved value carries where it came from so the UI can show
  * "verified" vs "from IGDB" vs "unknown".
@@ -20,6 +26,7 @@ export const FACT_FIELDS = [
   "singlePlayer",
   "multiplayer",
   "coop",
+  "localCoop",
   "onlineCoop",
   "splitscreen",
   "maxPlayers",
@@ -37,6 +44,7 @@ export type PlayerProfile = {
   singlePlayer: Fact<boolean>;
   multiplayer: Fact<boolean>;
   coop: Fact<boolean>;
+  localCoop: Fact<boolean>;
   onlineCoop: Fact<boolean>;
   splitscreen: Fact<boolean>;
   maxPlayers: Fact<number>;
@@ -53,8 +61,63 @@ export type CatalogPlayerData = {
   mpOfflineCoop: boolean | null;
   mpSplitscreen: boolean | null;
   mpCampaignCoop: boolean | null;
+  mpOnlineCoop: boolean | null;
+  mpOnlineMax: number | null;
   ttbNormally: number | null;
 };
+
+/**
+ * A `CatalogGame` row, as far as player data is concerned. The columns are
+ * enumerated in one place on purpose: four callers used to spell this literal
+ * out by hand, so adding a column meant remembering all four, and forgetting
+ * one lost the data silently on that surface only.
+ */
+export type CatalogPlayerRow = {
+  gameModes: string;
+  mpOfflineMax: number | null;
+  mpOfflineCoopMax: number | null;
+  mpOfflineCoop: boolean | null;
+  mpSplitscreen: boolean | null;
+  mpCampaignCoop: boolean | null;
+  mpOnlineCoop: boolean | null;
+  mpOnlineMax: number | null;
+  ttbNormally: number | null;
+};
+
+/** The Prisma `select` that fills a `CatalogPlayerRow`. */
+export const CATALOG_PLAYER_COLUMNS = {
+  gameModes: true,
+  mpOfflineMax: true,
+  mpOfflineCoopMax: true,
+  mpOfflineCoop: true,
+  mpSplitscreen: true,
+  mpCampaignCoop: true,
+  mpOnlineCoop: true,
+  mpOnlineMax: true,
+  ttbNormally: true,
+} as const;
+
+export function catalogPlayerData(c: CatalogPlayerRow | null | undefined): CatalogPlayerData | null {
+  if (!c) return null;
+  let gameModes: number[] = [];
+  try {
+    const v = JSON.parse(c.gameModes);
+    if (Array.isArray(v)) gameModes = v as number[];
+  } catch {
+    // A malformed row means no modes, not a crashed page.
+  }
+  return {
+    gameModes,
+    mpOfflineMax: c.mpOfflineMax,
+    mpOfflineCoopMax: c.mpOfflineCoopMax,
+    mpOfflineCoop: c.mpOfflineCoop,
+    mpSplitscreen: c.mpSplitscreen,
+    mpCampaignCoop: c.mpCampaignCoop,
+    mpOnlineCoop: c.mpOnlineCoop,
+    mpOnlineMax: c.mpOnlineMax,
+    ttbNormally: c.ttbNormally,
+  };
+}
 
 export type Override = { field: string; value: string; source: string; sourceUrl?: string | null; note?: string | null };
 
@@ -67,6 +130,7 @@ function fromCatalog(c: CatalogPlayerData | null): PlayerProfile {
     singlePlayer: UNKNOWN,
     multiplayer: UNKNOWN,
     coop: UNKNOWN,
+    localCoop: UNKNOWN,
     onlineCoop: UNKNOWN,
     splitscreen: UNKNOWN,
     maxPlayers: UNKNOWN,
@@ -84,10 +148,26 @@ function fromCatalog(c: CatalogPlayerData | null): PlayerProfile {
   }
   // multiplayer_modes is more specific, so it wins over game_modes where present.
   if (c.mpOfflineMax != null) p.maxPlayers = { value: c.mpOfflineMax, source: "igdb:multiplayer_modes" };
+  // An online-only game has no offline max at all; its online max is still a
+  // real ceiling on how many people can be in the session.
+  else if (c.mpOnlineMax != null && c.mpOnlineMax > 1) p.maxPlayers = { value: c.mpOnlineMax, source: "igdb:multiplayer_modes" };
   if (c.mpOfflineCoopMax != null) p.coopMaxPlayers = { value: c.mpOfflineCoopMax, source: "igdb:multiplayer_modes" };
-  if (c.mpOfflineCoop != null) p.coop = { value: c.mpOfflineCoop || p.coop.value === true, source: "igdb:multiplayer_modes" };
   if (c.mpSplitscreen != null) p.splitscreen = { value: c.mpSplitscreen || p.splitscreen.value === true, source: "igdb:multiplayer_modes" };
-  if (c.mpOfflineMax != null && c.mpOfflineMax > 1 && p.multiplayer.value !== true) {
+
+  // The two kinds, each from its own column. `offlinecoopmax > 1` is offline
+  // co-op stated as a number, so it counts as the same evidence.
+  if (c.mpOfflineCoop != null) p.localCoop = { value: c.mpOfflineCoop, source: "igdb:multiplayer_modes" };
+  if (p.localCoop.value !== true && c.mpOfflineCoopMax != null && c.mpOfflineCoopMax > 1) p.localCoop = { value: true, source: "igdb:multiplayer_modes" };
+  if (c.mpOnlineCoop != null) p.onlineCoop = { value: c.mpOnlineCoop, source: "igdb:multiplayer_modes" };
+
+  // The umbrella. Either kind being true makes it co-op; a kind being false
+  // never makes it *not* co-op, because IGDB's multiplayer_modes rows are
+  // per-platform and routinely partial — game_modes saying "Co-Operative"
+  // still stands, we just do not know which kind.
+  if (p.localCoop.value === true || p.onlineCoop.value === true) p.coop = { value: true, source: "igdb:multiplayer_modes" };
+
+  const maxKnown = c.mpOfflineMax ?? c.mpOnlineMax;
+  if (maxKnown != null && maxKnown > 1 && p.multiplayer.value !== true) {
     p.multiplayer = { value: true, source: "igdb:multiplayer_modes" };
   }
   if (c.ttbNormally != null) p.playtimeMinutes = { value: c.ttbNormally, source: "igdb:time_to_beat" };
@@ -140,6 +220,11 @@ function derive(p: PlayerProfile, c: CatalogPlayerData | null): PlayerProfile {
     } else if (out.multiplayer.value === false) {
       out.simultaneousPlay = { value: false, source: "derived", note: "single player only" };
     }
+  }
+  // Split screen is one screen in one room. On its own it could be versus, so
+  // it only names a kind on a game we already know is cooperative.
+  if (out.localCoop.value == null && out.coop.value === true && out.splitscreen.value === true) {
+    out.localCoop = { value: true, source: "derived", note: "co-op on a split screen is a couch" };
   }
   if (out.maxPlayers.value == null && out.multiplayer.value === false && out.singlePlayer.value === true) {
     out.maxPlayers = { value: 1, source: "derived", note: "single player only" };

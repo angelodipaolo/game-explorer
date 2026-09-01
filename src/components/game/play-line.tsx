@@ -31,9 +31,6 @@ export function PlayLine({ profile, playtimeCompletely }: { profile: PlayerProfi
   const segments = nothingKnown ? [] : [players.short, ...(playtime ? [`~${playtime}`] : [])];
   const inferred = players.inferred || (playtime != null && profile.playtimeMinutes.source === "derived");
 
-  // Local co-op is one idea with two IGDB spellings — offline co-op and split
-  // screen — so the row shows whichever of them actually knows something.
-  const localCoop = profile.coop.value != null ? profile.coop : profile.splitscreen;
 
   return (
     <div className="mt-3">
@@ -50,7 +47,8 @@ export function PlayLine({ profile, playtimeCompletely }: { profile: PlayerProfi
       </button>
       <div id="play-line-detail" hidden={!open} className="mt-2 rounded-xl border border-border bg-surface px-3" data-testid="facts">
         <FactRow label="Players" fact={profile.maxPlayers} render={() => players.count.label ?? "?"} />
-        <FactRow label="Local co-op" fact={localCoop} render={(v) => (v ? "Yes" : "No")} sub="Couch, same console, split screen" />
+        <FactRow label="Co-op" fact={profile.coop} render={(v) => (v ? "Yes" : "No")} sub="Cooperative — the kind is the two rows below" />
+        <FactRow label="Local co-op" fact={profile.localCoop} render={(v) => (v ? "Yes" : "No")} sub="Couch, same console, split screen" />
         <FactRow label="Online co-op" fact={profile.onlineCoop} render={(v) => (v ? "Yes" : "No")} sub="Playing together from somewhere else" />
         <FactRow label="Together or taking turns" fact={profile.simultaneousPlay} render={(v) => (v ? PLAYER_LABELS.simultaneous : PLAYER_LABELS.alternating)} />
         <FactRow label="How long" fact={profile.playtimeMinutes} render={(v) => minutesLabel(v) ?? "?"} sub={playtimeCompletely ? `${minutesLabel(playtimeCompletely)} to finish everything` : null} />

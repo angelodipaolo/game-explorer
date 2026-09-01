@@ -46,7 +46,7 @@ describe("enrichment", () => {
     await expect(writeAgentFacts(run.id, [{ ownedGameId: tecmo.id, field: "coop", value: false, sourceUrl: "https://x.org" }])).rejects.toMatchObject({ status: 409 });
 
     const facts = await prisma.gameFact.findMany({ where: { ownedGameId: tecmo.id } });
-    const profile = resolvePlayerProfile({ gameModes: [1, 2], mpOfflineMax: null, mpOfflineCoopMax: null, mpOfflineCoop: null, mpSplitscreen: null, mpCampaignCoop: null, ttbNormally: null }, facts);
+    const profile = resolvePlayerProfile({ gameModes: [1, 2], mpOfflineMax: null, mpOfflineCoopMax: null, mpOfflineCoop: null, mpSplitscreen: null, mpCampaignCoop: null, mpOnlineCoop: null, mpOnlineMax: null, ttbNormally: null }, facts);
     expect(profile.maxPlayers).toMatchObject({ value: 2, source: "agent", sourceUrl: "https://example.org/tecmo" });
     expect((await listGaps(["maxPlayers"])).gaps.map((g) => g.title)).toEqual(["Roller Games"]);
   });

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { matchSimilarToOwned } from "@/lib/owned-match";
-import { resolvePlayerProfile, type PlayerProfile } from "@/lib/facts";
+import { catalogPlayerData, resolvePlayerProfile, type PlayerProfile } from "@/lib/facts";
 import { describePlayers, playersShort, type PlayerTier } from "@/lib/players";
 import { platformBySlug, platformLabel } from "@/lib/platforms";
 import { resolveTags, type EffectiveTag } from "@/lib/tags";
@@ -138,7 +138,7 @@ export function profileToShelfPlayers(p: PlayerProfile): ShelfGame["players"] {
   const d = describePlayers(p);
   return {
     label: d.short,
-    brief: playersShort(d, 1),
+    brief: playersShort(d, 1, true),
     tier: d.tier,
     max: p.maxPlayers.value,
     coop: p.coop.value,
@@ -184,7 +184,7 @@ export async function loadOwnedRows(ids?: string[]): Promise<ShelfGame[]> {
   return owned.map((g) => {
     const c = g.catalogGame;
     const profile = resolvePlayerProfile(
-      c ? { gameModes: JSON.parse(c.gameModes), mpOfflineMax: c.mpOfflineMax, mpOfflineCoopMax: c.mpOfflineCoopMax, mpOfflineCoop: c.mpOfflineCoop, mpSplitscreen: c.mpSplitscreen, mpCampaignCoop: c.mpCampaignCoop, ttbNormally: c.ttbNormally } : null,
+      catalogPlayerData(c),
       g.facts,
     );
     const playtimeFact = profile.playtimeMinutes;
@@ -405,7 +405,7 @@ export async function loadGame(id: string): Promise<GameDetail | null> {
   similarGames.sort((a, b) => Number(!!b.ownedId) - Number(!!a.ownedId));
   const related = relatedOnShelf(shelf, allShelf, 12).filter((r) => !seenOwned.has(r.id));
   const profile = resolvePlayerProfile(
-    c ? { gameModes: JSON.parse(c.gameModes), mpOfflineMax: c.mpOfflineMax, mpOfflineCoopMax: c.mpOfflineCoopMax, mpOfflineCoop: c.mpOfflineCoop, mpSplitscreen: c.mpSplitscreen, mpCampaignCoop: c.mpCampaignCoop, ttbNormally: c.ttbNormally } : null,
+    catalogPlayerData(c),
     g.facts,
   );
   return {

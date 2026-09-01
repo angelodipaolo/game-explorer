@@ -68,8 +68,8 @@ reuses the one on port 3000.
 | `src/lib/catalog/` | Matching (`match.ts`: confidence scoring), normalization, `sync.ts` (upsert + parent backfill), `index.ts` (the `CatalogPort` everything else uses). |
 | `src/lib/import/` | Staged import: sessions → rows → decisions → one transactional commit → batch rollback. |
 | `src/lib/enrichment/` | Agent-written facts with citations; never overwrite manual facts. |
-| `src/lib/facts.ts` | Resolves player facts: manual > agent > IGDB tiers > derived. `coop` is the **local** kind (every IGDB player column is about one couch); `onlineCoop` is remote, IGDB never sets it, and it starts unknown on every game for research to fill in. |
-| `src/lib/players.ts` | **The one place player labelling is defined.** Three independent axes — a count range (`1`, `1–2`, `2–4`, en dash), co-op kind ("Local co-op" / "Online co-op", never a bare "Co-op"), and togetherness ("Together" vs "Taking turns"); multiplayer that is not co-op is "Versus". `describePlayers` turns a resolved `PlayerProfile` into the words, each axis carrying its own tier (exact / mode / unknown) and whether a person or an agent verified it. Pure. Nothing that renders player info may spell its own string. |
+| `src/lib/facts.ts` | Resolves player facts: manual > agent > IGDB tiers > derived. Co-op is three fields: `coop` is the umbrella (cooperative, kind unknown — IGDB's `game_modes` tag and every hand-set co-op fact), `localCoop` the couch (`mpOfflineCoop`/`mpOfflineCoopMax`/split screen), `onlineCoop` the network (`mpOnlineCoop`). A kind is only ever claimed from kind-specific evidence. `catalogPlayerData` is the one place catalog columns become resolver input. |
+| `src/lib/players.ts` | **The one place player labelling is defined.** Three independent axes — a count range (`1`, `1–2`, `2–4`, `Up to 4` when the floor is unknown), co-op ("Co-op" when the kind is not known, else "Local co-op" / "Online co-op" / "Local + online co-op"), and togetherness ("Together" vs "Taking turns"); multiplayer known not to be co-op is "Versus". `describePlayers` turns a resolved `PlayerProfile` into the words, each axis carrying its own tier (exact / mode / unknown) and whether a person or an agent verified it. `MODE_LABELS` names the three `mode=` filter values. Pure. Nothing that renders player info may spell its own string. |
 | `src/lib/codes/` | Passwords, cheats, Game Genie / Action Replay codes per owned copy. No `source` column and no precedence — a code you typed and a code a skill wrote are one kind of record. |
 | `src/lib/images/` | Disk cache for IGDB art: `.cache/igdb-images/<size>/<id>.jpg`, served by `/api/img/:size/:imageId`, which backfills on a miss and 307s to the CDN when offline. The only place `images.igdb.com` is named. |
 | `src/lib/maps/` | Interactive maps: `GameMap` (image on disk under `data/maps/`, served by `/api/maps/:id/image`) + `MapMarker` in image pixels. Same no-`source`, no-precedence stance as codes. Viewer is `src/components/maps/map-viewer.tsx`. |
@@ -130,10 +130,17 @@ reuses the one on port 3000.
   every write control in the UI renders only when the server-derived `canEdit`
   says so (`src/lib/viewer.ts`).
 - **Player labelling lives in `src/lib/players.ts`, and nowhere else.** Cards,
-  flip and the game page all render `describePlayers`, so one game is described
-  with the same words everywhere. The filter *values* are not part of that:
-  `mode=coop|versus|together` is what every saved link carries and must never
-  change — only the words on the buttons did.
+  flip, the filter sheet, the home rows and the game page all take their words
+  from it, so one game is described the same way everywhere. The filter
+  *values* are not part of that: `mode=coop|versus|together` is what every
+  saved link carries and must never change — only the words on the buttons did.
+- **A co-op *kind* is never inferred from the bare co-op signal.** IGDB's
+  `game_modes` id 3 is "Co-Operative", not *local* co-operative — Bloodborne,
+  Destiny and DOOM all carry it. Only `localCoop` (offline co-op, offline co-op
+  max, split screen on a cooperative game) may render "Local co-op", and only
+  `onlineCoop` may render "Online co-op"; everything else is a bare "Co-op". A
+  `coop` fact the owner set by hand means the umbrella too, and reinterpreting
+  it as a couch would be inventing data they never entered.
 - **Manual facts and tags are never overwritten** by IGDB sync or agents.
   Codes, maps, bookmarks and manuals are the deliberate exception: they are
   lists, not contested values, so `GameCode`, `GameMap`, `MapMarker`,

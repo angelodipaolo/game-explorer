@@ -8,6 +8,8 @@ const base: CatalogPlayerData = {
   mpOfflineCoop: null,
   mpSplitscreen: null,
   mpCampaignCoop: null,
+  mpOnlineCoop: null,
+  mpOnlineMax: null,
   ttbNormally: null,
 };
 
@@ -53,13 +55,35 @@ describe("resolvePlayerProfile", () => {
     expect(p.simultaneousPlay).toMatchObject({ value: true, source: "manual" });
   });
 
-  it("leaves onlineCoop for research: IGDB never sets it, nothing derives it", () => {
-    const p = resolvePlayerProfile({ ...base, gameModes: [1, 2, 3], mpOfflineCoop: true, mpSplitscreen: true });
+  it("takes both co-op kinds from multiplayer_modes, and keeps them apart", () => {
+    const p = resolvePlayerProfile({ ...base, gameModes: [1, 2, 3], mpOfflineCoop: false, mpSplitscreen: false, mpOnlineCoop: true, mpOnlineMax: 4 });
+    expect(p.localCoop).toMatchObject({ value: false, source: "igdb:multiplayer_modes" });
+    expect(p.onlineCoop).toMatchObject({ value: true, source: "igdb:multiplayer_modes" });
+    // The umbrella stays true: it IS co-op, we now also know which kind.
     expect(p.coop.value).toBe(true);
+  });
+
+  it("never lets the game_modes co-op tag claim a kind", () => {
+    const p = resolvePlayerProfile({ ...base, gameModes: [1, 2, 3] });
+    expect(p.coop).toEqual({ value: true, source: "igdb:game_modes" });
+    expect(p.localCoop.value).toBeNull();
     expect(p.onlineCoop.value).toBeNull();
   });
 
-  it("takes onlineCoop from an agent fact, with its citation", () => {
+  it("reads offline co-op, its max, and split screen on a co-op game as a couch", () => {
+    expect(resolvePlayerProfile({ ...base, gameModes: [1, 2, 3], mpOfflineCoop: true }).localCoop).toMatchObject({ value: true, source: "igdb:multiplayer_modes" });
+    expect(resolvePlayerProfile({ ...base, gameModes: [1, 2, 3], mpOfflineCoopMax: 4 }).localCoop).toMatchObject({ value: true, source: "igdb:multiplayer_modes" });
+    expect(resolvePlayerProfile({ ...base, gameModes: [1, 3, 4] }).localCoop).toMatchObject({ value: true, source: "derived" });
+    // Split screen on its own can be versus, so it says nothing about co-op.
+    expect(resolvePlayerProfile({ ...base, gameModes: [1, 4] }).localCoop.value).toBeNull();
+  });
+
+  it("falls back to the online ceiling only when there is no offline one", () => {
+    expect(resolvePlayerProfile({ ...base, mpOfflineMax: 2, mpOnlineMax: 8 }).maxPlayers.value).toBe(2);
+    expect(resolvePlayerProfile({ ...base, mpOnlineMax: 8 }).maxPlayers).toMatchObject({ value: 8, source: "igdb:multiplayer_modes" });
+  });
+
+  it("takes a co-op kind from an agent fact, with its citation", () => {
     const p = resolvePlayerProfile({ ...base, gameModes: [1, 2] }, [{ field: "onlineCoop", value: "true", source: "agent", sourceUrl: "https://example.org/online" }]);
     expect(p.onlineCoop).toMatchObject({ value: true, source: "agent", sourceUrl: "https://example.org/online" });
   });

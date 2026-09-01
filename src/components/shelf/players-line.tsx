@@ -1,5 +1,5 @@
 import type { ShelfGame } from "@/lib/collection";
-import { PLAYER_LABELS, tierHint } from "@/lib/players";
+import { playersLineLabel, tierHint } from "@/lib/players";
 import { cx } from "@/components/ui";
 
 /**
@@ -15,7 +15,7 @@ import { cx } from "@/components/ui";
  * `min-w-0` on the flex parent to bite.
  */
 export function PlayersLine({ players, brief, className }: { players: ShelfGame["players"]; brief?: boolean; className?: string }) {
-  const label = (brief ? players.brief : players.label) || PLAYER_LABELS.unknown;
+  const label = playersLineLabel(players, brief);
   return (
     <span className={cx("inline-block max-w-full truncate align-bottom", players.tier === "unknown" ? "text-faint" : players.tier === "mode" ? "text-muted" : "text-text", className)} title={`${label} — ${tierHint(players.tier)}`}>
       {label}

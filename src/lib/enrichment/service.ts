@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { FACT_FIELDS, resolvePlayerProfile, type FactField, type PlayerProfile } from "@/lib/facts";
+import { FACT_FIELDS, catalogPlayerData, resolvePlayerProfile, type FactField, type PlayerProfile } from "@/lib/facts";
 import { platformLabel } from "@/lib/platforms";
 
 /**
@@ -20,9 +20,9 @@ export class EnrichmentError extends Error {
   }
 }
 
-// `coop` is the local kind — IGDB has no remote signal, so `onlineCoop` is
-// research-only and starts unknown on every game.
-const BOOL_FIELDS: FactField[] = ["singlePlayer", "multiplayer", "coop", "onlineCoop", "splitscreen", "simultaneousPlay"];
+// `coop` is the umbrella; `localCoop` and `onlineCoop` are the two kinds, both
+// of which IGDB answers for part of the shelf and research fills in the rest.
+const BOOL_FIELDS: FactField[] = ["singlePlayer", "multiplayer", "coop", "localCoop", "onlineCoop", "splitscreen", "simultaneousPlay"];
 const NUM_FIELDS: FactField[] = ["maxPlayers", "coopMaxPlayers", "playtimeMinutes"];
 
 export const factInputSchema = z
@@ -56,7 +56,7 @@ export async function listGaps(fields: FactField[] = ["maxPlayers", "simultaneou
   const gaps: Gap[] = [];
   for (const g of owned) {
     const c = g.catalogGame;
-    const profile = resolvePlayerProfile(c ? { gameModes: JSON.parse(c.gameModes), mpOfflineMax: c.mpOfflineMax, mpOfflineCoopMax: c.mpOfflineCoopMax, mpOfflineCoop: c.mpOfflineCoop, mpSplitscreen: c.mpSplitscreen, mpCampaignCoop: c.mpCampaignCoop, ttbNormally: c.ttbNormally } : null, g.facts);
+    const profile = resolvePlayerProfile(catalogPlayerData(c), g.facts);
     const missing = fields.filter((f) => profile[f].value == null);
     if (!missing.length) continue;
     const known: Gap["known"] = {};
