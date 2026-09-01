@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { MusicPlayer } from "@/components/music/music-player";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +21,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-dvh bg-bg text-text antialiased">{children}</body>
+      <body className="min-h-dvh bg-bg text-text antialiased">
+        {children}
+        {/* One <audio> for the whole app (GAMEEXPLOR-0025). It has to be here,
+            outside every page, so a track survives navigating from a game to
+            its map and stops on its own when you leave for the shelf. Silent
+            unless this device turned music on in /settings. */}
+        <MusicPlayer />
+      </body>
     </html>
   );
 }
