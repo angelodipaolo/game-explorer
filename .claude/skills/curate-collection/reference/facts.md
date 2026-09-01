@@ -20,23 +20,47 @@ domain fills those gaps from the web, one cited fact at a time.
 
 ## Fields
 
+The app describes a game on three independent axes — how many players, which
+kind of co-op, and whether they play together or take turns
+(`src/lib/players.ts`). These fields are what feed them.
+
 | field | type | meaning |
 | --- | --- | --- |
 | `maxPlayers` | int | most people who can play in one session |
-| `simultaneousPlay` | bool | true = together at once; false = alternating turns |
-| `coop` | bool | players cooperate (vs. only versus / alternating) |
+| `simultaneousPlay` | bool | true = together at once ("Together"); false = alternating turns ("Taking turns") |
+| `coop` | bool | cooperative play at all, **kind not stated** — shows as a bare "Co-op" |
+| `localCoop` | bool | the couch: same console, same screen, split screen |
+| `onlineCoop` | bool | remote co-op over a network |
 | `coopMaxPlayers` | int | most people in co-op at once |
-| `splitscreen` | bool | |
+| `splitscreen` | bool | a local signal; `localCoop` is the one to write |
 | `singlePlayer` / `multiplayer` | bool | rarely needed; IGDB covers these |
 | `playtimeMinutes` | int | typical time to finish once |
 
-`simultaneousPlay` is the one that matters most: it is what makes "2-player
-co-op" filterable.
+**Co-op is three fields, because "co-op" and "couch co-op" are different
+claims.** IGDB's `game_modes` "Co-Operative" tag says a game is cooperative
+and nothing about where the other player sits — Bloodborne, Destiny and DOOM
+all carry it. So:
+
+- write `coop` when your source says players cooperate but not how;
+- write `localCoop` when it says same console / same screen / split screen;
+- write `onlineCoop` when it says online or network co-op.
+
+A game with both kinds gets both. **IGDB already answers both kinds for a good
+part of the shelf** — `multiplayer_modes.offlinecoop` and `.onlinecoop` are
+stored and resolved, so `known` in the gaps response often has the answer
+already. Do not spend a citation re-finding one; `gaps` will not list a field
+that is already known.
+
+`simultaneousPlay` is the one that matters most: it is what makes "2 of us, at
+the same time" filterable. Super Mario Kart is 1–2 simultaneous; Donkey Kong
+Country is 1–2 taking turns.
 
 ## Path
 
 ```bash
 # 1. What is missing? (default fields: maxPlayers, simultaneousPlay, coop)
+#    Add `localCoop,onlineCoop` on a pass that is about co-op kinds; IGDB has
+#    already filled a lot of them in, so the gaps list is the short list.
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/enrichment/gaps?fields=maxPlayers,simultaneousPlay&limit=25"
 # → { total, gaps: [{ ownedGameId, title, name, platform, year, igdbId, missing, known }] }
 
@@ -50,7 +74,8 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/enrichment/runs/<runId>/facts" -H 'content-type: application/json' -d '{
   "facts": [
     { "ownedGameId": "…", "field": "maxPlayers", "value": 2, "sourceUrl": "https://…", "note": "manual p.4: 1 or 2 players, alternating" },
-    { "ownedGameId": "…", "field": "simultaneousPlay", "value": false, "sourceUrl": "https://…" }
+    { "ownedGameId": "…", "field": "simultaneousPlay", "value": false, "sourceUrl": "https://…" },
+    { "ownedGameId": "…", "field": "localCoop", "value": true, "sourceUrl": "https://…", "note": "manual p.2: two controllers, one screen" }
   ]
 }'
 # → { written: [...], skipped: [{ ownedGameId, field, reason }] }

@@ -1,6 +1,7 @@
 import type { ShelfGame } from "./collection";
 import { DEFAULT_FILTERS, applyFilters, daySeed, seededShuffle, serializeFilters, type Filters } from "./filters";
 import { platformBySlug } from "./platforms";
+import { MODE_LABELS } from "./players";
 import { tagKey } from "./tags";
 
 /**
@@ -195,7 +196,7 @@ function tagsByCount(games: ShelfGame[], min: number): string[] {
 }
 
 const PLAYER_ROWS: { key: string; title: string; patch: Partial<Filters> }[] = [
-  { key: "players:2-coop", title: "Co-op games for two", patch: { players: 2, mode: "coop" } },
+  { key: "players:2-coop", title: `${MODE_LABELS.coop} games for two`, patch: { players: 2, mode: "coop" } },
   { key: "players:4", title: "Four-player games", patch: { players: 4 } },
   { key: "players:versus", title: "Head-to-head games", patch: { mode: "versus" } },
   { key: "players:2-together", title: "Two of you, at the same time", patch: { players: 2, mode: "together" } },

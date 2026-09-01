@@ -18,7 +18,7 @@ function game(over: Partial<ShelfGame> & { title: string }): ShelfGame {
     perspectives: [],
     rating: null,
     playtime: null,
-    players: { label: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
+    players: { label: "", brief: "", tier: "unknown", max: null, coop: null, multiplayer: null, single: null, simultaneous: null, verified: false },
     hasScreenshots: false,
     tags: [],
     similar: [],
@@ -32,10 +32,10 @@ function withTags(g: ShelfGame): ShelfGame {
   return { ...g, tags: [...g.genres, ...g.perspectives, ...g.themes].map((t) => ({ tag: t, key: t.toLowerCase(), source: "igdb" as const })) };
 }
 
-const contra = withTags(game({ title: "Contra", players: { label: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false }, genres: ["Shooter"] }));
-const zelda = withTags(game({ title: "Zelda", players: { label: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false }, genres: ["Adventure"], playtime: 600 }));
+const contra = withTags(game({ title: "Contra", players: { label: "", brief: "", tier: "exact", max: 2, coop: true, multiplayer: true, single: true, simultaneous: true, verified: false }, genres: ["Shooter"] }));
+const zelda = withTags(game({ title: "Zelda", players: { label: "", brief: "", tier: "mode", max: 1, coop: false, multiplayer: false, single: true, simultaneous: false, verified: false }, genres: ["Adventure"], playtime: 600 }));
 const mystery = game({ title: "Mystery", year: null });
-const tecmo = withTags(game({ title: "Tecmo Bowl", players: { label: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false }, genres: ["Sport"], platform: "snes", platformLabel: "SNES" }));
+const tecmo = withTags(game({ title: "Tecmo Bowl", players: { label: "", brief: "", tier: "mode", max: null, coop: false, multiplayer: true, single: true, simultaneous: null, verified: false }, genres: ["Sport"], platform: "snes", platformLabel: "SNES" }));
 const all = [contra, zelda, mystery, tecmo];
 
 const played = (over: Partial<ShelfGame["play"]>) => ({ status: "never" as const, runs: 0, lastPlayedAt: null, ...over });

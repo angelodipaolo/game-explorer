@@ -120,6 +120,8 @@ test("an empty result explains itself and offers a way out", async ({ page }) =>
 test("filters open as a sheet and apply instantly", async ({ page }) => {
   await page.goto("/shelf");
   await page.getByTestId("open-filters").click();
+  // "Co-op", not "Local co-op": mode=coop matches co-op of any kind, and the
+  // button takes its word from src/lib/players.ts (MODE_LABELS).
   await page.getByRole("button", { name: "Co-op", exact: true }).click();
   await expect(page).toHaveURL(/mode=coop/);
   await page.getByTestId("close-filters").click();

@@ -9,6 +9,7 @@ import { FilterSheet } from "@/components/shelf/filter-sheet";
 import { Badge, cx } from "@/components/ui";
 import { Cover } from "@/components/shelf/cover";
 import { PlayersLine, minutesLabel } from "@/components/shelf/players-line";
+import { modeLabel } from "@/lib/players";
 import { useFilters } from "@/components/shelf/use-filters";
 import { platformLabel } from "@/lib/platforms";
 
@@ -194,7 +195,8 @@ export function Flip({ games, viewer }: { games: ShelfGame[]; viewer: Viewer }) 
 function describe(players: number | null, mode: string | null, platforms: string[], tags: string[], length: string | null, hideHandhelds: boolean): string {
   const bits: string[] = [];
   if (players) bits.push(players === 1 ? "just me" : `${players}${players === 4 ? "+" : ""} players`);
-  if (mode) bits.push(mode === "together" ? "at the same time" : mode);
+  // The raw URL value used to land here, so the header read "· coop ·".
+  if (mode) bits.push((modeLabel(mode) ?? mode).toLowerCase());
   if (tags.length) bits.push(tags.map((t) => t.toLowerCase()).join(" + "));
   if (length) bits.push(length === "quick" ? "quick" : length === "evening" ? "an evening" : "a saga");
   if (platforms.length) bits.push(platforms.map((p) => platformLabel(p)).join(" or "));

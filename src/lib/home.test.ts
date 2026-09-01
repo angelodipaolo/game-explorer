@@ -48,6 +48,7 @@ function shelf(): ShelfGame[] {
         playtime: n % 3 === 0 ? null : 30 + (n % 10) * 40,
         players: {
           label: "",
+          brief: "",
           tier: n % 5 === 0 ? "unknown" : "exact",
           max: n % 5 === 0 ? null : (n % 4) + 1,
           coop: n % 5 === 0 ? null : n % 3 === 0,
