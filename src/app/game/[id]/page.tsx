@@ -126,7 +126,7 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
             {game.series.length ? (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" data-testid="game-series">
                 {game.series.map((s) => (
-                  <Link key={s.id} href={`/series/${s.slug}`} className="inline-flex min-h-9 items-center rounded-lg border border-border bg-surface px-3 text-muted transition hover:border-muted hover:text-text" prefetch={false}>
+                  <Link key={s.id} href={`/series/${s.slug}`} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-surface px-3 text-muted transition hover:border-muted hover:text-text" prefetch={false}>
                     Part of {s.name} <span aria-hidden className="ml-1 text-accent-2">→</span>
                   </Link>
                 ))}

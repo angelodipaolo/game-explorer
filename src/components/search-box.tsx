@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { cx } from "@/components/ui";
+import { focusTrigger, useOverlay } from "@/components/overlay";
 
 /**
  * Collection search (GAMEEXPLOR-0027). One control, two presentations, and no
@@ -50,6 +51,19 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
     if (icon && icon.offsetParent !== null) icon.focus();
     else input.current?.blur();
   }
+
+  /**
+   * The fifth overlay, and the one that is deliberately NOT modal: this is a
+   * disclosure under the header, not a dialog, so the page behind it stays
+   * scrollable and interactive and Tab leads out of it (the input's `onBlur`
+   * closes it on the way). `useOverlay` is here for the one thing it does owe
+   * a keyboard — Escape — so there is no fifth hand-rolled key handler.
+   *
+   * `restoreFocus` stays off: `collapse` above already returns focus to the
+   * icon, and a restore on every close would fight the blur-to-close path by
+   * dragging focus back out of whatever you tabbed to.
+   */
+  const panel = useOverlay<HTMLFormElement>({ open, onClose: collapse, modal: false });
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -102,7 +116,11 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
         // open. Preventing the default keeps focus where it is, so no blur
         // fires and the click is the only thing that decides.
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (open ? collapse() : setOpen(true))}
+        onClick={(e) => {
+          focusTrigger(e);
+          if (open) collapse();
+          else setOpen(true);
+        }}
         aria-label="Search the whole collection"
         aria-expanded={open}
         aria-controls="header-search-panel"
@@ -115,6 +133,7 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
           thing to focus. `max-sm:` is the phone dress: hidden until the icon
           is tapped, then a full-width row beneath the bar. */}
       <form
+        ref={panel}
         id="header-search-panel"
         onSubmit={submit}
         role="search"
@@ -131,9 +150,6 @@ export function SearchBox({ variant }: { variant: "header" | "hero" }) {
             type="search"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") collapse();
-            }}
             onBlur={() => setOpen(false)}
             placeholder="Search all games"
             aria-label="Search the whole collection"

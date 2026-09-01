@@ -57,7 +57,7 @@ export function CodeList({ gameId, codes, canEdit, forceOpen }: { gameId: string
 
   const editButton =
     codes.length && canEdit ? (
-      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-codes">
+      <button onClick={() => setEditing((e) => !e)} className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-codes">
         {editing ? "Done" : "Edit"}
       </button>
     ) : null;
@@ -74,7 +74,7 @@ export function CodeList({ gameId, codes, canEdit, forceOpen }: { gameId: string
           openSection("codes");
           setAdding(true);
         }}
-        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
         data-testid="add-code-empty"
       >
         + code

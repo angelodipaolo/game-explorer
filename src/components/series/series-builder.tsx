@@ -253,16 +253,16 @@ export function SeriesBuilder({ games }: { games: OwnedGame[] }) {
           IGDB collection {seed.collection.id} · <span className="text-text tabular-nums">{seed.candidates.length}</span> candidates
           {seed.skipped.length ? <span className="text-faint"> · {seed.skipped.length} skipped by the game_type rule</span> : null}
         </p>
-        <button type="button" onClick={() => setPicked(new Set(seed.candidates.map((c) => c.igdbId)))} className="min-h-9 rounded-full border border-border px-3 text-xs text-muted hover:text-text">
+        <button type="button" onClick={() => setPicked(new Set(seed.candidates.map((c) => c.igdbId)))} className="min-h-11 rounded-full border border-border px-3 text-xs text-muted hover:text-text">
           All
         </button>
-        <button type="button" onClick={() => setPicked(new Set())} className="min-h-9 rounded-full border border-border px-3 text-xs text-muted hover:text-text">
+        <button type="button" onClick={() => setPicked(new Set())} className="min-h-11 rounded-full border border-border px-3 text-xs text-muted hover:text-text">
           None
         </button>
-        <button type="button" onClick={() => setPicked(new Set(seed.candidates.filter((c) => c.ownedId).map((c) => c.igdbId)))} className="min-h-9 rounded-full border border-border px-3 text-xs text-muted hover:text-text" data-testid="pick-owned">
+        <button type="button" onClick={() => setPicked(new Set(seed.candidates.filter((c) => c.ownedId).map((c) => c.igdbId)))} className="min-h-11 rounded-full border border-border px-3 text-xs text-muted hover:text-text" data-testid="pick-owned">
           Only owned
         </button>
-        <button type="button" onClick={() => setShowSections((s) => !s)} aria-pressed={showSections} className={cx("min-h-9 rounded-full border px-3 text-xs", showSections ? "border-accent text-text" : "border-border text-muted hover:text-text")}>
+        <button type="button" onClick={() => setShowSections((s) => !s)} aria-pressed={showSections} className={cx("min-h-11 rounded-full border px-3 text-xs", showSections ? "border-accent text-text" : "border-border text-muted hover:text-text")}>
           Sections
         </button>
       </div>

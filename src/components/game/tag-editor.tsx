@@ -85,7 +85,11 @@ export function TagEditor({ gameId, tags, hidden, canEdit }: { gameId: string; t
           </span>
         ))}
         {canEdit ? (
-          <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-dashed border-border px-2.5 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-tags">
+          // A real 44x44, not a `tap-44` hit area: this pill sits at the end of
+          // a wrapped row of tag chips and directly above the sticky section
+          // nav, so a square that reached beyond its own ink would land on a
+          // neighbour instead of on it (the adaptive spec catches exactly that).
+          <button onClick={() => setEditing((e) => !e)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-dashed border-border px-2.5 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-tags">
             {editing ? "Done" : "+ tag"}
           </button>
         ) : null}

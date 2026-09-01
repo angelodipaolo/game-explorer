@@ -54,7 +54,7 @@ export function PlayHistory({ gameId, sessions, canEdit }: { gameId: string; ses
 
   const editButton =
     closed.length && canEdit ? (
-      <button onClick={() => setEditing((e) => !e)} className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-runs">
+      <button onClick={() => setEditing((e) => !e)} className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text" data-testid="edit-runs">
         {editing ? "Done" : "Edit"}
       </button>
     ) : null;
@@ -70,7 +70,7 @@ export function PlayHistory({ gameId, sessions, canEdit }: { gameId: string; ses
           openSection("play");
           setPastOpen(true);
         }}
-        className="min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
+        className="tap-44 min-h-8 rounded-full border border-border px-3 text-xs text-muted hover:border-muted hover:text-text"
         data-testid="add-past-run-empty"
       >
         + a run that already happened

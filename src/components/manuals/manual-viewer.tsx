@@ -117,7 +117,7 @@ export function ManualViewer({ gameId, gameName, manuals }: { gameId: string; ga
             <button
               key={m.id}
               onClick={() => router.replace(`/game/${gameId}/manual?m=${encodeURIComponent(m.id)}`, { scroll: false })}
-              className={cx("min-h-8 shrink-0 rounded-full border px-3 text-xs", m.id === active.id ? "border-accent bg-accent text-accent-ink" : "border-border text-muted")}
+              className={cx("min-h-11 min-w-11 shrink-0 rounded-full border px-3 text-xs", m.id === active.id ? "border-accent bg-accent text-accent-ink" : "border-border text-muted")}
               aria-current={m.id === active.id ? "page" : undefined}
             >
               {m.title}
