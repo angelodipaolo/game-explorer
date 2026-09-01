@@ -128,6 +128,15 @@ curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_
 `skipped` reasons: "unknown kind", "(x, y) is outside the W×H image",
 "named twice in this batch", "already at the 300-marker limit". Fix and resend.
 
+**But partial success only covers those.** A coordinate outside `0..65535`, a
+blank or over-long `name`, or more than 300 markers in one body fails *schema*
+validation — the request comes back `400 invalid input` with the offending
+indexes in the body, and **not one marker of the batch is written**. The
+distinction matters at 200 markers: `x: 3000` on a 2000-wide image is one
+skipped row, `x: 99999` is the whole pass lost. Sanity-check your crop
+arithmetic before you POST — a coordinate in the tens of thousands almost
+always means an offset was added twice.
+
 Also: `GET /api/games/:id/maps` lists a copy's maps with markers; `GET
 /api/maps/:mapId` reads one map; `PATCH /api/maps/:mapId` edits
 title/subtitle/slug/sourceUrl/position; `DELETE /api/maps/:mapId` removes the

@@ -22,9 +22,17 @@ you add is filterable the moment it exists (`/?tags=Metroidvania`).
 ## Path
 
 ```bash
-# What is on the shelf (id, name, platform, current tags)
-curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/enrichment/gaps?fields=maxPlayers&limit=500"   # ids + names; or read data/snapshot.json
-curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/tags"                                            # tags already in use
+# What is on the shelf (id, name, platform). There is no tags `gaps` route —
+# "untagged" is not a gap, because IGDB already tags most of the shelf.
+npm run gx -- games search --platform nes --limit 200 --json
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/games?platform=nes&limit=200"
+
+# Every tag already in use, with counts — read it before inventing a spelling
+npm run gx -- tags list --json
+curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" "$GAME_EXPLORER_URL/api/tags"
+
+# One copy's current tags (manual, agent, IGDB's, and which are hidden)
+npm run gx -- tags on <ownedGameId>
 
 # One run per session so the report is meaningful
 curl -s -H "Authorization: Bearer $GAME_EXPLORER_TOKEN" -X POST "$GAME_EXPLORER_URL/api/enrichment/runs" -H 'content-type: application/json' -d '{"label":"metroidvania pass"}'
